@@ -1,0 +1,16 @@
+## Placeholder for future C-code libary.
+## useDynLib(varPro, .registration = TRUE)
+
+importFrom("glmnet", "cv.glmnet")
+importFrom("graphics", "barplot", "boxplot", "bxp")
+importFrom("parallel", mclapply)
+importFrom("stats", "as.formula", "coef", "median", "qnorm",
+           "pnorm", "quantile", "runif", "var", "setNames")
+importFrom("utils", "combn")
+
+
+importFrom("randomForestSRC", "rfsrc")
+
+export(importance, importance.varpro, varpro)
+
+

@@ -1,0 +1,103 @@
+\name{importance.varpro}
+\alias{importance.varpro}
+\alias{importance}
+\title{Calculate VarPro Importance}
+
+\description{
+ Calculates variable importance using results from previous varpro call.
+}
+
+\usage{\method{importance}{varpro}(o, cutoff = 2, trim = 0.1,
+  plot.it = FALSE, conf = TRUE, sort = TRUE,
+  ylab = if (conf) "Importance" else "Standardized Importance",
+  ...)
+}
+
+\arguments{
+  
+  \item{o}{VarPro object obtained from previous call to \code{varpro}.
+  Must be an object of class \code{varpro}.}
+
+  \item{cutoff}{Cut-off value for selecting variables.  Default uses
+  two standard deviations.}
+
+  \item{trim}{Used for setting windsorized trim value to robustify mean
+  and standard deviation values.}
+
+  \item{plot.it}{Plot the importance values?}
+
+  \item{conf}{Show importance values with standard errors as a boxplot
+    (thus showing an informal confidence region)?  If \code{conf='FALSE'},
+    plots standardized importance.}
+
+  \item{sort}{Sort the results in decreasing order?}
+  
+  \item{ylab}{Label used for vertical axis.}
+
+  \item{...}{Additional options.}
+  
+}
+
+\details{
+
+  Calculates split-sample mean and standard deviation importance values
+  using the results from a previous varpro call and converts these to
+  standardized importance values from which variables are selected.
+
+}
+
+\value{
+
+  Invisibly, table summarizing the results.  Contains mean importance
+  'mean', the standard deviation 'std' and standardized importance 'z'.
+  Value 'zcenter' is the latter centered by the cutoff.  Using the
+  provided cutoff value, 'selected' identifies selected variables.
+
+  For classification, three additional tables are provided: conditional
+  'z', conditional 'zcenter' and conditional 'selected' where the values
+  are broken down by class label (i.e. values given are conditional
+  on the class label).
+  
+
+}
+
+\author{
+
+  Hemant Ishwaran and Min Lu
+
+}
+
+\references{
+  
+   Lu M. and  Ishwaran H. (2022).  Variable Priority for Variable Selection in Rule-based Models.
+}
+
+\seealso{
+  \command{\link{glioma}}
+  \command{\link{varpro}}
+}
+
+\examples{
+\donttest{
+
+## ------------------------------------------------------------
+## regression example
+## ------------------------------------------------------------
+
+data(BostonHousing, package = "mlbench")
+
+## call varpro
+o <- varpro(medv~., BostonHousing)
+
+## extract importance values
+imp <- importance(o)
+print(imp)
+
+## plot the results
+imp <- importance(o, plot.it = TRUE)
+print(imp)
+
+
+}
+}
+\keyword{varpro}
