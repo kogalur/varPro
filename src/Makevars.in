@@ -1,0 +1,4 @@
+PKG_CFLAGS = @OPENMP_CFLAGS@ 
+PKG_LIBS   = @OPENMP_CFLAGS@ 
+SOURCES = $(wildcard *.c shared/*.c)
+OBJECTS = $(SOURCES:.c=.o)

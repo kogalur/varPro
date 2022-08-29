@@ -1,5 +1,5 @@
-## Placeholder for future C-code libary.
-## useDynLib(varPro, .registration = TRUE)
+## Dynamic C-code Libraries.
+useDynLib(varPro, .registration = TRUE)
 
 importFrom("glmnet", "cv.glmnet")
 importFrom("graphics", "barplot", "boxplot", "bxp")
@@ -11,6 +11,14 @@ importFrom("utils", "combn")
 
 importFrom("randomForestSRC", "rfsrc")
 
-export(importance, importance.varpro, varpro)
+## export(importance, importance.varpro, varpro)
+  
+## for testing purposes we exported varpro.strength
+export(importance,
+       importance.varpro,
+       varpro,
+       varpro.strength,
+       varpro.news)
+
 
 

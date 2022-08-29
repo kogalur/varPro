@@ -12,6 +12,7 @@
 importance.varpro <- function(o, cutoff = 2, trim = 0.1,
                               plot.it = FALSE, conf = TRUE, sort = TRUE,
                               ylab = if (conf) "Importance" else "Standardized Importance",
+                              max.rules.tree, max.tree,
                               ...)
 {
   ## ------------------------------------------------------------------------
@@ -21,6 +22,59 @@ importance.varpro <- function(o, cutoff = 2, trim = 0.1,
   ## ------------------------------------------------------------------------
   if (!inherits(o, "varpro", TRUE)) {
     stop("this function only works for varpro objects")
+  }
+  ## ------------------------------------------------------------------------
+  ##
+  ## call varpro.strength? - only applies if user over-rides max.rules.tree/max.tree
+  ##
+  ## ------------------------------------------------------------------------
+  if (!missing(max.rules.tree) || !missing(max.tree)) {
+    if (!missing(max.rules.tree)) {
+      max.rules.tree <- max.rules.tree
+    }
+    else {
+      max.rules.tree <- o$max.rules.tree
+    }
+    if (!missing(max.tree)) {
+      max.tree <- max.tree
+    }
+    else {
+      max.tree <- o$max.tree
+    }
+    ## call var.strength
+    var.strength <- varpro.strength(object = o$rf,
+                      max.rules.tree = max.rules.tree, max.tree = max.tree)$strengthArray
+    ## regression (survival) case
+    if (o$family == "regr") {
+      ## standardize importance by sqrt(variance)
+      var.strength$imp <- var.strength$imp / sqrt(var(o$y))
+      colnames(var.strength) <-  c("tree",
+                                   "branch",
+                                   "variable",
+                                   "n.oob",
+                                   "imp")
+    }
+    ## mv-regression
+    else if (o$family == "regr+") {
+      colnames(var.strength) <- c("tree",
+                                  "branch",
+                                  "variable",
+                                  "n.oob",
+                                  paste0("imp.", 1:ncol(o$y)))
+    }
+    ## classification
+    else {
+      J <- length(levels(o$y))
+      colnames(var.strength) <- c("tree",
+                                  "branch",
+                                  "variable",
+                                  c("n.oob", paste0("n.oob.", 1:J)),
+                                  c("imp", paste0("imp.", 1:J)))
+    }
+    ## over-ride original object with updated information
+    o$max.rules.tree <- max.rules.tree
+    o$max.tree <- max.tree
+    o$results <- var.strength
   }
   ## ------------------------------------------------------------------------
   ##
@@ -38,7 +92,7 @@ importance.varpro <- function(o, cutoff = 2, trim = 0.1,
   ## ------------------------------------------------------------------------
   else {
     lapply(1:ncol(o$y), function(j) {
-      o$results <- o$results[, c((1:5), 5+j)]
+      o$results <- o$results[, c((1:4), 4+j)]
       importance.varpro.workhorse(o=o, cutoff=cutoff, trim=trim, plot.it=FALSE, sort=sort)
     })
   }

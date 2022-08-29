@@ -10,6 +10,7 @@
 \usage{\method{importance}{varpro}(o, cutoff = 2, trim = 0.1,
   plot.it = FALSE, conf = TRUE, sort = TRUE,
   ylab = if (conf) "Importance" else "Standardized Importance",
+  max.rules.tree, max.tree,
   ...)
 }
 
@@ -33,7 +34,13 @@
   \item{sort}{Sort the results in decreasing order?}
   
   \item{ylab}{Label used for vertical axis.}
+  
+  \item{max.rules.tree}{Optional. Maximum number of rules per tree.
+    If left unspecified, uses the value from the VarPro object.}
 
+  \item{max.tree}{Maximum number of trees used for extracting rules.
+    If left unspecified, uses the value from the VarPro object.}
+  
   \item{...}{Additional options.}
   
 }
@@ -69,7 +76,7 @@
 
 \references{
   
-   Lu M. and  Ishwaran H. (2022).  Variable Priority for Variable Selection in Rule-based Models.
+   Lu M. and  Ishwaran H. (2022).  Variable Priority for Variable Selection in Rule-Based Models.
 }
 
 \seealso{

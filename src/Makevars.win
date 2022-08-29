@@ -1,0 +1,4 @@
+PKG_CFLAGS = -fopenmp
+PKG_LIBS   = -fopenmp
+SOURCES = $(wildcard *.c shared/*.c)
+OBJECTS = $(SOURCES:.c=.o)

@@ -1,8 +1,8 @@
 \name{varpro}
 \alias{varpro}
-\title{Variable Priority (VarPro) for Variable Selection in Rule-based Models}
+\title{Variable Priority (VarPro) for Variable Selection in Rule-Based Models}
 \description{
-  Variable Priority (VarPro) for Variable Selection in Rule-based Models
+  Variable Priority (VarPro) for Variable Selection in Rule-Based Models
   for Regression, Classification and Survival.
 }
 
@@ -10,11 +10,11 @@
 varpro(f, data, ntree = 500, split.weight = TRUE,
        nodesize = if (split.weight) 5 else 10,
        max.rules.tree = 150, max.tree = min(150, ntree), 
-       papply = mclapply, verbose = FALSE, ...)
+       papply = mclapply, verbose = FALSE, seed = NULL, ...)
 }
 
 \arguments{
-  
+
   \item{f}{Formula describing the model to be fit.}
 
   \item{data}{Training data set (a data frame).} 
@@ -34,6 +34,8 @@ varpro(f, data, ntree = 500, split.weight = TRUE,
   \item{papply}{Use mclapply or lapply.}
 
   \item{verbose}{Print verbose output?}
+
+  \item{seed}{Seed for repeatability.}
   
   \item{...}{Further arguments (for experts only).}
 
@@ -91,7 +93,7 @@ varpro(f, data, ntree = 500, split.weight = TRUE,
 
 \references{
   Lu M. and  Ishwaran H. (2022).  Variable Priority for Variable
-  Selection in Rule-based Models.
+  Selection in Rule-Based Models.
 }
 
 \seealso{
@@ -178,9 +180,9 @@ print(importance(o))
 ## pbc survival with rmst vector
 ## variable importance is a list for each rmst value
 ## ------------------------------------------------------------
-data(pbc, package = "randomForestSRC")
-o <- varpro(Surv(days, status)~., pbc, rmst = c(500, 1000))
-print(importance(o))
+#data(pbc, package = "randomForestSRC")
+#o <- varpro(Surv(days, status)~., pbc, rmst = c(500, 1000))
+#print(importance(o))
 
 
 ## ------------------------------------------------------------

@@ -123,9 +123,60 @@ get.varpro.names <- function (hidden = TRUE) {
   vnames <- names(formals(varpro))
   if (hidden) {
     vnames <- c(vnames, "nodesize.external", "ntime.external",
-                "nodesize.reduce", "ntree.reduce", "nodedepth.reduce",  
+                "nodesize.reduce", "ntree.reduce", "nodedepth.reduce",
                 "dimension.n", "dimension.p", "dimension.q", "dimension.index",
                 "dimension.ir", "rmst", "other.external", "maxit", "split.weight.only")
   }
   vnames
+}
+get.tree.index <- function(get.tree, ntree) {
+  ## NULL --> default setting
+  if (is.null(get.tree)) {
+    rep(1, ntree)
+  }
+  ## the user has specified a subset of trees
+  else {
+    pt <- get.tree >=1 & get.tree <= ntree
+    if (sum(pt) > 0) {
+      get.tree <- get.tree[pt]
+      get.tree.temp <- rep(0, ntree)
+      get.tree.temp[get.tree] <- 1
+      get.tree.temp
+    }
+    else {
+      rep(1, ntree)
+    }
+  }
+}
+get.data.pass.bits <- function (data.pass) {
+  if (!is.null(data.pass)) {
+    if (data.pass == TRUE) {
+      data.pass <- 2^15
+    }
+    else if (data.pass == FALSE) {
+      data.pass <- 0
+    }
+    else {
+      stop("Invalid choice for 'data.pass' option:  ", data.pass)
+    }
+  }
+  else {
+    stop("Invalid choice for 'data.pass' option:  ", data.pass)
+  }
+  return (data.pass)
+}
+get.stat.bits <- function (stat) {
+  if (stat == "importance") {
+    stat <- 0
+  }
+  else if (stat == "complement") {
+    stat <- 2^0
+  }
+  else if (stat == "oob") {
+    stat <- 2^1
+  }
+  else {
+    stop("Invalid choice for 'stat' option:  ", stat)
+  }
+  return (stat)
 }

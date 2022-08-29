@@ -16,15 +16,14 @@ molecular data collected for the samples.  The outcome is a supervised
 class label developed in the study with labels: Classic-like,
 Codel, G-CIMP-high, G-CIMP-low, LGm6-GBM, Mesenchymal-like and PA-like.
 
-
 }
 \references{
-  
+
 Ceccarelli, M., Barthel, F.P., Malta, T.M., Sabedot, T.S., Salama, S.R.,
 Murray, B.A., Morozova, O., Newton, Y., Radenbaugh, A., Pagnotta, S.M.
 et al. (2016). Molecular profiling reveals biologically discrete subsets
 and pathways of progression in diffuse glioma. Cell, 164, 550-563.
-  
+
 }
 \examples{
 \donttest{
