@@ -21,11 +21,12 @@ varpro(f, data, ntree = 500, split.weight = TRUE,
 
   \item{ntree}{Number of trees to grow.}
   
-  \item{nodesize}{Nodesize of trees.}
-
   \item{split.weight}{Use guided feature selection?  Features are
   selected with probability according to split weight values, the latter
   being acquired in a preliminary lasso+tree step.}
+
+  \item{nodesize}{Nodesize of trees.}
+
 
   \item{max.rules.tree}{Maximum number of rules per tree.}
 
@@ -88,7 +89,7 @@ varpro(f, data, ntree = 500, split.weight = TRUE,
 }
 
 \author{
-  Hemant Ishwaran and Min Lu
+  Min Lu and Hemant Ishwaran
 }
 
 \references{
@@ -180,9 +181,9 @@ print(importance(o))
 ## pbc survival with rmst vector
 ## variable importance is a list for each rmst value
 ## ------------------------------------------------------------
-#data(pbc, package = "randomForestSRC")
-#o <- varpro(Surv(days, status)~., pbc, rmst = c(500, 1000))
-#print(importance(o))
+data(pbc, package = "randomForestSRC")
+o <- varpro(Surv(days, status)~., pbc, rmst = c(500, 1000))
+print(importance(o))
 
 
 ## ------------------------------------------------------------
@@ -193,6 +194,18 @@ o <- varpro(Surv(ttodead, died)~., peakVO2)
 imp <- importance(o, plot.it = TRUE)
 print(imp)
 
+## ------------------------------------------------------------
+## largish data: iowa housing data
+## use bigger nodesize to speed calculations
+## ------------------------------------------------------------
+
+## use rapid, fast impute
+data(housing, package = "randomForestSRC")
+housing2 <- randomForestSRC:::get.na.roughfix(housing)
+
+## varpro call
+o <- varpro(SalePrice~., housing2, ntree = 100, nodesize = 50)
+print(importance(o))
 
 }
 }

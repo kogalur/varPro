@@ -70,7 +70,7 @@
 
 \author{
 
-  Hemant Ishwaran and Min Lu
+  Min Lu and Hemant Ishwaran
 
 }
 

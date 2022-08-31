@@ -14,6 +14,6 @@ varpro.news(...)
   None.
 }
 \author{
-  Hemant Ishwaran and Udaya B. Kogalur
+  Min Lu and Hemant Ishwaran
 }
 \keyword{documentation}
