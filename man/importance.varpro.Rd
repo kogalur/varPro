@@ -65,7 +65,9 @@
   are broken down by class label (i.e. values given are conditional
   on the class label).
   
-
+  See \command{cv.varpro} for a data driven cross-validation method for
+  selecting the cutoff value, \code{cutoff}.
+  
 }
 
 \author{
@@ -80,7 +82,7 @@
 }
 
 \seealso{
-  \command{\link{glioma}}
+  \command{\link{cv.varpro}}
   \command{\link{varpro}}
 }
 

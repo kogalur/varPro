@@ -12,12 +12,15 @@
     
 
 #include "sexpOutgoing.h"
-char  *RF_sexpStringOutgoing[7] = {
-  "treeID",         
-  "nodeID",         
-  "xReleaseID",     
-  "oobCT",          
-  "statImportance", 
-  "statComplement", 
-  "statOOB"         
+char  *RF_sexpStringOutgoing[10] = {
+  "treeID",            
+  "nodeID",            
+  "xReleaseID",        
+  "oobCT",             
+  "statImportance",    
+  "statComplement",    
+  "statOOB",           
+  "oobMembers",        
+  "complementMembers", 
+  "complementCT"       
 };

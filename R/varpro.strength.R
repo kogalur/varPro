@@ -3,6 +3,7 @@ varpro.strength <- function(object,
                             max.rules.tree = 150,
                             max.tree = 150,
                             stat = c("importance", "complement", "oob"),
+                            membership = FALSE,
                             seed = NULL,
                             do.trace = FALSE)
 {
@@ -209,8 +210,9 @@ varpro.strength <- function(object,
   strengthArraySize <- length(nativeOutput$treeID)
   strengthArray <- as.data.frame(cbind(nativeOutput$treeID[1:strengthArraySize],
                                        nativeOutput$nodeID[1:strengthArraySize],
-                                       nativeOutput$xReleaseID[1:strengthArraySize]))
-  strengthArrayHeader <- c("treeID", "nodeID", "xReleaseID")
+                                       nativeOutput$xReleaseID[1:strengthArraySize],
+                                       nativeOutput$complementCT[1:strengthArraySize]))
+  strengthArrayHeader <- c("treeID", "nodeID", "xReleaseID", "compCT")
   ## We consider "R", "I", and "C" outcomes.  The outcomes are grouped
   ## by type and sequential.  That is, the first "C" encountered in the
   ## response type vector is in position [[1]] in the classification output
@@ -353,10 +355,93 @@ varpro.strength <- function(object,
       }
   }
   names(strengthArray) <- strengthArrayHeader
+  ## -----------------------------------------------------------------
+  ##
+  ##
+  ## return OOB and complementary OOB membership indices for each rule
+  ##
+  ##
+  ## -----------------------------------------------------------------
+  if (membership) {
+    ## number of records in strengthArray
+    membershipListSize <- dim(strengthArray)[1]
+    ## initialize the complement count vectors
+    count <- strengthArray$compCT
+    countTo = cumsum(count)
+    countFrom = countTo + 1
+    countFrom = c(1, countFrom)
+    countFrom = countFrom[-length(countFrom)]
+    ## create complement membership list that will contain the complement
+    ## members for each tree, branch, and xReleaseID
+    compMembershipList <- vector("list", length = dim(strengthArray)[1])
+    ## initialize the complement memebrship list
+    for(i in 1:membershipListSize) {
+      if(countTo[i] >= countFrom[i]) {
+        compMembershipList[[i]] = nativeOutput$complementMembers[countFrom[i]:countTo[i]]
+      } else {
+        compMembershipList[[i]] = list(NULL)
+      }
+    }
+    ## safe the vector
+    countOOB = NULL
+    ## k will count the number of branches which is less than or equal to the
+    ## number of records (membershipListSize) because of the different
+    ## xRelease variables for each branch
+    k = 0
+    ## initialize countOOB
+    for(i in 1:membershipListSize) {
+      if(i == 1) {
+        k = k + 1
+        countOOB[k] = strengthArray$oobCT[i]
+      } else {
+        if((strengthArray$nodeID[i] != strengthArray$nodeID[i-1]) || (strengthArray$treeID[i] != strengthArray$treeID[i-1])) {
+          k = k + 1
+          countOOB[k] = strengthArray$oobCT[i]
+        }
+      }
+    }
+    ## initialize the oob count vectors
+    countToOOB = cumsum(countOOB)
+    countFromOOB = countToOOB + 1
+    countFromOOB = c(1, countFromOOB)
+    countFromOOB = countFromOOB[-length(countFromOOB)]
+    ## create OOB membership list that will contain the OOB
+    ## members for each tree, branch, and xReleaseID
+    oobMembershipList <- vector("list", length = membershipListSize)
+    ## j will count the number of branches
+    j = 0
+    for(i in 1:membershipListSize) {
+      if(i == 1) {
+        j = j + 1
+        if(countToOOB[j] >= countFromOOB[j]) {
+          oobMembershipList[[i]] = nativeOutput$oobMembers[countFromOOB[j]:countToOOB[j]]
+        } else {
+          oobMembershipList[[i]] = list(NULL)
+        }
+      } else {
+        if((strengthArray$nodeID[i] == strengthArray$nodeID[i-1]) && (strengthArray$treeID[i] == strengthArray$treeID[i-1])) {
+          oobMembershipList[[i]] = oobMembershipList[[i - 1]]
+        } else {
+          j = j + 1
+          if(countToOOB[j] >= countFromOOB[j]) {
+            oobMembershipList[[i]] = nativeOutput$oobMembers[countFromOOB[j]:countToOOB[j]]
+          } else {
+            oobMembershipList[[i]] = list(NULL)
+          }
+        }
+      }
+    }
+  }
+  ## return NULL otherwise
+  else {
+    oobMembershipList <- compMembershipList <- NULL
+  }
   ## make the output object
   varproOutput <- list(
     call = match.call(),
     strengthArray = strengthArray,
+    oobMembership = oobMembershipList,
+    compMembership = compMembershipList,
     ctime.internal = nativeOutput$cTimeInternal,
     ctime.external = ctime.external.stop - ctime.external.start
   )

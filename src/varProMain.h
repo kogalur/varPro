@@ -5,7 +5,6 @@ void complement(uint    originalMemberSize,
                 uint   *originalMembers,
                 uint    releasedMemberSize,
                 uint   *releasedMembers,
-                uint  **complementMembers,
-                uint   *complementMemberSize);
+                uint   *complementMembers);
 void test();
 #endif

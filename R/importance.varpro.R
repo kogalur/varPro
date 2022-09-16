@@ -41,36 +41,11 @@ importance.varpro <- function(o, cutoff = 2, trim = 0.1,
     else {
       max.tree <- o$max.tree
     }
-    ## call var.strength
+    ## obtain varpro strength
     var.strength <- varpro.strength(object = o$rf,
                       max.rules.tree = max.rules.tree, max.tree = max.tree)$strengthArray
-    ## regression (survival) case
-    if (o$family == "regr") {
-      ## standardize importance by sqrt(variance)
-      var.strength$imp <- var.strength$imp / sqrt(var(o$y))
-      colnames(var.strength) <-  c("tree",
-                                   "branch",
-                                   "variable",
-                                   "n.oob",
-                                   "imp")
-    }
-    ## mv-regression
-    else if (o$family == "regr+") {
-      colnames(var.strength) <- c("tree",
-                                  "branch",
-                                  "variable",
-                                  "n.oob",
-                                  paste0("imp.", 1:ncol(o$y)))
-    }
-    ## classification
-    else {
-      J <- length(levels(o$y))
-      colnames(var.strength) <- c("tree",
-                                  "branch",
-                                  "variable",
-                                  c("n.oob", paste0("n.oob.", 1:J)),
-                                  c("imp", paste0("imp.", 1:J)))
-    }
+    ## process the strength array
+    var.strength <- get.varpro.strengthArray(var.strength, o$family, o$y)
     ## over-ride original object with updated information
     o$max.rules.tree <- max.rules.tree
     o$max.tree <- max.tree

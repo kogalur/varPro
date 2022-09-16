@@ -5,5 +5,8 @@
 #define VP_STAT_IMP    4  
 #define VP_STAT_COMPL  5  
 #define VP_STAT_OOB    6  
+#define VP_OOBG_MEM    7  
+#define VP_COMP_MEM    8  
+#define VP_COMP_CT     9  
 #define VP_OPT_CMP     0x00000001 
 #define VP_OPT_OOB     0x00000002 

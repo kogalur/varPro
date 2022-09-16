@@ -11,6 +11,7 @@ varpro.strength(object,
                 max.rules.tree = 150,
                 max.tree = 150,
                 stat = c("importance", "complement", "oob"),
+                membership = FALSE,
                 seed = NULL,
                 do.trace = FALSE)
 }
@@ -29,6 +30,9 @@ varpro.strength(object,
 
   \item{stat}{Determines which statistic is output. Either importabce,
     complement mean, or oob mean.}
+
+  \item{membership}{Return OOB and complementary OOB membership indices
+    for each rule?}
 
   \item{seed}{Seed for repeatability.}
 

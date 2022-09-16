@@ -2,9 +2,8 @@
 ###  variable priority (varPro) for regression, classification and survival
 ###
 ###  TBD
-###  - for p>>n, nodesize and nodedepth.reduce should be lowered
-###    due to small sample sizes; can this be automated?
-###  - mv-regression (rmst) not handled by varpro.strength
+###  - automate nodesize and nodedepth.reduce according to n and p
+###    (for large n, nodesize should be big, for big p, nodesize should be small)
 ###  - class imbalanced analysis could potentially be improved
 ###
 ### ---------------------------------------------------------------
@@ -47,7 +46,7 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
   seed <- get.seed(seed)
   ## run a stumpy tree as a quick way to extract  x, y and determine family
   ## this also cleans up missing data 
-  stump <- rfsrc(f, data, splitrule="random", nodedepth=0, ntree=1)
+  stump <- rfsrc(f, data, splitrule="random", nodedepth=0, perf.type = "none", save.memory = TRUE, ntree=1)
   yvar.names <- stump$yvar.names
   xvar.names <- stump$xvar.names
   y <- stump$yvar
@@ -75,6 +74,15 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
   ## ------------------------------------------------------------------------
   ##
   ##
+  ## assemble the data
+  ##
+  ##
+  ## ------------------------------------------------------------------------
+  data <- data.frame(y, x)
+  colnames(data)[1:length(yvar.names)] <- yvar.names
+  ## ------------------------------------------------------------------------
+  ##
+  ##
   ## parse hidden options and set parameters
   ##
   ##
@@ -94,7 +102,9 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
   rmst <- hidden$rmst
   other.external <- hidden$other.external
   maxit <- hidden$maxit
-  split.weight.only <- hidden$split.weight.only 
+  split.weight.only <- hidden$split.weight.only
+  use.lasso <- hidden$use.lasso
+  use.vimp <- hidden$use.vimp
   ## ------------------------------------------------------------------------
   ##
   ##
@@ -109,7 +119,7 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
     }  
     ## survival forest used to calculate external estimator
     o.external <- rfsrc(f, data, ntree = ntree.external, save.memory = TRUE,
-                    nodesize = nodesize.external, ntime = ntime.external)
+         perf.type = "none", nodesize = nodesize.external, ntime = ntime.external)
     ## use mortality for y
     if (is.null(rmst)) {
       y <- as.numeric(randomForestSRC::get.mv.predicted(o.external, oob = FALSE))
@@ -129,21 +139,6 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
       family <- "regr+"
       colnames(y) <- yvar.names <- paste0("y.", 1:ncol(y))
       f <- randomForestSRC::get.mv.formula(yvar.names)
-    }
-  }
-  ## ------------------------------------------------------------------------
-  ##
-  ## variance of y needed to standardize test statistics
-  ## last chance to set the response dimension for non-classification families
-  ##
-  ## ------------------------------------------------------------------------
-  var.y <- NULL  
-  if (family != "class") {
-    if (family == "regr") {
-      var.y <- var(y, na.rm = TRUE)
-    }
-    if (family == "regr+") {
-      var.y <- as.numeric(diag(var(y, na.rm = TRUE)))
     }
   }
   ## ------------------------------------------------------------------------
@@ -173,7 +168,7 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
   ## ------------------------------------------------------------------------
   ##
   ##
-  ## assemble the data
+  ## final assembly of the data
   ##
   ##
   ## ------------------------------------------------------------------------
@@ -198,13 +193,17 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
     }
     ## initialize xvar.wt
     xvar.wt <- rep(0, p)
-    lasso.flag <- sum(anyF) == 0
     ##---------------------------------------------------------
     ##
-    ## lasso split weight calculation (no factors in X allowed)
+    ## lasso split weight calculation
+    ## now allows factors by converting them brute force using data.matrix
     ##
     ##---------------------------------------------------------
-    if (lasso.flag) {
+    ## uncomment if factors not allowed
+    #if (sum(anyF) > 0) {
+    #  use.lasso <- FALSE
+    #}
+    if (use.lasso) {
       ## regression
       if (family == "regr") {
         o.glmnet <- tryCatch(
@@ -240,40 +239,49 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
     ##---------------------------------------------------------
     ##
     ## add vimp to lasso split-weight calculation
-    ## REQUIRES lasso to be unsuccessful, not big p not big n
+    ## REQUIRES lasso to be unsuccessful & not big p not big n
     ##
     ##---------------------------------------------------------
-    use.vimp <- FALSE
-    if (sum(xvar.wt != 0) <= 1 & n < dimension.n & p < dimension.p) {
-      ## regression
-      if (family == "regr") {
-        vmp <- rfsrc(y~., data.frame(y = y, x[, xvar.names, drop = FALSE]),
-                     ntree = ntree, nodesize = nodesize.reduce, importance = "permute",
-                     seed = seed)$importance 
+    if (n >= dimension.n || p >= dimension.p) {
+      use.vimp <- FALSE
+    }
+    if (use.vimp) {
+      if (sum(xvar.wt != 0) > 0) {
+        ## regression
+        if (family == "regr") {
+          vmp <- rfsrc(y~., data.frame(y = y, x[, xvar.names, drop = FALSE]),
+                       ntree = ntree, nodesize = nodesize.reduce, importance = "permute",
+                       seed = seed)$importance 
+        }
+        ## mv-regression
+        else if (family == "regr+") {
+          vmp <- rowMeans(randomForestSRC::get.mv.vimp(rfsrc(f, data.frame(y, x[, xvar.names, drop = FALSE]),
+                ntree = ntree, nodesize = nodesize.reduce, importance = "permute",
+                seed = seed)), na.rm = TRUE)
+        } 
+        ## classification
+        else {
+          ## determine if this is a class imbalanced scenario, if so switch to gmean performance
+          ## anti is too agressive when IR is high, so use permute in this case
+          iflag <- J == 2 && iratio > dimension.ir
+          vmp <- rfsrc(y~., data.frame(y = y , x[, xvar.names, drop = FALSE]),
+                       perf.type = if (iflag) "gmean" else NULL,
+                       ntree = ntree, nodesize = nodesize.reduce,
+                       importance = if (iflag) "permute" else "anti",
+                       seed = seed)$importance[, 1]
+        }
+        ## scale the weights using dimension.index
+        if (sum(vmp > 0) > 0) {
+          vmpsc <- (vmp[vmp > 0]) ^ dimension.index
+          xvar.wt[vmp > 0] <- xvar.wt[vmp > 0] + vmpsc
+          xvar.wt <- xvar.wt / max(xvar.wt, na.rm = TRUE)
+        }
+        else {
+          use.vimp <- FALSE
+        }
       }
-      ## mv-regression
-      else if (family == "regr+") {
-        vmp <- rowMeans(randomForestSRC::get.mv.vimp(rfsrc(f, data.frame(y, x[, xvar.names, drop = FALSE]),
-                        ntree = ntree, nodesize = nodesize.reduce, importance = "permute",
-                        seed = seed)), na.rm = TRUE)
-      } 
-      ## classification
       else {
-        ## determine if this is a class imbalanced scenario, if so switch to gmean performance
-        ## anti is too agressive when IR is high, so use permute in this case
-        iflag <- J == 2 && iratio > dimension.ir
-        vmp <- rfsrc(y~., data.frame(y = y , x[, xvar.names, drop = FALSE]),
-                     perf.type = if (iflag) "gmean" else NULL,
-                     ntree = ntree, nodesize = nodesize.reduce,
-                     importance = if (iflag) "permute" else "anti",
-                     seed = seed)$importance[, 1]
-      }
-      ## scale the weights using dimension.index
-      if (sum(vmp > 0) > 0) {
-        use.vimp <- TRUE
-        vmpsc <- (vmp[vmp > 0]) ^ dimension.index
-        xvar.wt[vmp > 0] <- xvar.wt[vmp > 0] + vmpsc
-        xvar.wt <- xvar.wt / max(xvar.wt, na.rm = TRUE)
+        use.vimp <- FALSE
       }
     }
     ##---------------------------------------------------------
@@ -284,7 +292,7 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
     if (!use.vimp) {
       ## fast filtering based on number of splits
       xvar.used <- rfsrc(f, data, ntree = ntree.reduce, nodedepth = nodedepth.reduce,
-                         var.used="all.trees", mtry = Inf, nsplit = 100)$var.used
+                   perf.type = "none", var.used = "all.trees", mtry = Inf, nsplit = 100)$var.used
       ## assign relative frequency cutoff
       if (n >= dimension.n) {
         xvar.cut <- quantile(xvar.used, prob = dimension.q, na.rm = TRUE)
@@ -346,6 +354,7 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
                     nsplit = 0,
                     nodesize = nodesize,
                     membership = TRUE,
+                    perf.type = "none",
                     seed = seed)
   }
   else {
@@ -355,45 +364,28 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
                     ntree = ntree,
                     nodesize = nodesize,
                     membership = TRUE,
+                    perf.type = "none",
                     seed = seed)
   }
   ## ------------------------------------------------------------------------
   ##
   ##
-  ## varpro strength
+  ## obtain varpro strength
   ## overrides the manual version and uses new varpro.strength direct C call
   ##
   ##
   ## ------------------------------------------------------------------------
   var.strength <- varpro.strength(object = object,
-                      max.rules.tree = max.rules.tree, max.tree = max.tree)$strengthArray
-  ## regression (survival) case
-  if (family == "regr") {
-    ## standardize importance by sqrt(variance)
-    var.strength$imp <- var.strength$imp / sqrt(var(y))
-    colnames(var.strength) <-  c("tree",
-                                 "branch",
-                                 "variable",
-                                 "n.oob",
-                                 "imp")
-  }
-  ## mv-regression
-  else if (family == "regr+") {
-    colnames(var.strength) <- c("tree",
-                                "branch",
-                                "variable",
-                                "n.oob",
-                                paste0("imp.", 1:ncol(y)))
-  }
-  ## classification
-  else {
-    colnames(var.strength) <- c("tree",
-                                "branch",
-                                "variable",
-                                c("n.oob", paste0("n.oob.", 1:J)),
-                                c("imp", paste0("imp.", 1:J)))
-  }
+                                  max.rules.tree = max.rules.tree, max.tree = max.tree)$strengthArray
+  ## process the strength array
+  var.strength <- get.varpro.strengthArray(var.strength, family, y)
+  ## ------------------------------------------------------------------------
+  ##
+  ##
   ## return the goodies
+  ##
+  ##
+  ## ------------------------------------------------------------------------
   rO <- list(
     rf = object,
     max.rules.tree = max.rules.tree,
@@ -407,5 +399,5 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
   class(rO) <- "varpro"
   return(rO)
 }
-## for legacy
+## legacy
 varPro <- varpro

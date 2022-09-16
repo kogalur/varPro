@@ -5,7 +5,8 @@ importFrom("glmnet", "cv.glmnet")
 importFrom("graphics", "barplot", "boxplot", "bxp")
 importFrom("parallel", mclapply)
 importFrom("stats", "as.formula", "coef", "median", "qnorm",
-           "pnorm", "quantile", "runif", "var", "setNames")
+           "pnorm", "quantile", "runif", "var", "setNames",
+           "na.omit", "sd")
 importFrom("utils", "combn")
 
 

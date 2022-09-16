@@ -84,6 +84,18 @@ get.varpro.hidden <- function(user.option, ntree) {
   else {
     split.weight.only <- FALSE
   }
+  if (!is.null(user.option$use.lasso)) {
+    use.lasso <- user.option$use.lasso
+  }
+  else {
+    use.lasso <- TRUE
+  }
+  if (!is.null(user.option$use.vimp)) {
+    use.vimp <- user.option$use.vimp
+  }
+  else {
+    use.vimp <- TRUE
+  }
   list(ntree.external = ntree,
        nodesize.external = nodesize.external,
        ntime.external = ntime.external,
@@ -98,7 +110,9 @@ get.varpro.hidden <- function(user.option, ntree) {
        rmst = rmst,
        other.external = other.external,
        maxit = maxit,
-       split.weight.only = split.weight.only)
+       split.weight.only = split.weight.only,
+       use.lasso = use.lasso,
+       use.vimp = use.vimp)
 }
 ## list hidden variables
 show.varpro.hidden <- function() {
@@ -116,7 +130,9 @@ show.varpro.hidden <- function() {
     "rmst",
     "other.external",
     "maxit",
-    "split.weight.only")
+    "split.weight.only",
+    "use.lasso",
+    "use.vimp")
 }
 ## extract varpro formal names and hidden options
 get.varpro.names <- function (hidden = TRUE) {
@@ -125,58 +141,8 @@ get.varpro.names <- function (hidden = TRUE) {
     vnames <- c(vnames, "nodesize.external", "ntime.external",
                 "nodesize.reduce", "ntree.reduce", "nodedepth.reduce",
                 "dimension.n", "dimension.p", "dimension.q", "dimension.index",
-                "dimension.ir", "rmst", "other.external", "maxit", "split.weight.only")
+                "dimension.ir", "rmst", "other.external", "maxit", "split.weight.only",
+                "use.lasso", "use.vimp")
   }
   vnames
-}
-get.tree.index <- function(get.tree, ntree) {
-  ## NULL --> default setting
-  if (is.null(get.tree)) {
-    rep(1, ntree)
-  }
-  ## the user has specified a subset of trees
-  else {
-    pt <- get.tree >=1 & get.tree <= ntree
-    if (sum(pt) > 0) {
-      get.tree <- get.tree[pt]
-      get.tree.temp <- rep(0, ntree)
-      get.tree.temp[get.tree] <- 1
-      get.tree.temp
-    }
-    else {
-      rep(1, ntree)
-    }
-  }
-}
-get.data.pass.bits <- function (data.pass) {
-  if (!is.null(data.pass)) {
-    if (data.pass == TRUE) {
-      data.pass <- 2^15
-    }
-    else if (data.pass == FALSE) {
-      data.pass <- 0
-    }
-    else {
-      stop("Invalid choice for 'data.pass' option:  ", data.pass)
-    }
-  }
-  else {
-    stop("Invalid choice for 'data.pass' option:  ", data.pass)
-  }
-  return (data.pass)
-}
-get.stat.bits <- function (stat) {
-  if (stat == "importance") {
-    stat <- 0
-  }
-  else if (stat == "complement") {
-    stat <- 2^0
-  }
-  else if (stat == "oob") {
-    stat <- 2^1
-  }
-  else {
-    stop("Invalid choice for 'stat' option:  ", stat)
-  }
-  return (stat)
 }

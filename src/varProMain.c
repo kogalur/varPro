@@ -419,6 +419,8 @@ void varProMain(char mode, int seedValue) {
                               & VP_xReleaseCount,
                               & VP_xReleaseIDArray,
                               & VP_complementCount,
+                              & VP_oobMembers,
+                              & VP_complementMembers,
                               & VP_proxyIndv,
                               & VP_proxyIndvDepth);
   selectTrees(RF_ntree,
@@ -435,7 +437,7 @@ void varProMain(char mode, int seedValue) {
   for (b = 1; b <= VP_strengthTreeCount; b++) {
     acquireTree(mode, b);
   }
-  RF_stackCount = 6;
+  RF_stackCount = 9;
   initProtect(RF_stackCount);
   stackAuxiliaryInfoList(&RF_snpAuxiliaryInfoList, RF_stackCount);
   VP_cpuTime_ = (double*) stackAndProtect(RF_auxDimConsts,
@@ -495,6 +497,7 @@ void varProMain(char mode, int seedValue) {
                                            VP_totalRecordCount);
   VP_xReleaseID_ --;
   uint localSize;
+  uint membershipSize;
   if (RF_rNonFactorCount > 0) {
     localSize = VP_totalRecordCount * RF_rTargetNonFactorCount;
     VP_oobCT_ = (uint*) stackAndProtect(RF_auxDimConsts,
@@ -651,6 +654,66 @@ void varProMain(char mode, int seedValue) {
                        VP_oobCTptr,
                        VP_dimImpCLSptr);
   }
+  VP_complementCT_ = (uint*) stackAndProtect(RF_auxDimConsts,
+                                             mode,
+                                             &RF_nativeIndex,
+                                             NATIVE_TYPE_INTEGER,
+                                             VP_COMP_CT,
+                                             VP_totalRecordCount,
+                                             0,
+                                             RF_sexpStringOutgoing[VP_COMP_CT],
+                                             NULL,
+                                             1,
+                                             VP_totalRecordCount);
+  VP_complementCT_ --;
+  membershipSize = 0;
+  for (b = 1; b <= VP_strengthTreeCount; b++) {
+    for(j = 1; j <= VP_branchCount[b]; j++) {
+      membershipSize += VP_oobCount[b][j];
+    }
+  }
+  VP_oobID_ = (uint*) stackAndProtect(RF_auxDimConsts,
+                                      mode,
+                                      &RF_nativeIndex,
+                                      NATIVE_TYPE_INTEGER,
+                                      VP_OOBG_MEM,
+                                      membershipSize,
+                                      0,
+                                      RF_sexpStringOutgoing[VP_OOBG_MEM],
+                                      NULL,
+                                      1,
+                                      VP_totalRecordCount);
+  VP_oobID_ --;
+  membershipSize = 0;
+  for (b = 1; b <= VP_strengthTreeCount; b++) {
+    for(j = 1; j <= VP_branchCount[b]; j++) {
+      for(k = 1; k <= VP_xReleaseCount[b][j]; k++) {
+        membershipSize += VP_complementCount[b][j][k];
+      }
+    }
+  }
+  VP_complementID_ = (uint*) stackAndProtect(RF_auxDimConsts,
+                                             mode,
+                                             &RF_nativeIndex,
+                                             NATIVE_TYPE_INTEGER,
+                                             VP_COMP_MEM,
+                                             membershipSize,
+                                             0,
+                                             RF_sexpStringOutgoing[VP_COMP_MEM],
+                                             NULL,
+                                             1,
+                                             VP_totalRecordCount);
+  VP_complementID_ --;
+  writeMembershipArray(VP_strengthTreeCount,
+                       VP_branchCount,
+                       VP_oobCount,
+                       VP_complementCount,
+                       VP_xReleaseCount,
+                       VP_oobMembers,
+                       VP_complementMembers,
+                       VP_complementCT_,
+                       VP_oobID_,
+                       VP_complementID_);
   for (uint bb = 1; bb <= VP_strengthTreeCount; bb++) {
     if(RF_tTermList[VP_strengthTreeID[bb]] != NULL) {
       free_new_vvector(RF_tTermList[VP_strengthTreeID[bb]], 1, RF_tLeafCount_[VP_strengthTreeID[bb]], NRUTIL_TPTR);
@@ -665,6 +728,8 @@ void varProMain(char mode, int seedValue) {
                               VP_xReleaseCount,
                               VP_xReleaseIDArray,
                               VP_complementCount,
+                              VP_oobMembers,
+                              VP_complementMembers,
                               VP_proxyIndv,
                               VP_proxyIndvDepth);
   unstackStrengthObjectsPtrOnly(mode,
@@ -676,6 +741,8 @@ void varProMain(char mode, int seedValue) {
                                 VP_xReleaseCount,
                                 VP_xReleaseIDArray,
                                 VP_complementCount,
+                                VP_oobMembers,
+                                VP_complementMembers,
                                 VP_proxyIndv,
                                 VP_proxyIndvDepth);
   unstackAuxiliaryInfoAndList(RF_auxDimConsts, TRUE, RF_snpAuxiliaryInfoList, RF_stackCount);
@@ -812,25 +879,24 @@ void complement(uint    originalMemberSize,
                 uint   *originalMembers,
                 uint    releasedMemberSize,
                 uint   *releasedMembers,
-                uint  **complementMembers,
-                uint   *complementMemberSize) {
+                uint   *complementMembers) {
   uint *originalMembersIndx = uivector(1,originalMemberSize);
   uint *releasedMembersIndx = uivector(1,releasedMemberSize);
   uint o = 1;
   uint r = 1;
   uint curOrg;
   uint curRel;
+  uint count = 0;
   indexxui(originalMemberSize, originalMembers, originalMembersIndx); 
   indexxui(releasedMemberSize, releasedMembers, releasedMembersIndx);
-  *complementMembers = uivector(1, releasedMemberSize);
-  *complementMemberSize = 0;
+  count = 0;
   while(o <= originalMemberSize && r <= releasedMemberSize)
     {
       curOrg = originalMembers[originalMembersIndx[o]];
       curRel = releasedMembers[releasedMembersIndx[r]];
       if(curRel < curOrg) 
         {
-          (*complementMembers)[++(*complementMemberSize)] = curRel;
+          complementMembers[++(count)] = curRel;
           r++;
         }
       else if(curRel > curOrg)
@@ -846,7 +912,7 @@ void complement(uint    originalMemberSize,
   while(r <= releasedMemberSize) 
     {
       curRel = releasedMembers[releasedMembersIndx[r]];
-      (*complementMembers)[++(*complementMemberSize)] = curRel;
+      complementMembers[++(count)] = curRel;
       r++;
     }
   free_uivector(originalMembersIndx, 1, originalMemberSize);
@@ -854,8 +920,6 @@ void complement(uint    originalMemberSize,
 }
 void test()
 {
-  uint *complementMembers;
-  uint complementMemberSize;
   uint n = 20;
   uint m = 50;
   uint *ibgOrg = uivector(1, n);
@@ -887,8 +951,6 @@ void test()
             }
         }
     }
-  complement(n, ibgOrg, m, ibgRel, &complementMembers, &complementMemberSize);
   free_uivector(ibgOrg, 1, n);
   free_uivector(ibgRel, 1, m);
-  free_uivector(complementMembers, 1, m);
 } 

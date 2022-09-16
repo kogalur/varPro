@@ -35,7 +35,7 @@ void acquireTree(char mode, uint b) {
   LeafLinkedObj *leafLinkedObjectPtr;
   uint branchCount;
   uint branchID;
-  uint  i, k, j;
+  uint  i, k, j, p;
   treeID = VP_strengthTreeID[b];
   selectBranches(b,
                  treeID,
@@ -47,6 +47,8 @@ void acquireTree(char mode, uint b) {
                  & VP_xReleaseCount[b],
                  & VP_xReleaseIDArray[b],
                  & VP_complementCount[b],
+                 & VP_oobMembers[b],
+                 & VP_complementMembers[b],
                  & VP_proxyIndv[b],
                  & VP_proxyIndvDepth[b]);
 #ifdef _OPENMP
@@ -159,10 +161,19 @@ void acquireTree(char mode, uint b) {
                        & VP_oobCount[b][j],
                        & VP_proxyIndv[b][j],
                        & VP_proxyIndvDepth[b][j]);
+      if(VP_oobCount[b][j] != 0) {
+        VP_oobMembers[b][j]      = uivector(1, VP_oobCount[b][j]);
+        for(p = 1; p <= VP_oobCount[b][j]; p++) {
+          VP_oobMembers[b][j][p] = branchMembers[p];
+        }
+      }
+      else {
+        VP_oobMembers[b][j]      = NULL;
+      }
       if (RF_rNonFactorCount > 0) {
         getMeanResponse(treeID,
                         (Terminal *) RF_tTermList[treeID][branchID],
-                        branchMembers,
+                        VP_oobMembers[b][j],
                         VP_oobCount[b][j],
                         0,
                         TRUE);
@@ -170,7 +181,7 @@ void acquireTree(char mode, uint b) {
       if (RF_rFactorCount > 0) {
         getMultiClassProb(treeID,
                           (Terminal *) RF_tTermList[treeID][branchID],
-                          branchMembers,
+                          VP_oobMembers[b][j],
                           VP_oobCount[b][j],
                           0,
                           TRUE);
@@ -194,6 +205,7 @@ void acquireTree(char mode, uint b) {
                     releaseFlag[j],
                     & VP_xReleaseCount[b][j]);
       VP_complementCount[b][j] = uivector(1, VP_xReleaseCount[b][j]);
+      VP_complementMembers[b][j] = (uint **) new_vvector(1, VP_xReleaseCount[b][j], NRUTIL_UPTR);
       if (RF_rNonFactorCount > 0) {
         stackCompMeanResponseOuter((Terminal *) RF_tTermList[treeID][branchID], VP_xReleaseCount[b][j]);
       }
@@ -204,7 +216,6 @@ void acquireTree(char mode, uint b) {
         uint *membershipReleased;
         uint  membershipReleasedCount;
         uint  membershipCountAlloc;
-        uint *complementMembers;
         membershipCountAlloc = 0;
         acquireReleasedMembership(b,
                                   treeID,
@@ -220,16 +231,22 @@ void acquireTree(char mode, uint b) {
                                   & membershipReleased,
                                   & membershipReleasedCount);
         if(VP_oobCount[b][j] != 0) {
-          complement(VP_oobCount[b][j],
-                     branchMembers,
-                     membershipReleasedCount,
-                     membershipReleased,
-                     & complementMembers,
-                     & VP_complementCount[b][j][k]);
+          VP_complementCount[b][j][k] = membershipReleasedCount - VP_oobCount[b][j];
+          if(VP_complementCount[b][j][k] != 0) {
+            VP_complementMembers[b][j][k] = uivector(1, VP_complementCount[b][j][k]);
+            complement(VP_oobCount[b][j],
+                       VP_oobMembers[b][j],
+                       membershipReleasedCount,
+                       membershipReleased,
+                       VP_complementMembers[b][j][k]);
+          }
+          else {
+            VP_complementMembers[b][j][k] = NULL;
+          }
           if (RF_rNonFactorCount > 0) {
             getMeanResponse(treeID,
                             (Terminal *) RF_tTermList[treeID][branchID],
-                            complementMembers,
+                            VP_complementMembers[b][j][k],
                             VP_complementCount[b][j][k],
                             k,
                             FALSE);
@@ -237,19 +254,27 @@ void acquireTree(char mode, uint b) {
           if (RF_rFactorCount > 0) {
             getMultiClassProb(treeID,
                               (Terminal *) RF_tTermList[treeID][branchID],
-                              complementMembers,
+                              VP_complementMembers[b][j][k],
                               VP_complementCount[b][j][k],
                               k,
                               FALSE);
           }
-          free_uivector(complementMembers, 1, membershipReleasedCount);
         }
         else {
           VP_complementCount[b][j][k] = membershipReleasedCount;
+          if(VP_complementCount[b][j][k] != 0) {
+            VP_complementMembers[b][j][k] = uivector(1, VP_complementCount[b][j][k]);
+            for(p = 1; p <= VP_complementCount[b][j][k]; p++) {
+              VP_complementMembers[b][j][k][p] = membershipReleased[p];
+            }
+          }
+          else {
+            VP_complementMembers[b][j][k] = NULL;
+          }
           if (RF_rNonFactorCount > 0) {
             getMeanResponse(treeID,
                             (Terminal *) RF_tTermList[treeID][branchID],
-                            membershipReleased,
+                            VP_complementMembers[b][j][k],
                             VP_complementCount[b][j][k],
                             k,
                             FALSE);
@@ -257,7 +282,7 @@ void acquireTree(char mode, uint b) {
           if (RF_rFactorCount > 0) {
             getMultiClassProb(treeID,
                               (Terminal *) RF_tTermList[treeID][branchID],
-                              membershipReleased,
+                              VP_complementMembers[b][j][k],
                               VP_complementCount[b][j][k],
                               k,
                               FALSE);

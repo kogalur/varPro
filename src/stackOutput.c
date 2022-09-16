@@ -27,6 +27,8 @@ void stackStrengthObjectsPtrOnly(char       mode,
                                  uint    ***xReleaseCount,
                                  uint   ****xReleaseIDArray,
                                  uint   ****complementCount,
+                                 uint   ****oobMembers,
+                                 uint  *****complementMembers,
                                  uint    ***proxyIndv,
                                  uint    ***proxyIndvDepth) {
   uint i;
@@ -53,16 +55,20 @@ void stackStrengthObjectsPtrOnly(char       mode,
   *xReleaseCount  = (uint **)  new_vvector(1, *strengthTreeCount, NRUTIL_UPTR);
   *xReleaseIDArray  = (uint ***)  new_vvector(1, *strengthTreeCount, NRUTIL_UPTR2);
   *complementCount  = (uint ***)  new_vvector(1, *strengthTreeCount, NRUTIL_UPTR2);
+  *oobMembers  = (uint ***)  new_vvector(1, *strengthTreeCount, NRUTIL_UPTR2);
+  *complementMembers  = (uint ****)  new_vvector(1, *strengthTreeCount, NRUTIL_UPTR3);
   *proxyIndv  = (uint **)  new_vvector(1, *strengthTreeCount, NRUTIL_UPTR);
   *proxyIndvDepth  = (uint **)  new_vvector(1, *strengthTreeCount, NRUTIL_UPTR);
   for (i = 1; i <= *strengthTreeCount; i++) {
-    (*branchID)[i]        = NULL;
-    (*oobCount)[i]        = NULL;
-    (*xReleaseCount)[i]   = NULL;
-    (*xReleaseIDArray)[i] = NULL;
-    (*complementCount)[i] = NULL;
-    (*proxyIndv)[i]       = NULL;
-    (*proxyIndvDepth)[i]  = NULL;
+    (*branchID)[i]          = NULL;
+    (*oobCount)[i]          = NULL;
+    (*xReleaseCount)[i]     = NULL;
+    (*xReleaseIDArray)[i]   = NULL;
+    (*complementCount)[i]   = NULL;
+    (*oobMembers)[i]        = NULL;
+    (*complementMembers)[i] = NULL;
+    (*proxyIndv)[i]         = NULL;
+    (*proxyIndvDepth)[i]    = NULL;
   }
 }
 void unstackStrengthObjectsPtrOnly(char      mode,
@@ -74,6 +80,8 @@ void unstackStrengthObjectsPtrOnly(char      mode,
                                    uint    **xReleaseCount,
                                    uint   ***xReleaseIDArray,
                                    uint   ***complementCount,
+                                   uint   ***oobMembers,
+                                   uint  ****complementMembers,
                                    uint    **proxyIndv,
                                    uint    **proxyIndvDepth) {
   free_uivector(strengthTreeID,      1, strengthTreeCount);
@@ -83,6 +91,8 @@ void unstackStrengthObjectsPtrOnly(char      mode,
   free_new_vvector(xReleaseCount,    1, strengthTreeCount, NRUTIL_UPTR);
   free_new_vvector(xReleaseIDArray,  1, strengthTreeCount, NRUTIL_UPTR2);
   free_new_vvector(complementCount,  1, strengthTreeCount, NRUTIL_UPTR2);
+  free_new_vvector(oobMembers,       1, strengthTreeCount, NRUTIL_UPTR2);
+  free_new_vvector(complementMembers,1, strengthTreeCount, NRUTIL_UPTR3);
   free_new_vvector(proxyIndv,        1, strengthTreeCount, NRUTIL_UPTR);
   free_new_vvector(proxyIndvDepth,   1, strengthTreeCount, NRUTIL_UPTR);            
 }
@@ -100,10 +110,6 @@ void selectTrees(uint    ntree,
     i = 0;
     for (j = 1; j <= ntree; j++) {
       if(tLeafCount[j] <= 1) {
-        RF_nativeError("\nVARPRO:  *** ERROR *** ");
-        RF_nativeError("\nVARPRO:  Stump encountered for tree: %10d.", j);
-        RF_nativeError("\nVARPRO:  Please Contact Technical Support.");
-        RF_nativeExit();
       }
       else {
         strengthTreeID[++i] = j;
@@ -116,10 +122,6 @@ void selectTrees(uint    ntree,
     for (j = 1; j <= ntree; j++) {
       if(tLeafCount[j] <= 1) {
         rejectedTrees++;
-        RF_nativeError("\nVARPRO:  *** ERROR *** ");
-        RF_nativeError("\nVARPRO:  Stump encountered for tree: %10d.", j);
-        RF_nativeError("\nVARPRO:  Please Contact Technical Support.");
-        RF_nativeExit();
       }
       else {
         sworVector[++i] = j;
@@ -139,14 +141,16 @@ void selectBranches(uint    b,
                     uint    treeID,
                     uint    maxRulesTree,
                     uint    leafCount,
-                    uint   *branchCount,
-                    uint  **branchID,
-                    uint  **oobCount,
-                    uint  **xReleaseCount,
-                    uint ***xReleaseIDArray,
-                    uint ***complementCount,
-                    uint  **proxyIndv,
-                    uint  **proxyIndvDepth) {
+                    uint    *branchCount,
+                    uint   **branchID,
+                    uint   **oobCount,
+                    uint   **xReleaseCount,
+                    uint  ***xReleaseIDArray,
+                    uint  ***complementCount,
+                    uint  ***oobMembers,
+                    uint ****complementMembers,
+                    uint   **proxyIndv,
+                    uint   **proxyIndvDepth) {
   uint k;
   uint currentBranchCount;
   uint  *sworVectorB;
@@ -164,9 +168,11 @@ void selectBranches(uint    b,
     currentBranchCount = *branchCount;
     (*branchID) = uivector(1, currentBranchCount);
     (*oobCount) = uivector(1, currentBranchCount);
-    (*xReleaseCount)    = uivector(1, currentBranchCount);
-    (*xReleaseIDArray)  = (uint **) new_vvector(1, currentBranchCount, NRUTIL_UPTR);
-    (*complementCount)  = (uint **) new_vvector(1, currentBranchCount, NRUTIL_UPTR);
+    (*xReleaseCount)     = uivector(1, currentBranchCount);
+    (*xReleaseIDArray)   = (uint **)  new_vvector(1, currentBranchCount, NRUTIL_UPTR);
+    (*complementCount)   = (uint **)  new_vvector(1, currentBranchCount, NRUTIL_UPTR);
+    (*oobMembers)        = (uint **)  new_vvector(1, currentBranchCount, NRUTIL_UPTR);
+    (*complementMembers) = (uint ***) new_vvector(1, currentBranchCount, NRUTIL_UPTR2);
     (*proxyIndv)      = uivector(1, currentBranchCount);
     (*proxyIndvDepth) = uivector(1, currentBranchCount);
     if(currentBranchCount == leafCount) {
@@ -190,38 +196,67 @@ void selectBranches(uint    b,
     }
   }
 }
-void freeStrengthBranchIDVectors(uint    strengthTreeCount,
-                                 uint   *branchCount,
-                                 uint  **branchID,
-                                 uint  **oobCount,
-                                 uint  **xReleaseCount,
-                                 uint ***xReleaseIDArray,
-                                 uint ***complementCount,
-                                 uint  **proxyIndv,
-                                 uint  **proxyIndvDepth) {
+void freeStrengthBranchIDVectors(uint     strengthTreeCount,
+                                 uint    *branchCount,
+                                 uint   **branchID,
+                                 uint   **oobCount,
+                                 uint   **xReleaseCount,
+                                 uint  ***xReleaseIDArray,
+                                 uint  ***complementCount,
+                                 uint  ***oobMembers,
+                                 uint ****complementMembers,
+                                 uint   **proxyIndv,
+                                 uint   **proxyIndvDepth) {
   uint currentBranchCount;
   uint b;
   for (b = 1; b <= strengthTreeCount; b++) {
     currentBranchCount = branchCount[b];
-    freeReleaseIDArray(currentBranchCount, xReleaseCount[b], xReleaseIDArray[b], complementCount[b], proxyIndvDepth[b]);
+    freeReleaseIDArray(currentBranchCount,
+                       oobCount[b],
+                       xReleaseCount[b],
+                       xReleaseIDArray[b],
+                       complementCount[b],
+                       oobMembers[b],
+                       complementMembers[b],
+                       proxyIndvDepth[b]);
     free_uivector(branchID[b], 1, currentBranchCount);
     free_uivector(oobCount[b], 1, currentBranchCount);
     free_uivector(xReleaseCount[b], 1, currentBranchCount);
     free_new_vvector(xReleaseIDArray[b], 1, currentBranchCount, NRUTIL_UPTR);
     free_new_vvector(complementCount[b], 1, currentBranchCount, NRUTIL_UPTR);
+    free_new_vvector(oobMembers[b], 1, currentBranchCount, NRUTIL_UPTR);
+    free_new_vvector(complementMembers[b], 1, currentBranchCount, NRUTIL_UPTR2);
     free_uivector(proxyIndv[b], 1, currentBranchCount);
     free_uivector(proxyIndvDepth[b], 1, currentBranchCount);
   }
 }
-void freeReleaseIDArray(uint   branchCount,
-                        uint  *xReleaseCount,
-                        uint **xReleaseIDArray,
-                        uint **complementCount,
-                        uint  *proxyIndvDepth) {
+void freeReleaseIDArray(uint    branchCount,
+                        uint   *oobCount,
+                        uint   *xReleaseCount,
+                        uint  **xReleaseIDArray,
+                        uint  **complementCount,
+                        uint  **oobMembers,
+                        uint ***complementMembers,
+                        uint   *proxyIndvDepth) {
   uint j;
-  for(j = 1; j <= branchCount; j++) { 
+  for(j = 1; j <= branchCount; j++) {
+    freeComplementMembership(xReleaseCount[j], complementCount[j], complementMembers[j]);
     free_uivector(xReleaseIDArray[j], 1, proxyIndvDepth[j]);
     free_uivector(complementCount[j], 1, xReleaseCount[j]);
+    if(oobCount[j] != 0) {
+      free_uivector(oobMembers[j], 1, oobCount[j]);
+    }
+    free_new_vvector(complementMembers[j], 1, xReleaseCount[j], NRUTIL_UPTR);
+  }
+}
+void freeComplementMembership(uint   xReleaseCount,
+                              uint  *complementCount,
+                              uint **complementMembers) {
+  uint k;
+  for(k = 1; k <= xReleaseCount; k++) { 
+    if(complementCount[k] != 0) {
+      free_uivector(complementMembers[k], 1, complementCount[k]);
+    }
   }
 }
 void writeStrengthArray(uint     *strengthTreeID,
@@ -395,6 +430,35 @@ void writeStrengthArray(uint     *strengthTreeID,
           free_dvector(diffProb, 1, RF_rFactorSize[1]);
         }
         free_dvector(oobProb, 1, RF_rFactorSize[1]);
+      }
+    }
+  }
+}
+void writeMembershipArray(uint      strengthTreeCount,
+                          uint     *branchCount,
+                          uint    **oobCount,
+                          uint   ***complementCount,
+                          uint    **xReleaseCount,
+                          uint   ***oobMembers,
+                          uint  ****complementMembers,
+                          uint     *complementCT,
+                          uint     *oobID,
+                          uint     *complementID) {
+  uint  b,j,k,p;
+  uint      row, oobIndex, compIndex;
+  row = 0;
+  compIndex = 0;
+  oobIndex = 0;
+  for(b = 1; b <= strengthTreeCount; b++) {
+    for(j = 1; j <= branchCount[b]; j++) {
+      for(p = 1; p <= oobCount[b][j]; p++) {
+        oobID[++oobIndex] = oobMembers[b][j][p];
+      }
+      for(k = 1; k <= xReleaseCount[b][j]; k++) {
+        complementCT[++row] = complementCount[b][j][k];
+        for(p = 1; p <= complementCount[b][j][k]; p++) {
+          complementID[++compIndex] = complementMembers[b][j][k][p];
+        }
       }
     }
   }

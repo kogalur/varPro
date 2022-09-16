@@ -78,13 +78,17 @@ varpro(f, data, ntree = 500, split.weight = TRUE,
   moderately high-dimensional, problems.  If this option is turned off,
   then \code{nodesize} should be increased to improve precision of the
   estimators.  See the example below.
+
+  For very large data sets, computational speeds can be improved by
+  using smaller values of \code{ntree} and larger values of
+  \code{nodesize}.  For example \code{ntree}=100 and \code{nodesize}=50.
   
 }
 
 \value{
 
   Output containing VarPro estimators used to calculate importance. See
-  \code{importance.varpro}.
+  \command{importance.varpro}.
   
 }
 
@@ -205,6 +209,18 @@ housing2 <- randomForestSRC:::get.na.roughfix(housing)
 
 ## varpro call
 o <- varpro(SalePrice~., housing2, ntree = 100, nodesize = 50)
+print(importance(o))
+
+## ------------------------------------------------------------
+## another way to speed up large data: turn lasso off
+## (you can test this by increasing n and p below
+## ------------------------------------------------------------
+
+n <- 25000
+p <- 50
+d <- data.frame(y = rnorm(n), x = matrix(rnorm(n * p), n))
+
+o <- varpro(y~., d, ntree = 100, nodesize = 200, use.lasso = FALSE)
 print(importance(o))
 
 }
