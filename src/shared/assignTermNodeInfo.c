@@ -11,19 +11,19 @@
 #include "assignTermNodeInfo.h"
 #include "regression.h"
 #include "classification.h"
+#include "survival.h"
 void assignTerminalNodeMembership(char             mode,
                                   uint             treeID,
                                   TerminalBase    *parent,
                                   uint            *genMembrIndx,
                                   uint             genMembrSize,
                                   uint            *gmbrIterator,
-                                  TerminalBase  ***tTermMembership,
-                                  uint           **AMBR_ID_ptr) {
+                                  TerminalBase  ***tTermMembership) {
   uint i;
   if (RF_optHigh & OPT_MEMB_INCG) {
     for (i = 1; i <= genMembrSize; i++) {
       ++(*gmbrIterator);
-      tTermMembership[treeID][AMBR_ID_ptr[treeID][(*gmbrIterator)]] = parent;
+      tTermMembership[treeID][genMembrIndx[(*gmbrIterator)]] = parent;
     }
   }
   else {
@@ -32,20 +32,32 @@ void assignTerminalNodeMembership(char             mode,
     }
   }
 }
-void assignTerminalNodeOutcomes(char       mode,
-                                uint       treeID,
+void assignTerminalNodeOutcomes(char           mode,
+                                uint           treeID,
                                 TerminalBase  *parent,
-                                uint       rFactorCount,
-                                uint      *rFactorSize,
-                                uint       rNonFactorCount) {
-  if (FALSE) {
+                                uint           startTimeIndex,
+                                uint           timeIndex,
+                                uint           statusIndex,
+                                uint          *rFactorSize) {
+  if ((timeIndex > 0) && (statusIndex > 0)) {
+    if (startTimeIndex == 0) {
+      if (!(RF_opt & OPT_COMP_RISK)) {
+        assignSurvival(treeID, parent, RF_TN_SURV_ptr[treeID][parent -> nodeID]);
+        assignNelsonAalen(treeID, parent, RF_TN_NLSN_ptr[treeID][parent -> nodeID]);
+      }
+      else {
+        assignCSH(treeID, parent, RF_TN_CSHZ_ptr[treeID][parent -> nodeID]);
+        assignCIF(treeID, parent, RF_TN_CIFN_ptr[treeID][parent -> nodeID]);
+      }
+      assignMortality(treeID, parent, RF_TN_MORT_ptr[treeID][parent -> nodeID]);
+    }
   }
   else {
-    if (rFactorCount > 0) {
-      assignMultiClassProb(treeID, parent, rFactorCount, rFactorSize, RF_TN_CLAS_ptr[treeID][parent -> nodeID]);
+    if (parent -> rfCount > 0) {
+      assignMultiClassProb(treeID, parent, rFactorSize, RF_TN_CLAS_ptr[treeID][parent -> nodeID]);
     }
-    if (rNonFactorCount > 0) {
-      assignMeanResponse(treeID, parent, rNonFactorCount, RF_TN_REGR_ptr[treeID][parent -> nodeID]);
+    if (parent -> rnfCount > 0) {
+      assignMeanResponse(treeID, parent, RF_TN_REGR_ptr[treeID][parent -> nodeID]);
     }
   }
 }

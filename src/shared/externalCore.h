@@ -78,6 +78,7 @@ extern uint RF_nativeIndex;
 extern LeafLinkedObj **RF_leafLinkedObjTail;
 extern LeafLinkedObj **RF_leafLinkedObjHead;
 extern TerminalBase ***RF_tTermMembership;
+extern TerminalBase ***RF_ftTermMembership;
 extern uint      RF_ySize;
 extern uint      RF_xSize;
 extern char     *RF_rType;

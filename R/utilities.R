@@ -1,5 +1,11 @@
 ## process hidden variables
 get.varpro.hidden <- function(user.option, ntree) {
+  if (!is.null(user.option$nsplit)) {
+    nsplit <- user.option$nsplit
+  }
+  else {
+    nsplit <- 0
+  }
   if (!is.null(user.option$nodesize.external)) {
     nodesize.external <- user.option$nodesize.external
   }
@@ -116,7 +122,8 @@ get.varpro.hidden <- function(user.option, ntree) {
 }
 ## list hidden variables
 show.varpro.hidden <- function() {
-  c("ntree.external",
+  c("nsplit",
+    "ntree.external",
     "nodesize.external",
     "ntime.external",
     "nodesize.reduce",
@@ -138,7 +145,7 @@ show.varpro.hidden <- function() {
 get.varpro.names <- function (hidden = TRUE) {
   vnames <- names(formals(varpro))
   if (hidden) {
-    vnames <- c(vnames, "nodesize.external", "ntime.external",
+    vnames <- c(vnames, "nsplit", "nodesize.external", "ntime.external",
                 "nodesize.reduce", "ntree.reduce", "nodedepth.reduce",
                 "dimension.n", "dimension.p", "dimension.q", "dimension.index",
                 "dimension.ir", "rmst", "other.external", "maxit", "split.weight.only",

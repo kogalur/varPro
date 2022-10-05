@@ -18,27 +18,24 @@
 #include "shared/error.h"
 void *makeTerminalDerived() {
   Terminal *parent = (Terminal*) gblock((size_t) sizeof(Terminal));
-  parent -> rnfCount          = 0;
+  preInitTerminalBase((TerminalBase *) parent);
   parent -> xReleaseCount     = 0;
   parent -> compMeanResponse  = NULL;
   parent -> oobMeanResponse   = NULL;
-  parent -> rfCount            = 0;
-  parent -> rfSize             = NULL;
   parent -> complementMaxClass = NULL;
   parent -> oobMaxClass        = NULL;
   parent -> complementMCP      = NULL;
   parent -> oobMCP             = NULL;
-  initTerminalBase((TerminalBase*) parent);
   return parent;
 }
 void freeTerminalDerived(void *parent) {
-  deinitTerminalBase((TerminalBase*) parent);
-  if(RF_rNonFactorCount > 0) {
+  if(((TerminalBase *) parent) -> rnfCount > 0) {
     unstackMeanResponseTerm(parent);
   }
-  else if(RF_rFactorCount > 0) {
+  else if(((TerminalBase *) parent) -> rfCount > 0) {
     unstackMultiClassTerm(parent);
   }
+  deinitTerminalBase((TerminalBase *) parent);
   free_gblock(parent, (size_t) sizeof(Terminal));
 }
 void stackCompMeanResponseOuter(Terminal *tTerm, unsigned int xReleaseCount) {
@@ -59,43 +56,25 @@ void stackCompMeanResponseOuter(Terminal *tTerm, unsigned int xReleaseCount) {
     tTerm -> compMeanResponse[k] = NULL;
   }
 }
-void stackCompMeanResponseInner(Terminal *tTerm, unsigned int xReleaseIndx, unsigned int rnfCount) {
-  if (tTerm -> rnfCount > 0) {
-    if (tTerm -> rnfCount != rnfCount) {
-      RF_nativeError("\nRF-SRC:  *** ERROR *** ");
-      RF_nativeError("\nRF-SRC:  rnfCount has been previously defined:  %10d vs %10d", tTerm -> rnfCount, rnfCount);
-      RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
-      RF_nativeExit();
-    }
+void stackCompMeanResponseInner(Terminal *tTerm, unsigned int xReleaseIndx) {
+  if (((TerminalBase *) tTerm) -> rnfCount > 0) {
+    (tTerm -> compMeanResponse)[xReleaseIndx] = dvector(1, ((TerminalBase  *) tTerm) -> rnfCount);
   }
-  else {
-    tTerm -> rnfCount = rnfCount;
-  }
-  (tTerm -> compMeanResponse)[xReleaseIndx] = dvector(1, tTerm -> rnfCount);
 }
-void stackOobMeanResponse(Terminal *tTerm, unsigned int rnfCount) {
-  if (tTerm -> rnfCount > 0) {
-    if (tTerm -> rnfCount != rnfCount) {
-      RF_nativeError("\nRF-SRC:  *** ERROR *** ");
-      RF_nativeError("\nRF-SRC:  rnfCount has been previously defined:  %10d vs %10d", tTerm -> rnfCount, rnfCount);
-      RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
-      RF_nativeExit();
-    }
+void stackOobMeanResponse(Terminal *tTerm) {
+  if (((TerminalBase  *) tTerm) -> rnfCount > 0) {
+    tTerm -> oobMeanResponse = dvector(1, ((TerminalBase  *) tTerm) -> rnfCount);
   }
-  else {
-    tTerm -> rnfCount = rnfCount;
-  }
-  tTerm -> oobMeanResponse = dvector(1, tTerm -> rnfCount);
 }
 void unstackMeanResponseTerm(Terminal *tTerm) {
   uint k;
   if (tTerm -> oobMeanResponse != NULL) {
-    free_dvector(tTerm -> oobMeanResponse, 1, tTerm -> rnfCount);
+    free_dvector(tTerm -> oobMeanResponse, 1, ((TerminalBase  *) tTerm) -> rnfCount);
     tTerm -> oobMeanResponse = NULL;
   }
   for(k = 1; k <= (tTerm -> xReleaseCount); k++) {
     if(tTerm -> compMeanResponse[k] != NULL) {
-      free_dvector(tTerm -> compMeanResponse[k], 1, tTerm -> rnfCount);
+      free_dvector(tTerm -> compMeanResponse[k], 1, ((TerminalBase  *) tTerm) -> rnfCount);
       tTerm -> compMeanResponse[k] = NULL;
     }
   }
@@ -124,66 +103,40 @@ void stackCompMultiClassOuter(Terminal *tTerm, unsigned int xReleaseCount) {
     tTerm -> complementMaxClass[k] = NULL;
   }
 }
-void stackCompMultiClassInner(Terminal *tTerm, unsigned int xReleaseIndx, unsigned int rfCount, unsigned int *rfSize) {
+void stackCompMultiClassInner(Terminal *tTerm, unsigned int xReleaseIndx) {
   unsigned int j;
-  if (tTerm -> rfCount > 0) {
-    if (tTerm -> rfCount != rfCount) {
-      RF_nativeError("\nRF-SRC:  *** ERROR *** ");
-      RF_nativeError("\nRF-SRC:  rfCount has been previously defined:  %10d vs %10d", tTerm -> rfCount, rfCount);
-      RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
-      RF_nativeExit();
+  if (((TerminalBase *) tTerm) -> rfCount > 0) {
+    (tTerm -> complementMCP)[xReleaseIndx] = (unsigned int **) new_vvector(1, ((TerminalBase *) tTerm) -> rfCount, NRUTIL_UPTR);
+    for (j = 1; j <= ((TerminalBase *) tTerm) -> rfCount; j++) {
+      (tTerm -> complementMCP)[xReleaseIndx][j] = uivector(1, (((TerminalBase *) tTerm) -> rfSize)[j]);
     }
+    (tTerm -> complementMaxClass)[xReleaseIndx] = dvector(1, ((TerminalBase *) tTerm) -> rfCount);
   }
-  else {
-    tTerm -> rfCount = rfCount;
-  }
-  if(tTerm -> rfSize == NULL) {
-    tTerm -> rfSize = uivector(1, tTerm -> rfCount);
-  }
-  (tTerm -> complementMCP)[xReleaseIndx] = (unsigned int **) new_vvector(1, tTerm -> rfCount, NRUTIL_UPTR);
-  for (j = 1; j <= tTerm -> rfCount; j++) {
-    (tTerm -> rfSize)[j] = rfSize[j];
-    (tTerm -> complementMCP)[xReleaseIndx][j] = uivector(1, (tTerm -> rfSize)[j]);
-  }
-  (tTerm -> complementMaxClass)[xReleaseIndx] = dvector(1, tTerm -> rfCount);
 }
-void stackOobMultiClass(Terminal *tTerm, unsigned int rfCount, unsigned int *rfSize) {
+void stackOobMultiClass(Terminal *tTerm) {
   unsigned int j;
-  if (tTerm -> rfCount > 0) {
-    if (tTerm -> rfCount != rfCount) {
-      RF_nativeError("\nRF-SRC:  *** ERROR *** ");
-      RF_nativeError("\nRF-SRC:  rfCount has been previously defined:  %10d vs %10d", tTerm -> rfCount, rfCount);
-      RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
-      RF_nativeExit();
+  if (((TerminalBase *) tTerm) -> rfCount > 0) {  
+    tTerm -> oobMCP = (unsigned int **) new_vvector(1, ((TerminalBase *) tTerm) -> rfCount, NRUTIL_UPTR);
+    for (j = 1; j <= ((TerminalBase *) tTerm) -> rfCount; j++) {
+      (tTerm -> oobMCP)[j] = uivector(1, (((TerminalBase *) tTerm) -> rfSize)[j]);
     }
+    (tTerm -> oobMaxClass) = dvector(1, ((TerminalBase *) tTerm) -> rfCount);
   }
-  else {
-    tTerm -> rfCount = rfCount;
-  }
-  if(tTerm -> rfSize == NULL) {
-    tTerm -> rfSize = uivector(1, tTerm -> rfCount);
-  }
-  tTerm -> oobMCP = (unsigned int **) new_vvector(1, tTerm -> rfCount, NRUTIL_UPTR);
-  for (j = 1; j <= tTerm -> rfCount; j++) {
-    (tTerm -> rfSize)[j] = rfSize[j];
-    (tTerm -> oobMCP)[j] = uivector(1, (tTerm -> rfSize)[j]);
-  }
-  (tTerm -> oobMaxClass) = dvector(1, tTerm -> rfCount);
 }
 void unstackMultiClassTerm(Terminal *tTerm) {
   unsigned int j, i;
-  if (tTerm -> rfCount > 0) {
-    if (tTerm -> rfSize != NULL) {
+  if (((TerminalBase *) tTerm) -> rfCount > 0) {
+    if (((TerminalBase *) tTerm) -> rfSize != NULL) {
       if (tTerm -> complementMCP != NULL) {
         for (i = 1; i <= tTerm -> xReleaseCount; i++) {  
-          for (j = 1; j <= tTerm -> rfCount; j++) {
+          for (j = 1; j <= ((TerminalBase *) tTerm) -> rfCount; j++) {
             if (tTerm -> complementMCP[i][j] != NULL) {
-              free_uivector(tTerm -> complementMCP[i][j], 1, tTerm -> rfSize[j]);
+              free_uivector(tTerm -> complementMCP[i][j], 1, ((TerminalBase *) tTerm) -> rfSize[j]);
               tTerm -> complementMCP[i][j] = NULL;
             }
           }
           if(tTerm -> complementMCP[i] != NULL) {
-            free_new_vvector(tTerm -> complementMCP[i], 1, tTerm -> rfCount, NRUTIL_UPTR);
+            free_new_vvector(tTerm -> complementMCP[i], 1, ((TerminalBase *) tTerm) -> rfCount, NRUTIL_UPTR);
             tTerm -> complementMCP[i] = NULL;
           }
         }
@@ -191,24 +144,22 @@ void unstackMultiClassTerm(Terminal *tTerm) {
         tTerm -> complementMCP = NULL;
       }
       if (tTerm -> oobMCP != NULL) {
-        for (j = 1; j <= tTerm -> rfCount; j++) {
+        for (j = 1; j <= ((TerminalBase *) tTerm) -> rfCount; j++) {
           if (tTerm -> oobMCP[j] != NULL) {
-            free_uivector(tTerm -> oobMCP[j], 1, tTerm -> rfSize[j]);
+            free_uivector(tTerm -> oobMCP[j], 1, ((TerminalBase *) tTerm) -> rfSize[j]);
             tTerm -> oobMCP[j] = NULL;
           }
         }
-        free_new_vvector(tTerm -> oobMCP, 1, tTerm -> rfCount, NRUTIL_UPTR);
+        free_new_vvector(tTerm -> oobMCP, 1, ((TerminalBase *) tTerm) -> rfCount, NRUTIL_UPTR);
         tTerm -> oobMCP = NULL;
       }
-      free_uivector(tTerm -> rfSize, 1, tTerm -> rfCount);
-      tTerm -> rfSize = NULL;
     }
   }
-  if (tTerm -> rfCount > 0) {
+  if (((TerminalBase *) tTerm) -> rfCount > 0) {
     if (tTerm -> complementMaxClass != NULL) {
       for (i = 1; i <= tTerm -> xReleaseCount; i++) {
         if(tTerm -> complementMaxClass[i] != NULL) {
-          free_dvector(tTerm -> complementMaxClass[i], 1, tTerm -> rfCount);
+          free_dvector(tTerm -> complementMaxClass[i], 1, ((TerminalBase *) tTerm) -> rfCount);
           tTerm -> complementMaxClass[i] = NULL;
         }
       }
@@ -216,7 +167,7 @@ void unstackMultiClassTerm(Terminal *tTerm) {
       tTerm -> complementMaxClass = NULL;
     }
     if (tTerm -> oobMaxClass != NULL) {
-      free_dvector(tTerm -> oobMaxClass, 1, tTerm -> rfCount);
+      free_dvector(tTerm -> oobMaxClass, 1, ((TerminalBase *) tTerm) -> rfCount);
       tTerm -> oobMaxClass = NULL;
     }
   }

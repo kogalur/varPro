@@ -14,6 +14,7 @@
 #include "error.h"
 #include "nrutil.h"
 #include "nodeBaseOps.h"
+#include "termBaseOps.h"
 #include "leafLink.h"
 #include "assignTermNodeInfo.h"
 void restoreTree(char mode, uint treeID, NodeBase *parent) {
@@ -115,6 +116,12 @@ void restoreTree(char mode, uint treeID, NodeBase *parent) {
       RF_leafLinkedObjTail[treeID] = makeAndSpliceLeafLinkedObj(RF_leafLinkedObjTail[treeID]);
       RF_leafLinkedObjTail[treeID] -> nodePtr = (NodeBase *) parent;
       RF_leafLinkedObjTail[treeID] -> termPtr = (TerminalBase *) makeTerminal();
+      initTerminalBase(RF_leafLinkedObjTail[treeID] -> termPtr,
+                       RF_eventTypeSize,
+                       RF_masterTimeSize,
+                       RF_sortedTimeInterestSize,
+                       RF_rNonFactorCount,
+                       RF_rFactorCount);
       parent -> mate = RF_leafLinkedObjTail[treeID] -> termPtr;
       (RF_leafLinkedObjTail[treeID] -> termPtr) -> mate = parent;
       RF_leafLinkedObjTail[treeID] -> nodeID = (RF_leafLinkedObjTail[treeID] -> termPtr) -> nodeID = parent -> nodeID;
@@ -141,7 +148,6 @@ char restoreNodeMembership(char      mode,
   uint leftRepMembrSize, rghtRepMembrSize;
   uint leftAllMembrSize;
   uint rghtAllMembrSize;
-  uint i;
   bootResult = TRUE;
   terminalFlag = TRUE;
   if (((parent -> left) != NULL) && ((parent -> right) != NULL)) {
@@ -184,29 +190,23 @@ char restoreNodeMembership(char      mode,
   if (terminalFlag) {
     if (RF_optHigh & OPT_MEMB_INCG) {
       RF_leafLinkedObjTail[treeID] = makeAndSpliceLeafLinkedObj(RF_leafLinkedObjTail[treeID]);
+      assignTerminalNodeMembership(mode,
+                                   treeID,
+                                   RF_leafLinkedObjTail[treeID] -> termPtr,
+                                   RF_AMBR_ID_ptr[treeID],
+                                   RF_TN_ACNT_ptr[treeID][((TerminalBase*) RF_leafLinkedObjTail[treeID] -> termPtr) -> nodeID],
+                                   ambrIterator,
+                                   RF_tTermMembership);
     }
-    if (RF_optHigh & OPT_MEMB_USER) {
-      if (RF_optHigh & OPT_MEMB_INCG) {
-        uint userIterator = *ambrIterator;
-        for (i = 1; i <= RF_TN_ACNT_ptr[treeID][parent -> nodeID]; i++) {
-          ++(userIterator);
-          RF_MEMB_ID_ptr[treeID][RF_AMBR_ID_ptr[treeID][(userIterator)]] = parent -> nodeID;
-        }
-      }
-      else {
-        for (i = 1; i <= allMembrSize; i++) {
-          RF_MEMB_ID_ptr[treeID][allMembrIndx[i]] = parent -> nodeID;
-        }
-      }
-    }  
-    assignTerminalNodeMembership(mode,
-                                 treeID,
-                                 RF_leafLinkedObjTail[treeID] -> termPtr,
-                                 allMembrIndx,
-                                 allMembrSize,
-                                 ambrIterator,
-                                 RF_tTermMembership,
-                                 RF_AMBR_ID_ptr);
+    else {
+      assignTerminalNodeMembership(mode,
+                                   treeID,
+                                   RF_leafLinkedObjTail[treeID] -> termPtr,
+                                   allMembrIndx,
+                                   allMembrSize,
+                                   ambrIterator,
+                                   RF_tTermMembership);
+    }
   }  
   return bootResult;
 }  

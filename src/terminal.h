@@ -5,10 +5,7 @@ struct terminal {
   struct terminalBase base;
   double       **compMeanResponse;
   double        *oobMeanResponse;
-  unsigned int   rnfCount;
   unsigned int   xReleaseCount;
-  unsigned int    rfCount;
-  unsigned int   *rfSize;
   unsigned int ***complementMCP;
   unsigned int  **oobMCP;
   double         **complementMaxClass;

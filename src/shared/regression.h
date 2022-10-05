@@ -3,6 +3,10 @@
 #include "terminalBase.h"
 void assignMeanResponse(uint           treeID,
                         TerminalBase  *parent,
-                        uint           rNonFactorCount,
                         double        *tn_regr_ptr);
+void calculateMeanResponse(uint           treeID,
+                           TerminalBase  *parent,
+                           uint          *membershipIndex,
+                           uint           membershipSize,
+                           uint          *membershipIterator);
 #endif

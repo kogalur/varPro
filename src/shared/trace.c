@@ -77,7 +77,7 @@ void decreaseProbeMemoryAllocation(size_t amount) {
 void memoryCheck() {
   if (RF_nativeIndex != RF_stackCount) {
     RF_nativeError("\nRF-SRC:  *** ERROR *** ");
-    RF_nativeError("\nRF-SRC:  Stack imbalance in PROTECT/UNPROTECT:  %10d + 1 versus %10d  ", RF_nativeIndex, RF_stackCount);
+    RF_nativeError("\nRF-SRC:  Stack imbalance in PROTECT/UNPROTECT:  %10d versus %10d  ", RF_nativeIndex, RF_stackCount);
     RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
     RF_nativeExit();
   }

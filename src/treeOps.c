@@ -115,11 +115,10 @@ void acquireTree(char mode, uint b) {
         assignTerminalNodeMembership(mode,
                                      treeID,
                                      leafLinkedObjectPtr -> termPtr,
-                                     NULL,
+                                     RF_AMBR_ID_ptr[treeID],
                                      RF_TN_ACNT_ptr[treeID][((TerminalBase*) leafLinkedObjectPtr -> termPtr) -> nodeID],
                                      &ambrIterator,
-                                     RF_tTermMembership,
-                                     RF_AMBR_ID_ptr);
+                                     RF_tTermMembership);
       }
     }
     if (RF_optHigh & OPT_TERM_INCG) {
@@ -130,9 +129,10 @@ void acquireTree(char mode, uint b) {
         assignTerminalNodeOutcomes(mode,
                                    treeID,
                                    leafLinkedObjectPtr -> termPtr,
-                                   RF_rFactorCount,
-                                   RF_rFactorSize,
-                                   RF_rNonFactorCount);
+                                   RF_startTimeIndex,
+                                   RF_timeIndex,
+                                   RF_statusIndex,
+                                   RF_rFactorSize);
       }
     }
     RF_tTermList[treeID] = (TerminalBase **) new_vvector(1, RF_tLeafCount_[treeID], NRUTIL_TPTR);

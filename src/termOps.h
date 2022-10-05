@@ -4,11 +4,11 @@
 void *makeTerminalDerived();
 void  freeTerminalDerived(void *parent);
 void stackCompMeanResponseOuter(Terminal *tTerm, unsigned int xReleaseCount);
-void stackCompMeanResponseInner(Terminal *tTerm, unsigned int xReleaseIndx, unsigned int rnfCount);
-void stackOobMeanResponse(Terminal *tTerm, unsigned int rnfCount);
+void stackCompMeanResponseInner(Terminal *tTerm, unsigned int xReleaseIndx);
+void stackOobMeanResponse(Terminal *tTerm);
 void unstackMeanResponseTerm(Terminal *tTerm);
 void stackCompMultiClassOuter(Terminal *tTerm, unsigned int xReleaseCount);
-void stackCompMultiClassInner(Terminal *tTerm, unsigned int xReleaseIndx, unsigned int rfCount, unsigned int *rfSize);
-void stackOobMultiClass(Terminal *tTerm, unsigned int rfCount, unsigned int *rfSize);
+void stackCompMultiClassInner(Terminal *tTerm, unsigned int xReleaseIndx);
+void stackOobMultiClass(Terminal *tTerm);
 void unstackMultiClassTerm(Terminal *tTerm);
 #endif 

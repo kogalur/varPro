@@ -14,12 +14,14 @@ cv.varpro <- function(f, data, ntree = 150,
   ##
   ##--------------------------------------------------------------
   dots <- list(...)
+  dots$nodesize.reduce <- nodesize.reduce
   ##--------------------------------------------------------------
   ##
   ## varpro call
   ##
   ##--------------------------------------------------------------
-  o <- do.call("varpro", c(list(f = f, data = data, split.weight = split.weight,
+  o <- do.call("varpro", c(list(f = f, data = data,
+                  ntree = ntree, split.weight = split.weight,
                   nodesize = nodesize, max.rules.tree = max.rules.tree, max.tree = max.tree,
 		  papply = papply, verbose = verbose, seed = seed), dots))
   ##--------------------------------------------------------------

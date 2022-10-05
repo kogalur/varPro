@@ -239,30 +239,36 @@ void stackIncomingArrays(char     mode,
         }
       }
     }
-    for (uint i = 1; i <= xSize; i++) {
-      if(xWeightStat[i] < 0) {
-        RF_nativeError("\nRF-SRC:  *** ERROR *** ");
-        RF_nativeError("\nRF-SRC:  Parameter verification failed.");
-        RF_nativeError("\nRF-SRC:  Split statistical weight elements must be greater than or equal to zero:  %12.4f \n", xWeightStat[i]);
-        RF_nativeExit();
-      }
-    }
-    if(ySize > 0) {
-      for (uint i = 1; i <= ySize; i++) {
-        if(yWeight[i] < 0) {
+    if(xWeightStat != NULL) {
+      for (uint i = 1; i <= xSize; i++) {
+        if(xWeightStat[i] < 0) {
           RF_nativeError("\nRF-SRC:  *** ERROR *** ");
           RF_nativeError("\nRF-SRC:  Parameter verification failed.");
-          RF_nativeError("\nRF-SRC:  Y-weight elements must be greater than or equal to zero:  %12.4f \n", yWeight[i]);
+          RF_nativeError("\nRF-SRC:  Split statistical weight elements must be greater than or equal to zero:  %12.4f \n", xWeightStat[i]);
           RF_nativeExit();
         }
       }
     }
-    for (uint i = 1; i <= xSize; i++) {
-      if(xWeight[i] < 0) {
-        RF_nativeError("\nRF-SRC:  *** ERROR *** ");
-        RF_nativeError("\nRF-SRC:  Parameter verification failed.");
-        RF_nativeError("\nRF-SRC:  X-weight elements must be greater than or equal to zero:  %12.4f \n", xWeight[i]);
-        RF_nativeExit();
+    if(ySize > 0) {
+      if(yWeight != NULL) {
+        for (uint i = 1; i <= ySize; i++) {
+          if(yWeight[i] < 0) {
+            RF_nativeError("\nRF-SRC:  *** ERROR *** ");
+            RF_nativeError("\nRF-SRC:  Parameter verification failed.");
+            RF_nativeError("\nRF-SRC:  Y-weight elements must be greater than or equal to zero:  %12.4f \n", yWeight[i]);
+            RF_nativeExit();
+          }
+        }
+      }
+    }
+    if(xWeight != NULL) {
+      for (uint i = 1; i <= xSize; i++) {
+        if(xWeight[i] < 0) {
+          RF_nativeError("\nRF-SRC:  *** ERROR *** ");
+          RF_nativeError("\nRF-SRC:  Parameter verification failed.");
+          RF_nativeError("\nRF-SRC:  X-weight elements must be greater than or equal to zero:  %12.4f \n", xWeight[i]);
+          RF_nativeExit();
+        }
       }
     }
     if ((*timeIndex == 0) && (*statusIndex == 0)) {
@@ -792,137 +798,143 @@ void stackAndInitializeTimeAndSubjectArrays(char     mode,
   uint i, j;
   uint leadingIndex;
   uint adjObsSize;
-  if (!(RF_opt & OPT_ANON)) {
-    if (startTimeIndex == 0) {
-      *masterTime  = dvector(1, observationSize);
-      *masterTimeIndexIn  = uivector(1, observationSize);
-      *masterTimeSize = 0;
-      for (j = 1; j <= observationSize; j++) {
-        if (!RF_nativeIsNaN(responseIn[timeIndex][j])) {
-          (*masterTimeSize) ++;
-          (*masterTime)[*masterTimeSize] = responseIn[timeIndex][j];
+  if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
+    if (!(RF_opt & OPT_ANON)) {
+      if (startTimeIndex == 0) {
+        *masterTime  = dvector(1, observationSize);
+        *masterTimeIndexIn  = uivector(1, observationSize);
+        *masterTimeSize = 0;
+        for (j = 1; j <= observationSize; j++) {
+          if (!RF_nativeIsNaN(responseIn[timeIndex][j])) {
+            (*masterTimeSize) ++;
+            (*masterTime)[*masterTimeSize] = responseIn[timeIndex][j];
+          }
+        }
+        adjObsSize = observationSize;
+      }
+      else {
+        RF_optHigh = RF_optHigh & (~OPT_MEMB_OUTG);
+        RF_optHigh = RF_optHigh & (~OPT_TERM_OUTG);
+        RF_opt                  = RF_opt & (~OPT_PERF);
+        RF_opt                  = RF_opt & (~OPT_VIMP);
+        *masterTime  = dvector(1, 2 * observationSize);
+        *startMasterTimeIndexIn = uivector(1, observationSize);
+        *masterTimeIndexIn      = uivector(1, observationSize);
+        *masterTimeSize = 0;
+        for (j = 1; j <= observationSize; j++) {
+          if (!RF_nativeIsNaN(responseIn[startTimeIndex][j])) {
+            (*masterTimeSize) ++;
+            (*masterTime)[*masterTimeSize] = responseIn[startTimeIndex][j];
+          }
+          if (!RF_nativeIsNaN(responseIn[timeIndex][j])) {
+            (*masterTimeSize) ++;
+            (*masterTime)[*masterTimeSize] = responseIn[timeIndex][j];
+          }
+        }
+        adjObsSize = 2 * observationSize;      
+      }
+      qksort(*masterTime, *masterTimeSize);
+      leadingIndex = 1;
+      for (i=2; i <= *masterTimeSize; i++) {
+        if ((*masterTime)[i] > (*masterTime)[leadingIndex]) {
+          leadingIndex++;
+          (*masterTime)[leadingIndex] = (*masterTime)[i];
         }
       }
-      adjObsSize = observationSize;
-    }
-    else {
-      RF_optHigh = RF_optHigh & (~OPT_MEMB_OUTG);
-      RF_optHigh = RF_optHigh & (~OPT_TERM_OUTG);
-      RF_opt                  = RF_opt & (~OPT_PERF);
-      RF_opt                  = RF_opt & (~OPT_VIMP);
-      *masterTime  = dvector(1, 2 * observationSize);
-      *startMasterTimeIndexIn = uivector(1, observationSize);
-      *masterTimeIndexIn      = uivector(1, observationSize);
-      *masterTimeSize = 0;
-      for (j = 1; j <= observationSize; j++) {
-        if (!RF_nativeIsNaN(responseIn[startTimeIndex][j])) {
-          (*masterTimeSize) ++;
-          (*masterTime)[*masterTimeSize] = responseIn[startTimeIndex][j];
+      *masterTimeSize = leadingIndex;
+      for (i= (*masterTimeSize) + 1; i <= adjObsSize; i++) {
+        (*masterTime)[i] = 0;
+      }
+      if (startTimeIndex > 0) {
+        *masterToInterestTimeMap = uivector(1, *masterTimeSize);
+        *subjSlot      = uivector(1, observationSize);
+        *subjSlotCount = uivector(1, observationSize);
+        *caseMap     = uivector(1, observationSize);
+        double *copySubjIn = dvector(1, observationSize);
+        uint   *sortedIdx = uivector(1, observationSize);
+        for (i = 1; i <= observationSize; i++) {
+          (*subjSlotCount)[i] = 0;
+          copySubjIn[i] = (double) subjIn[i];
         }
-        if (!RF_nativeIsNaN(responseIn[timeIndex][j])) {
-          (*masterTimeSize) ++;
-          (*masterTime)[*masterTimeSize] = responseIn[timeIndex][j];
+        indexx(observationSize, copySubjIn, sortedIdx);
+        *subjCount = 1;
+        (*subjSlotCount)[1] = 1;      
+        (*subjSlot)[1] = subjIn[sortedIdx[1]]; 
+        (*caseMap)[sortedIdx[1]] = 1;
+        for (i = 2; i <= observationSize; i++) {
+          if (subjIn[sortedIdx[i]] > (*subjSlot)[*subjCount]) {
+            (*subjCount) ++;
+            (*subjSlot)[*subjCount] = subjIn[sortedIdx[i]];
+          }
+          (*subjSlotCount)[*subjCount] ++;
+          (*caseMap)[sortedIdx[i]] = *subjCount;
+        }
+        for (i = (*subjCount) + 1; i <= observationSize; i++) {
+          (*subjSlot)[i] = 0;
+        }
+        if (*subjCount != subjSize) {
+          RF_nativeError("\nRF-SRC: *** ERROR *** ");
+          RF_nativeError("\nRF-SRC: Subject count found in cases inconsistent with incoming subject size:  %10d vs %10d", *subjCount, subjSize);
+          RF_nativeExit();
+        }
+        *subjList = (uint **) new_vvector(1, *subjCount, NRUTIL_UPTR);
+        uint *tempSubjIter = uivector(1, *subjCount);
+        for (i = 1; i <= *subjCount; i++) {
+          (*subjList)[i] = uivector(1, (*subjSlotCount)[i]);
+          tempSubjIter[i] = 0;
+        }
+        for (i = 1; i <= observationSize; i++) {
+          (*subjList)[(*caseMap)[i]][++tempSubjIter[(*caseMap)[i]]] = i;
+        }
+        free_uivector(tempSubjIter, 1, *subjCount);
+        free_uivector(sortedIdx, 1, observationSize);
+        free_dvector(copySubjIn, 1, observationSize);
+      }
+    }
+    if (!(RF_opt & OPT_IMPU_ONLY)) {
+      qksort(*timeInterest, timeInterestSize);
+      *sortedTimeInterestSize = 1;
+      for (i=2; i <= timeInterestSize; i++) {
+        if ((*timeInterest)[i] > (*timeInterest)[*sortedTimeInterestSize]) {
+          (*sortedTimeInterestSize) ++;
+          (*timeInterest)[*sortedTimeInterestSize] = (*timeInterest)[i];
         }
       }
-      adjObsSize = 2 * observationSize;      
-    }
-    qksort(*masterTime, *masterTimeSize);
-    leadingIndex = 1;
-    for (i=2; i <= *masterTimeSize; i++) {
-      if ((*masterTime)[i] > (*masterTime)[leadingIndex]) {
-        leadingIndex++;
-        (*masterTime)[leadingIndex] = (*masterTime)[i];
+      if (*sortedTimeInterestSize != timeInterestSize) {
+        RF_nativePrint("\nRF-SRC:  *** WARNING *** ");
+        RF_nativePrint("\nRF-SRC:  Time points of interest are not unique.");
+        RF_nativePrint("\nRF-SRC:  Any ensemble matricies will be");
+        RF_nativePrint("\nRF-SRC:  resized as [N'] x [n], where N' is the");
+        RF_nativePrint("\nRF-SRC:  unique time points of interest and n is");
+        RF_nativePrint("\nRF-SRC:  number of observations in the data.");
       }
-    }
-    *masterTimeSize = leadingIndex;
-    for (i= (*masterTimeSize) + 1; i <= adjObsSize; i++) {
-      (*masterTime)[i] = 0;
-    }
-    if (startTimeIndex > 0) {
-      *masterToInterestTimeMap = uivector(1, *masterTimeSize);
-      *subjSlot      = uivector(1, observationSize);
-      *subjSlotCount = uivector(1, observationSize);
-      *caseMap     = uivector(1, observationSize);
-      double *copySubjIn = dvector(1, observationSize);
-      uint   *sortedIdx = uivector(1, observationSize);
-      for (i = 1; i <= observationSize; i++) {
-        (*subjSlotCount)[i] = 0;
-        copySubjIn[i] = (double) subjIn[i];
+      for (i = (*sortedTimeInterestSize) + 1; i <= timeInterestSize; i++) {
+        (*timeInterest)[i] = 0;
       }
-      indexx(observationSize, copySubjIn, sortedIdx);
-      *subjCount = 1;
-      (*subjSlotCount)[1] = 1;      
-      (*subjSlot)[1] = subjIn[sortedIdx[1]]; 
-      (*caseMap)[sortedIdx[1]] = 1;
-      for (i = 2; i <= observationSize; i++) {
-        if (subjIn[sortedIdx[i]] > (*subjSlot)[*subjCount]) {
-          (*subjCount) ++;
-          (*subjSlot)[*subjCount] = subjIn[sortedIdx[i]];
-        }
-        (*subjSlotCount)[*subjCount] ++;
-        (*caseMap)[sortedIdx[i]] = *subjCount;
-      }
-      for (i = (*subjCount) + 1; i <= observationSize; i++) {
-        (*subjSlot)[i] = 0;
-      }
-      if (*subjCount != subjSize) {
-        RF_nativeError("\nRF-SRC: *** ERROR *** ");
-        RF_nativeError("\nRF-SRC: Subject count found in cases inconsistent with incoming subject size:  %10d vs %10d", *subjCount, subjSize);
-        RF_nativeExit();
-      }
-      *subjList = (uint **) new_vvector(1, *subjCount, NRUTIL_UPTR);
-      uint *tempSubjIter = uivector(1, *subjCount);
-      for (i = 1; i <= *subjCount; i++) {
-        (*subjList)[i] = uivector(1, (*subjSlotCount)[i]);
-        tempSubjIter[i] = 0;
-      }
-      for (i = 1; i <= observationSize; i++) {
-        (*subjList)[(*caseMap)[i]][++tempSubjIter[(*caseMap)[i]]] = i;
-      }
-      free_uivector(tempSubjIter, 1, *subjCount);
-      free_uivector(sortedIdx, 1, observationSize);
-      free_dvector(copySubjIn, 1, observationSize);
-    }
-  }
-  if (!(RF_opt & OPT_IMPU_ONLY)) {
-    qksort(*timeInterest, timeInterestSize);
-    *sortedTimeInterestSize = 1;
-    for (i=2; i <= timeInterestSize; i++) {
-      if ((*timeInterest)[i] > (*timeInterest)[*sortedTimeInterestSize]) {
-        (*sortedTimeInterestSize) ++;
-        (*timeInterest)[*sortedTimeInterestSize] = (*timeInterest)[i];
-      }
-    }
-    if (*sortedTimeInterestSize != timeInterestSize) {
-      RF_nativePrint("\nRF-SRC:  *** WARNING *** ");
-      RF_nativePrint("\nRF-SRC:  Time points of interest are not unique.");
-      RF_nativePrint("\nRF-SRC:  Any ensemble matricies will be");
-      RF_nativePrint("\nRF-SRC:  resized as [N'] x [n], where N' is the");
-      RF_nativePrint("\nRF-SRC:  unique time points of interest and n is");
-      RF_nativePrint("\nRF-SRC:  number of observations in the data.");
-    }
-    for (i = (*sortedTimeInterestSize) + 1; i <= timeInterestSize; i++) {
-      (*timeInterest)[i] = 0;
-    }
-    if (startTimeIndex > 0) {
-      i = j = 1;
-      while (i <= *masterTimeSize) {
-        while (((*timeInterest)[j] >= (*masterTime)[i]) && (i <= *masterTimeSize)) {
-          (*masterToInterestTimeMap)[i] = j;
-          i++;
-        }
-        if (j < *sortedTimeInterestSize) {
-          j++;
-        }
-        else {
-          if (i <= *masterTimeSize) {
-            (*masterToInterestTimeMap)[i] = timeInterestSize;
+      if (startTimeIndex > 0) {
+        i = j = 1;
+        while (i <= *masterTimeSize) {
+          while (((*timeInterest)[j] >= (*masterTime)[i]) && (i <= *masterTimeSize)) {
+            (*masterToInterestTimeMap)[i] = j;
             i++;
+          }
+          if (j < *sortedTimeInterestSize) {
+            j++;
+          }
+          else {
+            if (i <= *masterTimeSize) {
+              (*masterToInterestTimeMap)[i] = timeInterestSize;
+              i++;
+            }
           }
         }
       }
-    }
-  }  
+    }  
+  }
+  else {
+    *masterTimeSize = 0;
+    *sortedTimeInterestSize = 0;
+  }
 }
 void unstackTimeAndSubjectArrays(char     mode,
                                  uint     startTimeIndex,
@@ -1033,21 +1045,12 @@ void stackFactorArrays(char    mode,
          
   }
   if (ySize == 0) {
-    rTarget = NULL;
-    rTargetCount = 0;
   }
   else {
     if ((timeIndex > 0) && (statusIndex > 0)) {
-      rTarget = NULL;
-      rTargetCount = 0;
     }
     else {
       if (mode == RF_GROW) {
-        rTargetCount = ySize;
-        rTarget = uivector(1 , rTargetCount);
-        for (i = 1; i <= rTargetCount; i++) {
-          rTarget[i] = i;
-        }
       }
       else {
       }
@@ -1185,11 +1188,6 @@ void unstackFactorArrays(char     mode,
     else {
       free_uivector(rTargetFactor, 1, rTargetCount);
       free_uivector(rTargetNonFactor, 1, rTargetCount);
-      if (mode == RF_GROW) {
-        free_uivector(rTarget, 1 , rTargetCount);
-      }
-      else {
-      }
     }
   }
 }

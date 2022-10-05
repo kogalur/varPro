@@ -29,16 +29,10 @@ importance.varpro <- function(o, cutoff = 2, trim = 0.1,
   ##
   ## ------------------------------------------------------------------------
   if (!missing(max.rules.tree) || !missing(max.tree)) {
-    if (!missing(max.rules.tree)) {
-      max.rules.tree <- max.rules.tree
-    }
-    else {
+    if (missing(max.rules.tree)) {
       max.rules.tree <- o$max.rules.tree
     }
-    if (!missing(max.tree)) {
-      max.tree <- max.tree
-    }
-    else {
+    if (missing(max.tree)) {
       max.tree <- o$max.tree
     }
     ## obtain varpro strength

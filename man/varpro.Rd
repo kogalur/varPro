@@ -103,7 +103,9 @@ varpro(f, data, ntree = 500, split.weight = TRUE,
 
 \seealso{
   \command{\link{glioma}}
+  \command{\link{cv.varpro}}  
   \command{\link{importance.varpro}}
+  \command{\link{unsupv.varpro}}
 }
 
 \examples{
@@ -199,8 +201,8 @@ imp <- importance(o, plot.it = TRUE)
 print(imp)
 
 ## ------------------------------------------------------------
-## largish data: iowa housing data
-## use bigger nodesize to speed calculations
+## largish data (iowa housing data)
+## to speed up calculations: use fewer trees and bigger nodesize
 ## ------------------------------------------------------------
 
 ## use rapid, fast impute

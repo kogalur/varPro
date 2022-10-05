@@ -50,8 +50,8 @@ cv.varpro(f, data, ntree = 150,
   \item{crps}{Use CRPS (continuous rank probability score) for
      estimating survival performance (default is to use Harrel's C-index)?
      Only applies to survival families.}
-  
-  \item{...}{Further arguments (for experts only).}
+
+   \item{...}{Further arguments to be passed to \command{varpro}.}
 
 }
 
@@ -87,6 +87,7 @@ cv.varpro(f, data, ntree = 150,
 
 \seealso{
   \command{\link{importance.varpro}}
+  \command{\link{unsupv.varpro}}
   \command{\link{varpro}}
 }
 

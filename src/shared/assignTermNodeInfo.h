@@ -7,12 +7,12 @@ void assignTerminalNodeMembership(char             mode,
                                   uint            *genMembrIndx,
                                   uint             genMembrSize,
                                   uint            *gmbrIterator,
-                                  TerminalBase  ***tTermMembership,
-                                  uint           **AMBR_ID_ptr);
+                                  TerminalBase  ***tTermMembership);
 void assignTerminalNodeOutcomes(char           mode,
                                 uint           treeID,
                                 TerminalBase  *parent,
-                                uint           rFactorCount,
-                                uint          *rFactorSize,
-                                uint           rNonFactorCount);
+                                uint           startTimeIndex,
+                                uint           timeIndex,
+                                uint           statusIndex,
+                                uint          *rFactorSize);
 #endif

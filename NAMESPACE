@@ -12,12 +12,13 @@ importFrom("utils", "combn")
 
 importFrom("randomForestSRC", "rfsrc")
 
-## export(importance, importance.varpro, cv.varpro, varpro)
+## export(importance, importance.varpro, cv.varpro, unsupv.varpro, varpro)
   
 ## for testing purposes we exported varpro.strength
 export(importance,
        importance.varpro,
        cv.varpro,
+       unsupv.varpro,
        varpro,
        varpro.strength,
        varpro.news)

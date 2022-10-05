@@ -7,6 +7,10 @@ varpro.strength <- function(object,
                             seed = NULL,
                             do.trace = FALSE)
 {
+  ## only applies to rfsrc grow objects
+  if (sum(inherits(object, c("rfsrc", "grow"), TRUE) == c(1, 2)) != 2) {
+    stop("This function only works for objects of class `(rfsrc, grow)'")
+  }
   if(max.rules.tree > 2^31 - 1) {
       stop("max.rules.tree must be less than 2^31 - 1:  ", max.rules.tree)
   }
@@ -32,21 +36,7 @@ varpro.strength <- function(object,
   ## Initialize the seed.
   seed <- get.seed(seed)
   ## REDUCES THE OBJECT TO THE FOREST -- REDUCTION STARTS HERE
-  ## hereafter we only need the forest and reassign "object" to the forest
-  ## (TBD3) memory management "big.data" not currently implemented:
-  big.data <- FALSE
-  if (sum(inherits(object, c("rfsrc", "grow"), TRUE) == c(1, 2)) == 2) {
-    if (inherits(object, "bigdata")) {
-      big.data <- TRUE
-    }
-    object <- object$forest
-  }
-  else {
-    ## object is already a forest
-    if (inherits(object, "bigdata")) {
-      big.data <- TRUE
-    }
-  }
+  object <- object$forest
   ## Determine the immutable yvar factor map which is needed for
   ## classification sexp dimensioning.  But, first convert object$yvar
   ## to a data frame which is required for factor processing
@@ -431,6 +421,13 @@ varpro.strength <- function(object,
         }
       }
     }
+    ## clean up the lists
+    oobMembershipList <- lapply(1:length(oobMembershipList), function(j) {
+      unlist(oobMembershipList[[j]])
+    })
+    compMembershipList <- lapply(1:length(compMembershipList), function(j) {
+      unlist(compMembershipList[[j]])
+    })
   }
   ## return NULL otherwise
   else {

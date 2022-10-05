@@ -89,6 +89,7 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
   ## ------------------------------------------------------------------------
   hidden <- get.varpro.hidden(list(...), ntree)
   ntree.external <- hidden$ntree.external
+  nsplit <- hidden$nsplit
   nodesize.external <- hidden$nodesize.external
   ntime.external <- hidden$ntime.external
   nodesize.reduce <- hidden$nodesize.reduce
@@ -351,7 +352,7 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
     object <- rfsrc(f, data,
                     xvar.wt = xvar.wt,
                     ntree = ntree,
-                    nsplit = 0,
+                    nsplit = nsplit,
                     nodesize = nodesize,
                     membership = TRUE,
                     perf.type = "none",
@@ -375,6 +376,9 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
   ##
   ##
   ## ------------------------------------------------------------------------
+  if (verbose) {
+    cat("acquiring rules...\n")
+  }  
   var.strength <- varpro.strength(object = object,
                                   max.rules.tree = max.rules.tree, max.tree = max.tree)$strengthArray
   ## process the strength array

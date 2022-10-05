@@ -25,10 +25,10 @@ void getMeanResponse(uint       treeID,
   double *mean;
   mean = dvector(1, RF_rNonFactorCount);
   if(oob) {
-    stackOobMeanResponse(parent, RF_rNonFactorCount);
+    stackOobMeanResponse(parent);
   }
   else {
-    stackCompMeanResponseInner(parent, xReleaseIndx, RF_rNonFactorCount);
+    stackCompMeanResponseInner(parent, xReleaseIndx);
   }
   if (membershipSize == 0) {
     for (j = 1; j <= RF_rNonFactorCount; j++) {
@@ -76,10 +76,10 @@ void getMultiClassProb (uint       treeID,
     mcp[j] = uivector(1, RF_rFactorSize[j]);
   }
   if(oob) {
-    stackOobMultiClass(parent, RF_rFactorCount, RF_rFactorSize);
+    stackOobMultiClass(parent);
   }
   else {
-    stackCompMultiClassInner(parent, xReleaseIndx, RF_rFactorCount, RF_rFactorSize);
+    stackCompMultiClassInner(parent, xReleaseIndx);
   }
   if (membershipSize == 0) {
     for (j=1; j <= RF_rFactorCount; j++) {

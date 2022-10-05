@@ -2,18 +2,18 @@
 #define RF_STACK_MEMBERSHIP_VECTORS_H
 void stackMembershipVectors(uint observationSize,
                             uint identityMembershipIndexSize,
-                            char **bootMembershipFlag_treeID,
-                            char **oobMembershipFlag_treeID,
-                            uint **bootMembershipCount_treeID,
-                            uint **ibgMembershipIndex_treeID,
-                            uint **oobMembershipIndex_treeID,
-                            uint **bootMembershipIndex_treeID);
+                            char **bootMembershipFlag,
+                            char **oobMembershipFlag,
+                            uint **bootMembershipCount,
+                            uint **ibgMembershipIndex,
+                            uint **oobMembershipIndex,
+                            uint **bootMembershipIndex);
 void unstackMembershipVectors(uint observationSize,
                               uint identityMembershipIndexSize,
-                              char *bootMembershipFlag_treeID,
-                              char *oobMembershipFlag_treeID,
-                              uint *bootMembershipCount_treeID,
-                              uint *ibgMembershipIndex_treeID,
-                              uint *oobMembershipIndex_treeID,
-                              uint *bootMembershipIndex_treeID);
+                              char *bootMembershipFlag,
+                              char *oobMembershipFlag,
+                              uint *bootMembershipCount,
+                              uint *ibgMembershipIndex,
+                              uint *oobMembershipIndex,
+                              uint *bootMembershipIndex);
 #endif
