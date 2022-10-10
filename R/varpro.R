@@ -2,8 +2,7 @@
 ###  variable priority (varPro) for regression, classification and survival
 ###
 ###  TBD
-###  - automate nodesize and nodedepth.reduce according to n and p
-###    (for large n, nodesize should be big, for big p, nodesize should be small)
+###  - automate dimension.n, nodesize, nodedepth.reduce according to n and p
 ###  - class imbalanced analysis could potentially be improved
 ###
 ### ---------------------------------------------------------------
@@ -88,8 +87,9 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
   ##
   ## ------------------------------------------------------------------------
   hidden <- get.varpro.hidden(list(...), ntree)
-  ntree.external <- hidden$ntree.external
+  sampsize <- hidden$sampsize
   nsplit <- hidden$nsplit
+  ntree.external <- hidden$ntree.external  
   nodesize.external <- hidden$nodesize.external
   ntime.external <- hidden$ntime.external
   nodesize.reduce <- hidden$nodesize.reduce
@@ -119,7 +119,8 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
       cat("detected a survival family, using RSF to calculate external estimator...\n")
     }  
     ## survival forest used to calculate external estimator
-    o.external <- rfsrc(f, data, ntree = ntree.external, save.memory = TRUE,
+    o.external <- rfsrc(f, data, sampsize = sampsize,
+         ntree = ntree.external, save.memory = TRUE,
          perf.type = "none", nodesize = nodesize.external, ntime = ntime.external)
     ## use mortality for y
     if (is.null(rmst)) {
@@ -241,6 +242,7 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
     ##
     ## add vimp to lasso split-weight calculation
     ## REQUIRES lasso to be unsuccessful & not big p not big n
+    ## sampsize is not deployed since this can non-intuitively slow calculations
     ##
     ##---------------------------------------------------------
     if (n >= dimension.n || p >= dimension.p) {
@@ -292,7 +294,7 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
     ##---------------------------------------------------------
     if (!use.vimp) {
       ## fast filtering based on number of splits
-      xvar.used <- rfsrc(f, data, ntree = ntree.reduce, nodedepth = nodedepth.reduce,
+      xvar.used <- rfsrc(f, data, sampsize = sampsize, ntree = ntree.reduce, nodedepth = nodedepth.reduce,
                    perf.type = "none", var.used = "all.trees", mtry = Inf, nsplit = 100)$var.used
       ## assign relative frequency cutoff
       if (n >= dimension.n) {
@@ -342,7 +344,7 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
   ##
   ##
   ## model based rule generation
-  ##
+  ## sampsize is not deployed since this can non-intuitively slow calculations
   ##
   ## ------------------------------------------------------------------------
   if (verbose) {
@@ -351,10 +353,10 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
   if (split.weight) {
     object <- rfsrc(f, data,
                     xvar.wt = xvar.wt,
+                    #sampsize = sampsize,
                     ntree = ntree,
                     nsplit = nsplit,
                     nodesize = nodesize,
-                    membership = TRUE,
                     perf.type = "none",
                     seed = seed)
   }
@@ -362,17 +364,17 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
     object <- rfsrc(f,
                     data,
                     mtry = Inf,
+                    #sampsize = sampsize,
                     ntree = ntree,
+                    nsplit = nsplit,
                     nodesize = nodesize,
-                    membership = TRUE,
                     perf.type = "none",
                     seed = seed)
   }
   ## ------------------------------------------------------------------------
   ##
   ##
-  ## obtain varpro strength
-  ## overrides the manual version and uses new varpro.strength direct C call
+  ## obtain varpro strength using direct C call via varpro.strength()
   ##
   ##
   ## ------------------------------------------------------------------------
@@ -380,7 +382,8 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
     cat("acquiring rules...\n")
   }  
   var.strength <- varpro.strength(object = object,
-                                  max.rules.tree = max.rules.tree, max.tree = max.tree)$strengthArray
+                                  max.rules.tree = max.rules.tree,
+                                  max.tree = max.tree)$strengthArray
   ## process the strength array
   var.strength <- get.varpro.strengthArray(var.strength, family, y)
   ## ------------------------------------------------------------------------

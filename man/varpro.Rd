@@ -205,7 +205,7 @@ print(imp)
 ## to speed up calculations: use fewer trees and bigger nodesize
 ## ------------------------------------------------------------
 
-## use rapid, fast impute
+## first we roughly impute the data
 data(housing, package = "randomForestSRC")
 housing2 <- randomForestSRC:::get.na.roughfix(housing)
 
@@ -214,16 +214,25 @@ o <- varpro(SalePrice~., housing2, ntree = 100, nodesize = 50)
 print(importance(o))
 
 ## ------------------------------------------------------------
-## another way to speed up large data: turn lasso off
-## (you can test this by increasing n and p below
+## large data: illustrates different ways to improve speed
 ## ------------------------------------------------------------
 
 n <- 25000
 p <- 50
 d <- data.frame(y = rnorm(n), x = matrix(rnorm(n * p), n))
 
+## use large nodesize
+print(system.time(o <- varpro(y~., d, ntree = 100, nodesize = 200)))
+print(importance(o))
+
+## use large nodesize, turn lasso off
 o <- varpro(y~., d, ntree = 100, nodesize = 200, use.lasso = FALSE)
 print(importance(o))
+
+## use smaller bootstrap size
+o <- varpro(y~., d, ntree = 100, sampsize = 500)
+print(importance(o))
+
 
 }
 }

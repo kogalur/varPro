@@ -1,5 +1,11 @@
 ## process hidden variables
 get.varpro.hidden <- function(user.option, ntree) {
+  if (!is.null(user.option$sampsize)) {
+    sampsize <- user.option$sampsize
+  }
+  else {
+    sampsize <- function(x) {x * .632}
+  }
   if (!is.null(user.option$nsplit)) {
     nsplit <- user.option$nsplit
   }
@@ -102,7 +108,9 @@ get.varpro.hidden <- function(user.option, ntree) {
   else {
     use.vimp <- TRUE
   }
-  list(ntree.external = ntree,
+  list(sampsize = sampsize,
+       nsplit = nsplit,
+       ntree.external = ntree,
        nodesize.external = nodesize.external,
        ntime.external = ntime.external,
        nodesize.reduce = nodesize.reduce,
@@ -122,7 +130,8 @@ get.varpro.hidden <- function(user.option, ntree) {
 }
 ## list hidden variables
 show.varpro.hidden <- function() {
-  c("nsplit",
+  c("sampsize",
+    "nsplit",
     "ntree.external",
     "nodesize.external",
     "ntime.external",
@@ -145,11 +154,17 @@ show.varpro.hidden <- function() {
 get.varpro.names <- function (hidden = TRUE) {
   vnames <- names(formals(varpro))
   if (hidden) {
-    vnames <- c(vnames, "nsplit", "nodesize.external", "ntime.external",
+    vnames <- c(vnames,
+                "sampsize", "nsplit",
+                "ntree.external", "nodesize.external", "ntime.external",
                 "nodesize.reduce", "ntree.reduce", "nodedepth.reduce",
-                "dimension.n", "dimension.p", "dimension.q", "dimension.index",
-                "dimension.ir", "rmst", "other.external", "maxit", "split.weight.only",
-                "use.lasso", "use.vimp")
+                "dimension.n", "dimension.p", "dimension.q", "dimension.index", "dimension.ir",
+                "rmst",
+                "other.external",
+                "maxit",
+                "split.weight.only",
+                "use.lasso",
+                "use.vimp")
   }
   vnames
 }

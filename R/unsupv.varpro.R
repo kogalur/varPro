@@ -38,7 +38,7 @@ unsupv.varpro <- function(data, nvar = 5, cutoff = NULL,
   dots$nodesize.reduce <- nodesize.reduce
   f <- as.formula("classes ~ .")
   varpro.names <- c(get.varpro.names())
-  cv.varpro.names <- c(varpro.names, "zcut", "blocks")
+  cv.varpro.names <- c(varpro.names, "zcut", "nblocks", "fast", "crps")
   ##------------------------------------------------------------------
   ##
   ##

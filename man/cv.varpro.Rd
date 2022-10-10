@@ -13,7 +13,7 @@ cv.varpro(f, data, ntree = 150,
        nodesize = 10, nodesize.reduce = 10,
        max.rules.tree = 150, max.tree = min(150, ntree), 
        papply = mclapply, verbose = FALSE, seed = NULL,
-       crps = FALSE, ...)
+       fast = FALSE, crps = FALSE, ...)
 }
 
 \arguments{
@@ -47,11 +47,14 @@ cv.varpro(f, data, ntree = 150,
 
   \item{seed}{Seed for repeatability.}
 
+  \item{fast}{Use fast random forests, \command{rfsrc.fast}, in place of \command{rfsrc}?
+          Improves speed but may be less accurate.}
+	  
   \item{crps}{Use CRPS (continuous rank probability score) for
      estimating survival performance (default is to use Harrel's C-index)?
      Only applies to survival families.}
 
-   \item{...}{Further arguments to be passed to \command{varpro}.}
+  \item{...}{Further arguments to be passed to \command{varpro}.}
 
 }
 
@@ -123,7 +126,7 @@ print(cv.varpro(Species~., iris))
 print(cv.varpro(y~., data.frame(mlbench::mlbench.friedman1(1000))))
 
 ## ------------------------------------------------------------
-## peak VO2 with cutoff selected using
+## peak VO2 with cutoff selected using fast option
 ## (a) C-index (default) (b) CRPS performance metric
 ## ------------------------------------------------------------
 
@@ -131,10 +134,28 @@ data(peakVO2, package = "randomForestSRC")
 f <- as.formula(Surv(ttodead, died)~.)
 
 ## Harrel's C-index (default)
-print(cv.varpro(f, peakVO2, verbose = TRUE, ntree = 100))
+print(cv.varpro(f, peakVO2, ntree = 100, fast = TRUE))
 
-## CRPS 
-print(cv.varpro(f, peakVO2, verbose = TRUE, crps = TRUE, ntree = 100))
+## Harrel's C-index with smaller bootstrap
+print(cv.varpro(f, peakVO2, ntree = 100, fast = TRUE, sampsize = 100))
+
+## CRPS with smaller bootstrap
+print(cv.varpro(f, peakVO2, crps = TRUE, ntree = 100, fast = TRUE, sampsize = 100))
+
+## ------------------------------------------------------------
+## largish data set: illustrates various options to speed up calculations
+## ------------------------------------------------------------
+
+## roughly impute the data
+data(housing, package = "randomForestSRC")
+housing2 <- randomForestSRC:::get.na.roughfix(housing)
+
+## use bigger nodesize
+print(cv.varpro(SalePrice~., housing2, fast = TRUE, nodesize = 150))
+
+## use smaller bootstrap
+print(cv.varpro(SalePrice~., housing2, fast = TRUE, nodesize = 150, sampsize = 250))
+
 }
 
 }

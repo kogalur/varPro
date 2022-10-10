@@ -1,29 +1,60 @@
-get.crps <- function (o, papply = mclapply)  {
-  event.info <- randomForestSRC:::get.event.info(o)
-  surv.ensb <- t(o$survival.oob)
-  censTime <- sort(unique(event.info$time[event.info$cens == 0]))
-  censTime.pt <- c(sIndex(censTime, event.info$time.interest))
-  if (length(censTime) > 0) {
-    censModel.obj <- do.call(rbind, papply(1:length(censTime), function(j) {
-      c(sum(event.info$time >= censTime[j], na.rm = TRUE), 
-        sum(event.info$time[event.info$cens == 0] == 
-            censTime[j], na.rm = TRUE))
-    }))
-    Y <- censModel.obj[, 1]
-    d <- censModel.obj[, 2]
-    r <- d/(Y + 1 * (Y == 0))
-    cens.dist <- c(1, exp(-cumsum(r)))[1 + censTime.pt]
+## random forest censoring distribution
+get.cens.dist <- function(data, ntree, nodesize, ssize) {
+  colnames(data)[1:2] <- c("time", "cens")
+  data$cens <- 1 * (data$cens == 0)
+  ssize <- min(ssize, eval(formals(randomForestSRC::rfsrc.fast)$sampsize)(nrow(data)), na.rm = TRUE)
+  cens.o <- randomForestSRC::rfsrc.fast(Surv(time, cens) ~ ., data,
+                       ntree = ntree, nodesize = nodesize, sampsize = ssize, perf.type = "none")
+  list(surv = cens.o$survival.oob, time.interest = cens.o$time.interest)
+}
+get.crps <- function (o, papply = mclapply, cens.dist = NULL)  {
+  if (!is.null(o$survival.oob)) {
+    surv.ensb <- t(o$survival.oob)
   }
   else {
-    cens.dist <- rep(1, length(censTime.pt))
+    surv.ensb <- t(o$survival)
+    o$yvar <- o$forest$yvar
   }
+  event.info <- randomForestSRC:::get.event.info(o)
+  ## KM censoring distribution estimator
+  if (is.null(cens.dist)) {
+    cens.model <- "km"
+    censTime <- sort(unique(event.info$time[event.info$cens == 0]))
+    censTime.pt <- c(sIndex(censTime, event.info$time.interest))
+    if (length(censTime) > 0) {
+      censModel.obj <- do.call(rbind, papply(1:length(censTime), function(j) {
+        c(sum(event.info$time >= censTime[j], na.rm = TRUE), 
+          sum(event.info$time[event.info$cens == 0] == 
+              censTime[j], na.rm = TRUE))
+      }))
+      Y <- censModel.obj[, 1]
+      d <- censModel.obj[, 2]
+      r <- d/(Y + 1 * (Y == 0))
+      cens.dist <- c(1, exp(-cumsum(r)))[1 + censTime.pt]
+    }
+    else {
+      cens.dist <- rep(1, length(censTime.pt))
+    }
+  }
+  else {## random forest censoring distribution
+    cens.model <- "rfsrc"
+    censTime.pt <- c(sIndex(cens.dist$time.interest, event.info$time.interest))
+    cens.dist <- t(cbind(1, cens.dist$surv)[, 1 + censTime.pt])
+  }
+  ## brier calculation
   brier.matx <- do.call(rbind, papply(1:ncol(surv.ensb), function(i) {
     tau <- event.info$time
     event <- event.info$cens
     t.unq <- event.info$time.interest
     cens.pt <- sIndex(t.unq, tau[i])
-    c1 <- 1 * (tau[i] <= t.unq & event[i] != 0)/c(1, cens.dist)[1 + cens.pt]
-    c2 <- 1 * (tau[i] > t.unq)/cens.dist
+    if (cens.model == "km") {
+      c1 <- 1 * (tau[i] <= t.unq & event[i] != 0)/c(1, cens.dist)[1 + cens.pt]
+      c2 <- 1 * (tau[i] > t.unq)/cens.dist
+    }
+    else {
+      c1 <- 1 * (tau[i] <= t.unq & event[i] != 0)/c(1, cens.dist[, i])[1 + cens.pt]
+      c2 <- 1 * (tau[i] > t.unq) / cens.dist[, i]
+    }
     (1 * (tau[i] > t.unq) - surv.ensb[, i])^2 * (c1 + c2)
   }))
   brier.score <- data.frame(time = event.info$time.interest, 
@@ -32,7 +63,7 @@ get.crps <- function (o, papply = mclapply)  {
   crps / max(brier.score$time)
 }
 get.sderr.workhorse <- function(obj, standardize = TRUE, outcome.target = NULL,
-                       crps = FALSE, papply = mclapply) {
+                       crps = FALSE, papply = mclapply, cens.dist = NULL) {
   ## set the target response outcome
   ynms <- obj$yvar.names
   if (is.null(outcome.target)) {
@@ -46,7 +77,7 @@ get.sderr.workhorse <- function(obj, standardize = TRUE, outcome.target = NULL,
   }
   ## CRPS calculation for survival families
   if (obj$family == "surv" && crps) {
-    get.crps(obj, papply = papply)
+    get.crps(obj, papply = papply, cens.dist = cens.dist)
   }
   ## default is to get the error rate
   else {
@@ -69,7 +100,8 @@ get.sderr.workhorse <- function(obj, standardize = TRUE, outcome.target = NULL,
     unlist(err)
   }
 }
-get.sderr <- function(obj, nblocks, outcome.target = NULL, crps = FALSE, papply = mclapply) {
+get.sderr <- function(obj, nblocks, outcome.target = NULL,
+                      crps = FALSE, papply = mclapply, newdata = NULL, cens.dist = NULL) {
   ## use normalized brier score for classification
   ## this way all error metrics are normalized so that > 1.0 is bad.
   nblocks <- min(nblocks, obj$ntree)
@@ -87,14 +119,22 @@ get.sderr <- function(obj, nblocks, outcome.target = NULL, crps = FALSE, papply 
   ## trivial case
   if (nblocks == 1) {
     return(c(get.sderr.workhorse(randomForestSRC::predict.rfsrc(obj,
-       perf.type = perf.type), outcome.target = outcome.target, crps = crps, papply = papply), 0))
+          perf.type = perf.type), outcome.target = outcome.target,
+          crps = crps, papply = papply, cens.dist = cens.dist), 0))
   }
   ## extract error rates for blocks of trees
   tree.seq <- unique(c(1, round(seq(1, obj$ntree, length = nblocks)), obj$ntree))
   err <- sapply(1:(length(tree.seq)-1), function(j) {
-    get.sderr.workhorse(randomForestSRC::predict.rfsrc(obj,
+    if (is.null(newdata)) {
+      get.sderr.workhorse(randomForestSRC::predict.rfsrc(obj,
         get.tree = tree.seq[j]:tree.seq[j+1], perf.type = perf.type),
-        outcome.target = outcome.target, crps = crps, papply = papply)
+        outcome.target = outcome.target, crps = crps, papply = papply, cens.dist = cens.dist)
+    }
+    else {
+     get.sderr.workhorse(randomForestSRC::predict.rfsrc(obj,
+        newdata = newdata, get.tree = tree.seq[j]:tree.seq[j+1], perf.type = perf.type),
+        outcome.target = outcome.target, crps = crps, papply = papply, cens.dist = cens.dist)
+    } 
   })
   ## return the mean and standard deviation of the blocked error rates
   c(mean(err, na.rm = TRUE), sd(err, na.rm = TRUE))

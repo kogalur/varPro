@@ -1,11 +1,11 @@
 cv.varpro <- function(f, data, ntree = 150,
                       zcut = seq(0.1, 2, length = 50),
-                      nblocks=10,
+                      nblocks = 10,
                       split.weight = TRUE,
                       nodesize = 10, nodesize.reduce = 10,
                       max.rules.tree = 150, max.tree = min(150, ntree),
                       papply = mclapply, verbose = FALSE, seed = NULL,
-                      crps = FALSE,
+                      fast = FALSE, crps = FALSE,
                       ...)
 {		   
   ##--------------------------------------------------------------
@@ -15,6 +15,62 @@ cv.varpro <- function(f, data, ntree = 150,
   ##--------------------------------------------------------------
   dots <- list(...)
   dots$nodesize.reduce <- nodesize.reduce
+  ##--------------------------------------------------------------
+  ##
+  ## extract original yvalue names
+  ## re-define the original data in case there are missing values
+  ##
+  ##--------------------------------------------------------------
+  stump <- rfsrc(f, data, nodedepth = 0, perf.type = "none", save.memory = TRUE, ntree = 1, splitrule = "random")
+  n <- stump$n
+  yvar.names <- stump$yvar.names
+  data <- data.frame(stump$yvar, stump$xvar)
+  colnames(data)[1:length(yvar.names)] <- yvar.names
+  family <- stump$family
+  rm(stump)
+  ##--------------------------------------------------------------
+  ##
+  ## set the type of sampling, define train/test (fast=TRUE)
+  ##
+  ##--------------------------------------------------------------
+  ## default settings
+  trn <- 1:n
+  newdata <- cens.dist <- NULL
+  ## use same inbag/oob members to reduce MC error
+  if (!fast) {
+    if (is.null(dots$sampsize)) {##default sample size function used by rfsrc.fast
+      ssize <- n * .632
+    }
+    else {
+      ssize <- eval(dots$sampsize)
+    }
+    if (is.function(ssize)) {##user has specified a function
+      ssize <- ssize(n)
+    }
+  }
+  ## subsampling is in effect when fast = TRUE
+  else {
+    ## obtain the requested sample size
+    if (is.null(dots$sampsize)) {##default sample size function used by rfsrc.fast
+      ssize <- eval(formals(randomForestSRC::rfsrc.fast)$sampsize)
+    }
+    else {
+      ssize <- eval(dots$sampsize)
+    }
+    if (is.function(ssize)) {##user has specified a function
+      ssize <- ssize(n)
+    }
+    ## now hold out a test data set equal to the tree sample size (if possible)
+    if ((2 * ssize)  < n)  {
+      tst <- sample(1:n, size = ssize, replace = FALSE)
+      trn <- setdiff(1:n, tst)
+      newdata <- data[tst,, drop = FALSE]
+    }
+  }
+  ## custom sample array
+  samp <- randomForestSRC:::make.sample(ntree, length(trn), ssize)
+  ## pass the sample size to varpro as a hidden option
+  dots$sampsize <- ssize
   ##--------------------------------------------------------------
   ##
   ## varpro call
@@ -50,33 +106,38 @@ cv.varpro <- function(f, data, ntree = 150,
   zcut <- zcut[!duplicated(zcut.models)]
   ##--------------------------------------------------------------
   ##
-  ## extract original yvalue names
-  ## re-define the original data in case there are missing values
+  ## censoring distribution: only applies to survival families
   ##
   ##--------------------------------------------------------------
-  stump <- rfsrc(f, data, nodedepth = 0, perf.type = "none", save.memory = TRUE, ntree = 1, splitrule = "random")
-  n <- stump$n
-  yvar.names <- stump$yvar.names
-  data <- data.frame(stump$yvar, stump$xvar)
-  colnames(data)[1:length(yvar.names)] <- yvar.names
-  rm(stump)
+  if (family == "surv" && crps) {
+    cens.dist <- get.cens.dist(data[trn, c(yvar.names, xvar.names), drop = FALSE],
+                        ntree, nodesize, ssize)
+  }  
   ##--------------------------------------------------------------
   ##
   ## select zcut using out-of-sample performance
   ##
   ##--------------------------------------------------------------
-  ## use same inbag/oob members to reduce MC error
-  samp <- randomForestSRC:::make.sample(ntree, n)
   ## set the seed
   seed <- get.seed(seed)
   ## loop over zcut sequence and acquire OOB error rate
   err <- do.call(rbind, lapply(zcut, function(zz) {
     pt <- imp >= zz
     if (sum(pt) > 0) {
-      err.zz <- get.sderr(rfsrc(f, data[, c(yvar.names, xvar.names[pt])],
-                                nodesize = nodesize, ntree = ntree, perf.type = "none",
-                                bootstrap = "by.user", samp = samp, seed = seed),
-                          nblocks = nblocks, crps = crps, papply = papply)
+      if (!fast) {
+        err.zz <- get.sderr(rfsrc(f, data[trn, c(yvar.names, xvar.names[pt]), drop = FALSE],
+                            nodesize = nodesize, ntree = ntree, perf.type = "none",
+                            bootstrap = "by.user", samp = samp, seed = seed),
+                            nblocks = nblocks, crps = crps, papply = papply, cens.dist = cens.dist)
+      }
+      else {
+        ## nodesize is not deployed because fast subsampling is in play
+        err.zz <- get.sderr(randomForestSRC::rfsrc.fast(f, data[trn, c(yvar.names, xvar.names[pt]), drop = FALSE],
+                            #nodesize = nodesize,
+                            ntree = ntree, perf.type = "none",
+                            forest = TRUE, bootstrap = "by.user", samp = samp, seed = seed),
+                            nblocks = nblocks, crps = crps, papply = papply, newdata = newdata, cens.dist = cens.dist)
+      }
     }
     else {
       err.zz <- c(NA, NA) 

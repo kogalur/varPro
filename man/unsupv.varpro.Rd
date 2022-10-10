@@ -118,8 +118,8 @@ data(BostonHousing, package = "mlbench")
 ## default call
 print(unsupv.varpro(BostonHousing))
 
-## use cv
-print(unsupv.varpro(BostonHousing, cv = TRUE))
+## use cv with fast option
+print(unsupv.varpro(BostonHousing, cv = TRUE, fast = TRUE))
 
 \donttest{
 
@@ -132,21 +132,39 @@ data(glioma, package = "varPro")
 ## remove the outcome
 glioma$y <- NULL
 
-## turn off lasso (less accurate but faster)
-print(unsupv.varpro(glioma, nvar = 10, use.lasso = FALSE))
+## reduce number of lasso iterations
+print(unsupv.varpro(glioma, nvar = 10, maxit = 1000))
 
 
 
 ## ------------------------------------------------------------
-## largish data set
-## to speed up calculations: use fewer trees and bigger nodesize
+## largish data set: illustrates various options to speed up calculations
 ## ------------------------------------------------------------
 
-## use rapid, fast impute
+## first we roughly impute the data
 data(housing, package = "randomForestSRC")
 housing2 <- randomForestSRC:::get.na.roughfix(housing)
 
-print(unsupv.varpro(housing2, ntree = 100, nodesize = 150, nvar = 10))
+## use bigger nodesize
+print(unsupv.varpro(housing2, ntree = 50, nodesize = 150, nvar = 10))
+
+## use smaller bootstrap
+print(unsupv.varpro(housing2, ntree = 50, nodesize = 150, sampsize = 250, nvar = 10))
+
+## ------------------------------------------------------------
+## largish data set with CV option using fast=TRUE
+## ------------------------------------------------------------
+
+## roughly impute the data
+data(housing, package = "randomForestSRC")
+housing2 <- randomForestSRC:::get.na.roughfix(housing)
+
+## cv with fast = TRUE
+print(unsupv.varpro(housing2, ntree = 50, nodesize = 150, cv = TRUE, fast = TRUE))
+
+## cv even faster - use sampsize option
+print(unsupv.varpro(housing2, ntree = 50, nodesize = 150, cv = TRUE, fast = TRUE, sampsize = 250))
+
 
 ## ------------------------------------------------------------
 ## survival data

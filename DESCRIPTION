@@ -1,6 +1,6 @@
 Package: varPro
-Version: 0.0.13
-Date: 2022-10-05
+Version: 0.0.14
+Date: 2022-10-10
 Title: Variable Priority (VarPro) for Variable Selection in Rule-Based Models
 Author: Min Lu <luminwin@gmail.com>, Aster Shear <aster.shear@gmail.com>, Udaya B. Kogalur <ubk@kogalur.com>, Hemant Ishwaran <hemant.ishwaran@gmail.com>
 Maintainer: Udaya B. Kogalur <ubk@kogalur.com>
