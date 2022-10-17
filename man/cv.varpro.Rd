@@ -9,8 +9,7 @@
 cv.varpro(f, data, ntree = 150,
        zcut = seq(0.1, 2, length = 50),
        nblocks = 10,
-       split.weight = TRUE,
-       nodesize = 10, nodesize.reduce = 10,
+       split.weight = TRUE, nodesize = NULL, 
        max.rules.tree = 150, max.tree = min(150, ntree), 
        papply = mclapply, verbose = FALSE, seed = NULL,
        fast = FALSE, crps = FALSE, ...)
@@ -34,8 +33,6 @@ cv.varpro(f, data, ntree = 150,
   being acquired in a preliminary lasso+tree step.}
 
   \item{nodesize}{Nodesize of trees.}
-
-  \item{nodesize.reduce}{Nodesize of trees used for determining split-weight.}
 
   \item{max.rules.tree}{Maximum number of rules per tree.}
 
@@ -97,11 +94,11 @@ cv.varpro(f, data, ntree = 150,
 \examples{
 ## ------------------------------------------------------------
 ## van de Vijver microarray breast cancer survival data
-## high dimensional example, so we set nodesize to small value
+## high dimensional example
 ## ------------------------------------------------------------
      
 data(vdv, package = "randomForestSRC")
-o <- cv.varpro(Surv(Time, Censoring) ~ ., vdv, nodesize.reduce=2, nodesize=2)
+o <- cv.varpro(Surv(Time, Censoring) ~ ., vdv)
 print(o)
 
 ## ------------------------------------------------------------
@@ -151,10 +148,10 @@ data(housing, package = "randomForestSRC")
 housing2 <- randomForestSRC:::get.na.roughfix(housing)
 
 ## use bigger nodesize
-print(cv.varpro(SalePrice~., housing2, fast = TRUE, nodesize = 150))
+print(cv.varpro(SalePrice~., housing2, fast = TRUE, ntree = 50, nodesize = 150))
 
 ## use smaller bootstrap
-print(cv.varpro(SalePrice~., housing2, fast = TRUE, nodesize = 150, sampsize = 250))
+print(cv.varpro(SalePrice~., housing2, fast = TRUE, ntree = 50, nodesize = 150, sampsize = 250))
 
 }
 

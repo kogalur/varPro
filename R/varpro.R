@@ -2,7 +2,6 @@
 ###  variable priority (varPro) for regression, classification and survival
 ###
 ###  TBD
-###  - automate dimension.n, nodesize, nodedepth.reduce according to n and p
 ###  - class imbalanced analysis could potentially be improved
 ###
 ### ---------------------------------------------------------------
@@ -23,8 +22,9 @@
 ###
 ####################################################################
 varpro <- function(f, data, ntree = 500, split.weight = TRUE,
-                   nodesize = if (split.weight) 5 else 10,
+                   nodesize = NULL,
                    max.rules.tree = 150, max.tree = min(150, ntree),
+                   parallel = TRUE, cores = get.number.cores(),
                    papply = mclapply, verbose = FALSE, seed = NULL,
                    ...)
 {
@@ -45,7 +45,7 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
   seed <- get.seed(seed)
   ## run a stumpy tree as a quick way to extract  x, y and determine family
   ## this also cleans up missing data 
-  stump <- rfsrc(f, data, splitrule="random", nodedepth=0, perf.type = "none", save.memory = TRUE, ntree=1)
+  stump <- rfsrc(f, data, mtry = 1, splitrule="random", nodedepth=0, perf.type = "none", save.memory = TRUE, ntree=1)
   yvar.names <- stump$yvar.names
   xvar.names <- stump$xvar.names
   y <- stump$yvar
@@ -69,6 +69,10 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
       xn <- x[, nn]
       x[, nn] <<- factor(xn, levels(xn), 1:length(levels(xn)))
     })
+  }
+  ## set nodesize
+  if (is.null(nodesize)) {
+    nodesize <- max(2, nrow(x) / 200)
   }
   ## ------------------------------------------------------------------------
   ##
@@ -106,6 +110,7 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
   split.weight.only <- hidden$split.weight.only
   use.lasso <- hidden$use.lasso
   use.vimp <- hidden$use.vimp
+  sparse <- hidden$sparse
   ## ------------------------------------------------------------------------
   ##
   ##
@@ -206,10 +211,19 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
     #  use.lasso <- FALSE
     #}
     if (use.lasso) {
+      ## register DoMC and set the number of cores
+      if (parallel == TRUE) {
+        doMC::registerDoMC(cores = cores)
+        nfolds <- min(cores, 10)
+      }
+      else {
+        parallel <- FALSE
+        nfolds <- 10
+      }
       ## regression
       if (family == "regr") {
         o.glmnet <- tryCatch(
-              {suppressWarnings(cv.glmnet(scale(data.matrix(x)), y, maxit = maxit))},
+              {suppressWarnings(cv.glmnet(scale(data.matrix(x)), y, nfolds = nfolds, parallel = parallel, maxit = maxit))},
           error=function(ex){NULL})
         if (!is.null(o.glmnet)) {
           xvar.wt <-  abs(as.numeric(coef(o.glmnet)[-1]))            
@@ -219,7 +233,7 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
       else if (family == "regr+") {
         o.glmnet <- tryCatch(
                {suppressWarnings(cv.glmnet(scale(data.matrix(x)), y,
-                    maxit = maxit, family = "mgaussian"))}, error=function(ex){NULL})
+                    nfolds = nfolds, parallel = parallel, maxit = maxit, family = "mgaussian"))}, error=function(ex){NULL})
         if (!is.null(o.glmnet)) {
           beta <- do.call(cbind, lapply(coef(o.glmnet), function(o) {as.numeric(o)[-1]}))
           xvar.wt <- rowMeans(abs(beta), na.rm = TRUE)
@@ -229,14 +243,28 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
       else {
         o.glmnet <- tryCatch(
                {suppressWarnings(cv.glmnet(scale(data.matrix(x)), y,
-                    maxit = maxit, family = "multinomial"))}, error=function(ex){NULL})
+                    nfolds = nfolds, parallel = parallel, maxit = maxit, family = "multinomial"))}, error=function(ex){NULL})
         if (!is.null(o.glmnet)) {
           beta <- do.call(cbind, lapply(coef(o.glmnet), function(o) {as.numeric(o)[-1]}))
           xvar.wt <- rowMeans(abs(beta), na.rm = TRUE)
         }
       }
+      ## unregister the backend
+      if (parallel == TRUE) {
+        foreach::registerDoSEQ()
+      }
       ## assign missing values NA
       xvar.wt[is.na(xvar.wt)] <- 0
+      ## scale the weights using sparse dimension.index
+      pt <- xvar.wt > 0
+      if (sum(pt) > 0) {
+        if (sparse) {
+          xvar.wt[pt] <- (xvar.wt[pt] / max(xvar.wt[pt], na.rm = TRUE)) ^ dimension.index(sum(pt))
+        }
+        else {
+          xvar.wt[pt] <- (xvar.wt[pt] / max(xvar.wt[pt], na.rm = TRUE)) ^ dimension.index(1)
+        }
+      }
     }
     ##---------------------------------------------------------
     ##
@@ -274,9 +302,15 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
                        seed = seed)$importance[, 1]
         }
         ## scale the weights using dimension.index
-        if (sum(vmp > 0) > 0) {
-          vmpsc <- (vmp[vmp > 0]) ^ dimension.index
-          xvar.wt[vmp > 0] <- xvar.wt[vmp > 0] + vmpsc
+        pt <- vmp > 0
+        if (sum(pt) > 0) {
+          if (sparse) {
+            vmpsc <- (vmp[vmp > 0]) ^ dimension.index(sum(pt))
+          }
+          else {
+            vmpsc <- (vmp[vmp > 0]) ^ dimension.index(1)
+          }
+          xvar.wt[pt] <- xvar.wt[pt] + vmpsc
           xvar.wt <- xvar.wt / max(xvar.wt, na.rm = TRUE)
         }
         else {
@@ -294,8 +328,9 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
     ##---------------------------------------------------------
     if (!use.vimp) {
       ## fast filtering based on number of splits
-      xvar.used <- rfsrc(f, data, sampsize = sampsize, ntree = ntree.reduce, nodedepth = nodedepth.reduce,
-                   perf.type = "none", var.used = "all.trees", mtry = Inf, nsplit = 100)$var.used
+      xvar.used <- rfsrc(f, data, sampsize = sampsize,
+                         ntree = ntree.reduce, nodedepth = nodedepth.reduce(nrow(data), ncol(data)),
+                         perf.type = "none", var.used = "all.trees", mtry = Inf, nsplit = 100)$var.used
       ## assign relative frequency cutoff
       if (n >= dimension.n) {
         xvar.cut <- quantile(xvar.used, prob = dimension.q, na.rm = TRUE)
@@ -306,7 +341,14 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
       ## update the weights
       pt <- xvar.used >= xvar.cut
       if (sum(pt) > 0) {
-        xvar.wt[pt] <- xvar.wt[pt] + (xvar.used[pt] / max(xvar.used[pt], na.rm = TRUE))  ^ dimension.index
+        if (sparse) {
+          xvar.wt[pt] <- (xvar.wt[pt] +
+              (xvar.used[pt] / max(xvar.used[pt], na.rm = TRUE))  ^ dimension.index(sum(pt)))
+        }
+        else {
+          xvar.wt[pt] <- (xvar.wt[pt] +
+              (xvar.used[pt] / max(xvar.used[pt], na.rm = TRUE))  ^ dimension.index(1))        
+        }
       }
       else {
         pt <- which.max(xvar.used)
@@ -355,7 +397,7 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
                     xvar.wt = xvar.wt,
                     #sampsize = sampsize,
                     ntree = ntree,
-                    nsplit = nsplit,
+                    nsplit = nsplit(nrow(data)),
                     nodesize = nodesize,
                     perf.type = "none",
                     seed = seed)
@@ -366,7 +408,7 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
                     mtry = Inf,
                     #sampsize = sampsize,
                     ntree = ntree,
-                    nsplit = nsplit,
+                    nsplit = nsplit(nrow(data)),
                     nodesize = nodesize,
                     perf.type = "none",
                     seed = seed)

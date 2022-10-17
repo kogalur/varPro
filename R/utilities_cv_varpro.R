@@ -62,6 +62,11 @@ get.crps <- function (o, papply = mclapply, cens.dist = NULL)  {
   crps <- trapz(brier.score$time, brier.score$brier.score)
   crps / max(brier.score$time)
 }
+## get number of cores
+get.number.cores <- function(x) {
+  parallel::detectCores(x, logical = TRUE)
+}
+## standard error workhorse
 get.sderr.workhorse <- function(obj, standardize = TRUE, outcome.target = NULL,
                        crps = FALSE, papply = mclapply, cens.dist = NULL) {
   ## set the target response outcome
@@ -100,6 +105,7 @@ get.sderr.workhorse <- function(obj, standardize = TRUE, outcome.target = NULL,
     unlist(err)
   }
 }
+## standard error
 get.sderr <- function(obj, nblocks, outcome.target = NULL,
                       crps = FALSE, papply = mclapply, newdata = NULL, cens.dist = NULL) {
   ## use normalized brier score for classification
@@ -139,6 +145,13 @@ get.sderr <- function(obj, nblocks, outcome.target = NULL,
   ## return the mean and standard deviation of the blocked error rates
   c(mean(err, na.rm = TRUE), sd(err, na.rm = TRUE))
 }
+## unregeister foreach backend
+## https:
+## https:
+#get.unregister <- function() {
+#  env <- utils::getFromNamespace(".foreachGlobals", "foreach")
+#  rm(list=ls(name=env), pos=env)
+#}
 trapz <- function (x, y) {
   idx = 2:length(x)
   return(as.double((x[idx] - x[idx - 1]) %*% (y[idx] + y[idx - 1]))/2)

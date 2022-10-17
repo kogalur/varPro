@@ -2,8 +2,7 @@ cv.varpro <- function(f, data, ntree = 150,
                       zcut = seq(0.1, 2, length = 50),
                       nblocks = 10,
                       split.weight = TRUE,
-                      nodesize = 10, nodesize.reduce = 10,
-                      max.rules.tree = 150, max.tree = min(150, ntree),
+                      nodesize = NULL, max.rules.tree = 150, max.tree = min(150, ntree),
                       papply = mclapply, verbose = FALSE, seed = NULL,
                       fast = FALSE, crps = FALSE,
                       ...)
@@ -14,14 +13,13 @@ cv.varpro <- function(f, data, ntree = 150,
   ##
   ##--------------------------------------------------------------
   dots <- list(...)
-  dots$nodesize.reduce <- nodesize.reduce
   ##--------------------------------------------------------------
   ##
   ## extract original yvalue names
   ## re-define the original data in case there are missing values
   ##
   ##--------------------------------------------------------------
-  stump <- rfsrc(f, data, nodedepth = 0, perf.type = "none", save.memory = TRUE, ntree = 1, splitrule = "random")
+  stump <- rfsrc(f, data, mtry = 1, nodedepth = 0, perf.type = "none", save.memory = TRUE, ntree = 1, splitrule = "random")
   n <- stump$n
   yvar.names <- stump$yvar.names
   data <- data.frame(stump$yvar, stump$xvar)

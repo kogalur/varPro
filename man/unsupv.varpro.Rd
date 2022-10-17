@@ -9,7 +9,7 @@
 \usage{
 unsupv.varpro(data, nvar = 5, cutoff = NULL,
        method = c("sh1", "sh2"), cv = FALSE,
-       ntree = 150, nodesize = 10, nodesize.reduce = 10,
+       ntree = 150, nodesize = NULL,
        max.rules.tree = 150, max.tree = min(150, ntree), 
        papply = mclapply, verbose = FALSE, seed = NULL,
        ...)
@@ -34,8 +34,6 @@ unsupv.varpro(data, nvar = 5, cutoff = NULL,
   \item{ntree}{Number of trees to grow.}
 
   \item{nodesize}{Nodesize of trees.}
-
-  \item{nodesize.reduce}{Nodesize of trees used for determining split-weight.}
 
   \item{max.rules.tree}{Maximum number of rules per tree.}
 

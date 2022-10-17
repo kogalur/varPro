@@ -7,10 +7,19 @@ get.varpro.hidden <- function(user.option, ntree) {
     sampsize <- function(x) {x * .632}
   }
   if (!is.null(user.option$nsplit)) {
-    nsplit <- user.option$nsplit
+    nsplit <- function(x) {
+      eval(user.option$nsplit)
+    }
   }
   else {
-    nsplit <- 0
+    nsplit <- function(x) {
+      if (x > 15000) {
+        50
+      }
+      else {
+        0
+      }
+    }
   }
   if (!is.null(user.option$nodesize.external)) {
     nodesize.external <- user.option$nodesize.external
@@ -37,10 +46,19 @@ get.varpro.hidden <- function(user.option, ntree) {
     ntree.reduce <- 100
   }
   if (!is.null(user.option$nodedepth.reduce)) {
-    nodedepth.reduce <- user.option$nodedepth.reduce
+    nodedepth.reduce <- function(n, p) {
+      eval(user.option$nodedepth.reduce)
+    }
   }
   else {
-    nodedepth.reduce <- 3
+    nodedepth.reduce <- function(n, p) {
+      if (n <= 200) {
+        2
+      }
+      else {
+        3
+      }
+    }
   }
   if (!is.null(user.option$dimension.n)) {
     dimension.n <- user.option$dimension.n
@@ -61,10 +79,25 @@ get.varpro.hidden <- function(user.option, ntree) {
     dimension.q <- .90
   }
   if (!is.null(user.option$dimension.index)) {
-    dimension.index <- user.option$dimension.index
+    dimension.index <- function(x) {
+      eval(user.option$dimension.index)
+    }
   }
   else {
-    dimension.index <- 2
+    dimension.index <- function(x) {
+      if (x >= 100) {
+        20
+      }
+      else if (50 <= x & x < 100) {
+        10
+      }
+      else if (20 <= x & x < 50) {
+        5
+      }
+      else {
+        2
+      }
+    }
   }
   if (!is.null(user.option$dimension.ir)) {
     dimension.ir <- user.option$dimension.ir
@@ -108,6 +141,12 @@ get.varpro.hidden <- function(user.option, ntree) {
   else {
     use.vimp <- TRUE
   }
+  if (!is.null(user.option$sparse)) {
+    sparse <- user.option$sparse
+  }
+  else {
+    sparse <- TRUE
+  }
   list(sampsize = sampsize,
        nsplit = nsplit,
        ntree.external = ntree,
@@ -126,7 +165,8 @@ get.varpro.hidden <- function(user.option, ntree) {
        maxit = maxit,
        split.weight.only = split.weight.only,
        use.lasso = use.lasso,
-       use.vimp = use.vimp)
+       use.vimp = use.vimp,
+       sparse = sparse)
 }
 ## list hidden variables
 show.varpro.hidden <- function() {
@@ -148,7 +188,8 @@ show.varpro.hidden <- function() {
     "maxit",
     "split.weight.only",
     "use.lasso",
-    "use.vimp")
+    "use.vimp",
+    "sparse")
 }
 ## extract varpro formal names and hidden options
 get.varpro.names <- function (hidden = TRUE) {
@@ -164,7 +205,8 @@ get.varpro.names <- function (hidden = TRUE) {
                 "maxit",
                 "split.weight.only",
                 "use.lasso",
-                "use.vimp")
+                "use.vimp",
+                "sparse")
   }
   vnames
 }

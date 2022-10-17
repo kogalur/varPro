@@ -8,8 +8,8 @@
 
 \usage{
 varpro(f, data, ntree = 500, split.weight = TRUE,
-       nodesize = if (split.weight) 5 else 10,
-       max.rules.tree = 150, max.tree = min(150, ntree), 
+       nodesize = NULL, max.rules.tree = 150, max.tree = min(150, ntree),
+       parallel = TRUE, cores = get.number.cores(),
        papply = mclapply, verbose = FALSE, seed = NULL, ...)
 }
 
@@ -25,12 +25,19 @@ varpro(f, data, ntree = 500, split.weight = TRUE,
   selected with probability according to split weight values, the latter
   being acquired in a preliminary lasso+tree step.}
 
-  \item{nodesize}{Nodesize of trees.}
-
+  \item{nodesize}{Nodesize of trees. Default action is the maximum of 2
+  or the sample size divided by 200.}
 
   \item{max.rules.tree}{Maximum number of rules per tree.}
 
   \item{max.tree}{Maximum number of trees used for extracting rules.}
+
+  \item{parallel}{If \code{TRUE}, use parallel foreach to fit each lasso
+  fold.  This registers parallel before hand using \command{doMC}.}
+
+   \item{cores}{Sets the number of cores for parallel processing when
+     using the lasso.  By default uses the parallel command
+     \command{detectCores}.}
 
   \item{papply}{Use mclapply or lapply.}
 
@@ -77,11 +84,12 @@ varpro(f, data, ntree = 500, split.weight = TRUE,
   option on and this is especially true for high-dimensional, or even
   moderately high-dimensional, problems.  If this option is turned off,
   then \code{nodesize} should be increased to improve precision of the
-  estimators.  See the example below.
+  estimators.  
 
   For very large data sets, computational speeds can be improved by
   using smaller values of \code{ntree} and larger values of
-  \code{nodesize}.  For example \code{ntree}=100 and \code{nodesize}=50.
+  \code{nodesize}.  There are other options available as well.
+  See examples below for illustrations.
   
 }
 
@@ -225,13 +233,17 @@ d <- data.frame(y = rnorm(n), x = matrix(rnorm(n * p), n))
 print(system.time(o <- varpro(y~., d, ntree = 100, nodesize = 200)))
 print(importance(o))
 
-## use large nodesize, turn lasso off
-o <- varpro(y~., d, ntree = 100, nodesize = 200, use.lasso = FALSE)
+## use large nodesize, smaller bootstrap 
+print(system.time(o <- varpro(y~., d, ntree = 100, nodesize = 200,
+           sampsize = 100)))
 print(importance(o))
 
-## use smaller bootstrap size
-o <- varpro(y~., d, ntree = 100, sampsize = 500)
+
+## use large nodesize, turn lasso off,
+print(system.time(o <- varpro(y~., d, ntree = 100, nodesize = 200,
+           use.lasso = FALSE)))
 print(importance(o))
+
 
 
 }
