@@ -212,14 +212,9 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
     #}
     if (use.lasso) {
       ## register DoMC and set the number of cores
-      if (parallel == TRUE) {
-        doMC::registerDoMC(cores = cores)
-        nfolds <- min(cores, 10)
-      }
-      else {
-        parallel <- FALSE
-        nfolds <- 10
-      }
+      regO <- myDoRegister(cores, parallel)
+      parallel <- regO$parallel
+      nfolds <- regO$nfolds
       ## regression
       if (family == "regr") {
         o.glmnet <- tryCatch(
@@ -250,9 +245,7 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
         }
       }
       ## unregister the backend
-      if (parallel == TRUE) {
-        foreach::registerDoSEQ()
-      }
+      nullO <- myUnRegister(parallel)
       ## assign missing values NA
       xvar.wt[is.na(xvar.wt)] <- 0
       ## scale the weights using sparse dimension.index

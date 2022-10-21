@@ -5,7 +5,7 @@ dnl which in turn is based on autoconf's openmp.m4,
 dnl with is licensed under GPL-3 with the 
 dnl Autoconf Configure Script Exception, version 3.0.
 
-AC_INIT([varPro], [0.0.15], [ubk@kogalur.com], [varPro], [https://github.com/kogalur/varPro])
+AC_INIT([varPro], [0.0.16], [ubk@kogalur.com], [varPro], [https://github.com/kogalur/varPro])
 
 AC_PREREQ([2.62])
 
