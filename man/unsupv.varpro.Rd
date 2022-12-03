@@ -9,6 +9,7 @@
 \usage{
 unsupv.varpro(data, nvar = 5, cutoff = NULL,
        method = c("sh1", "sh2"), cv = FALSE,
+       auto.encoder = FALSE, tolerance = 1e-10,
        ntree = 150, nodesize = NULL,
        max.rules.tree = 150, max.tree = min(150, ntree), 
        papply = mclapply, verbose = FALSE, seed = NULL,
@@ -31,9 +32,20 @@ unsupv.varpro(data, nvar = 5, cutoff = NULL,
   \item{cv}{Instead of using a pre-set number of variables, use CV to
     determine the top variables (more accurate but slower)?}
 
+  \item{auto.encoder}{After filtering variables in an initial step a
+  random forest autoencoder is run by fitting filtered variables
+  against the same filtered variables - a special type of multivariate
+  forest.  VarPro importance is obtained for this forest.  Many options
+  are turned off in this setting.  For example \code{cv} and
+  \code{cutoff} do not apply.}
+
+  \item{tolerance}{Tolerance used for filtering variables if
+  \code{auto.encoder} is requested.  Ignored otherwise.}
+
   \item{ntree}{Number of trees to grow.}
 
-  \item{nodesize}{Nodesize of trees.}
+  \item{nodesize}{Nodesize of trees. If not specified, value is set
+  using an internal function optimized for sample size and dimension.}
 
   \item{max.rules.tree}{Maximum number of rules per tree.}
 
@@ -74,11 +86,20 @@ unsupv.varpro(data, nvar = 5, cutoff = NULL,
   features.  Mode 2 draws a uniform value from the minimum and maximum
   values of a feature.
 
+  Finally, selecting \code{auto.encoder} runs a different type of method
+  where in the first step, variables are filtered using the two-class
+  approach.  The filtered variables are then used for both the reponse
+  outcomes and the features - a special type of multivariate forest we
+  can call an autoencoder.  VarPro importance is obtained for this
+  forest.
+
 }
   
 \value{
 
-  Vector containing names of variables found to be informative using VarPro.
+  Vector containing names of variables found to be informative using
+  VarPro.  If autoencoder is selected, a matrix of informative
+  variables (rows) with importance values (columns).
  
 }
 

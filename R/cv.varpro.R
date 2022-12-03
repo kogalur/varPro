@@ -19,13 +19,32 @@ cv.varpro <- function(f, data, ntree = 150,
   ## re-define the original data in case there are missing values
   ##
   ##--------------------------------------------------------------
-  stump <- rfsrc(f, data, mtry = 1, nodedepth = 0, perf.type = "none", save.memory = TRUE, ntree = 1, splitrule = "random")
+  stump <- rfsrc(f, data, mtry = 1, nodedepth = 0, perf.type = "none", save.memory = TRUE,
+                    ntree = 1, splitrule = "random")
   n <- stump$n
+  p <- length(stump$xvar.names)
   yvar.names <- stump$yvar.names
   data <- data.frame(stump$yvar, stump$xvar)
   colnames(data)[1:length(yvar.names)] <- yvar.names
   family <- stump$family
   rm(stump)
+  ##--------------------------------------------------------------
+  ##
+  ## set nodesize
+  ##
+  ##--------------------------------------------------------------
+  nodesize <- set.cv.nodesize(n, p, nodesize)
+  if (is.null(dots$sampsize)) {
+    dots$nodesize.external <- set.nodesize(n, p, dots$nodesize.external)
+  }
+  else {
+    if (is.function(dots$sampsize)) {
+      dots$nodesize.external <- set.nodesize(dots$sampsize(n), p, dots$nodesize.external)
+    }
+    else {
+      dots$nodesize.external <- set.nodesize(dots$sampsize, p, dots$nodesize.external)
+    }
+  }
   ##--------------------------------------------------------------
   ##
   ## set the type of sampling, define train/test (fast=TRUE)

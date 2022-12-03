@@ -25,8 +25,8 @@ varpro(f, data, ntree = 500, split.weight = TRUE,
   selected with probability according to split weight values, the latter
   being acquired in a preliminary lasso+tree step.}
 
-  \item{nodesize}{Nodesize of trees. Default action is the maximum of 2
-  or the sample size divided by 200.}
+  \item{nodesize}{Nodesize of trees. If not specified, value is set
+  using an internal function optimized for sample size and dimension.}
 
   \item{max.rules.tree}{Maximum number of rules per tree.}
 
@@ -86,6 +86,10 @@ varpro(f, data, ntree = 500, split.weight = TRUE,
   then \code{nodesize} should be increased to improve precision of the
   estimators.  
 
+  Selection of variables is based on a preset cutoff value set using
+  the \code{importance} function.  However, there is also a cross-validation
+  (CV) method to automate this.  See \code{cv.varpro}.
+  
   For very large data sets, computational speeds can be improved by
   using smaller values of \code{ntree} and larger values of
   \code{nodesize}.  There are other options available as well.
@@ -96,7 +100,8 @@ varpro(f, data, ntree = 500, split.weight = TRUE,
 \value{
 
   Output containing VarPro estimators used to calculate importance. See
-  \command{importance.varpro}.
+  \command{importance.varpro}.  Also see \command{cv.varpro} for
+  automated variable selection.
   
 }
 

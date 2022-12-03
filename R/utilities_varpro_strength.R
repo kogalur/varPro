@@ -197,3 +197,70 @@ get.varpro.strengthArray <- function(var.strength, family, y) {
   ## return the strength array
   var.strength
 }
+## extracts varpro strength array for both rfsrc and varpro objects
+get.varpro.strength <- function(object,
+                                m.target = NULL,
+                                max.rules.tree = 150,
+                                max.tree = 150,
+                                seed = NULL)
+{
+  ## ------------------------------------------------------------------------
+  ##
+  ## incoming object must be an rfsrc or varpro object
+  ## 
+  ## ------------------------------------------------------------------------
+  if (!inherits(object, "varpro", TRUE)) {
+    if (sum(inherits(object, c("rfsrc", "grow"), TRUE) == c(1, 2)) != 2) {
+      stop("This function only works for objects of class 'varpro' or `(rfsrc, grow)'")
+    }
+    ## this is a random forest object, need to process according to family
+    else {
+      o <- object
+      if (o$family == "surv") {
+        ## "convert" the survival forest to a regression forest to trick varpro.strength
+        y <- object$predicted
+        o$family <- "regr"
+        o$y <- o$yvar <- y
+        o$yvar.names <- "y"
+      }
+      else if (o$family == "regr" | o$family == "class" | o$family == "regr+") {
+        o$y <- object$yvar
+      }
+      else {
+        stop("family not supported")
+      }
+    }
+  }
+  ## this is a varpro object, extract the random forest object
+  else {## extract the random forest object
+    o <- object$rf
+    o$y <- object$y
+  }
+  ## ------------------------------------------------------------------------
+  ##
+  ## obtain the varpro.strength arrray
+  ##
+  ## ------------------------------------------------------------------------
+  ## obtain varpro strength
+  var.strength <- varpro.strength(object = o,
+                                  m.target = m.target,
+                                  max.rules.tree = max.rules.tree,
+                                  max.tree = max.tree,
+                                  seed = seed)$strengthArray
+  ## ------------------------------------------------------------------------
+  ##
+  ## process the strength array
+  ##
+  ## ------------------------------------------------------------------------
+  var.strength <- get.varpro.strengthArray(var.strength, o$family, o$y)
+  ## ------------------------------------------------------------------------
+  ##
+  ## ## over-ride original object with updated information and return
+  ##
+  ## ------------------------------------------------------------------------
+  o$max.rules.tree <- max.rules.tree
+  o$max.tree <- max.tree
+  o$results <- var.strength
+  class(o) <- "varpro"
+  o
+}

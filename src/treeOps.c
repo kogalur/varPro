@@ -320,7 +320,7 @@ void freeTree(uint treeID, NodeBase *parent) {
     if ((parent -> right) != NULL) {
       freeTree(treeID, parent -> right);
     }
-    freeNodeBase(parent);
+    freeNode((Node*) parent);
   }
 }
 void acquireProxyIndv(uint  treeID,

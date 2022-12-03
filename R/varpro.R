@@ -1,8 +1,6 @@
 ################################################################
-###  variable priority (varPro) for regression, classification and survival
 ###
-###  TBD
-###  - class imbalanced analysis could potentially be improved
+###  variable priority (varPro) for regression, classification and survival
 ###
 ### ---------------------------------------------------------------
 ###  Written by:
@@ -70,9 +68,19 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
       x[, nn] <<- factor(xn, levels(xn), 1:length(levels(xn)))
     })
   }
-  ## set nodesize
-  if (is.null(nodesize)) {
-    nodesize <- max(2, nrow(x) / 200)
+  ## set nodesize: optimized for n and p
+  nodesize <- set.nodesize(n, p, nodesize)
+  dots <- list(...)
+  if (is.null(dots$sampsize)) {
+    dots$nodesize.external <- set.nodesize(n, p, dots$nodesize.external)
+  }
+  else {
+    if (is.function(dots$sampsize)) {
+      dots$nodesize.external <- set.nodesize(dots$sampsize(n), p, dots$nodesize.external)
+    }
+    else {
+      dots$nodesize.external <- set.nodesize(dots$sampsize, p, dots$nodesize.external)
+    }
   }
   ## ------------------------------------------------------------------------
   ##
@@ -90,7 +98,7 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
   ##
   ##
   ## ------------------------------------------------------------------------
-  hidden <- get.varpro.hidden(list(...), ntree)
+  hidden <- get.varpro.hidden(dots, ntree)
   sampsize <- hidden$sampsize
   nsplit <- hidden$nsplit
   ntree.external <- hidden$ntree.external  
@@ -111,6 +119,7 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
   use.lasso <- hidden$use.lasso
   use.vimp <- hidden$use.vimp
   sparse <- hidden$sparse
+  nfolds <- hidden$nfolds
   ## ------------------------------------------------------------------------
   ##
   ##
@@ -212,9 +221,7 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
     #}
     if (use.lasso) {
       ## register DoMC and set the number of cores
-      regO <- myDoRegister(cores, parallel)
-      parallel <- regO$parallel
-      nfolds <- regO$nfolds
+      parallel <- myDoRegister(cores, parallel)
       ## regression
       if (family == "regr") {
         o.glmnet <- tryCatch(

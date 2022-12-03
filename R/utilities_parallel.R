@@ -1,9 +1,9 @@
 myDoRegister <- function(cores, parallel) {
   if (parallel && requireNamespace("doMC", quietly = TRUE)) {
     doMC::registerDoMC(cores = cores)
-    list(parallel = TRUE, nfolds = min(cores, 10))
+    TRUE
   } else {
-    list(parallel = FALSE, nfolds = 10)
+    FALSE
   }
 }
 myUnRegister <- function(parallel) {

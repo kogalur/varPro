@@ -1,3 +1,39 @@
+## set nodesize
+set.nodesize <- function(n, p, nodesize = NULL) {
+  if (is.null(nodesize)) {
+    if (n <= 300 & p > n) {
+      nodesize <- 2
+    }
+    else if (n <= 300 & p <= n) {
+      nodesize <- 5
+    }
+    else if (n > 300 & n <= 2000) {
+      nodesize <- 10
+    }
+    else {
+      nodesize <- n / 200
+    }
+  }
+  nodesize
+}
+## set cv.nodesize
+set.cv.nodesize <- function(n, p, nodesize = NULL) {
+  if (is.null(nodesize)) {
+    if (n <= 300 & p > n) {
+      nodesize <- 5
+    }
+    else if (n <= 300 & p <= n) {
+      nodesize <- 15
+    }
+    else if (n > 300 & n <= 2000) {
+      nodesize <- 20
+    }
+    else {
+      nodesize <- n / 100
+    }
+  }
+  nodesize
+}
 ## process hidden variables
 get.varpro.hidden <- function(user.option, ntree) {
   if (!is.null(user.option$sampsize)) {
@@ -147,6 +183,12 @@ get.varpro.hidden <- function(user.option, ntree) {
   else {
     sparse <- TRUE
   }
+  if (!is.null(user.option$nfolds)) {
+    nfolds <- user.option$nfolds
+  }
+  else {
+    nfolds <- 10
+  }
   list(sampsize = sampsize,
        nsplit = nsplit,
        ntree.external = ntree,
@@ -166,7 +208,8 @@ get.varpro.hidden <- function(user.option, ntree) {
        split.weight.only = split.weight.only,
        use.lasso = use.lasso,
        use.vimp = use.vimp,
-       sparse = sparse)
+       sparse = sparse,
+       nfolds = nfolds)
 }
 ## list hidden variables
 show.varpro.hidden <- function() {
@@ -189,7 +232,8 @@ show.varpro.hidden <- function() {
     "split.weight.only",
     "use.lasso",
     "use.vimp",
-    "sparse")
+    "sparse",
+    "nfolds")
 }
 ## extract varpro formal names and hidden options
 get.varpro.names <- function (hidden = TRUE) {
@@ -206,7 +250,8 @@ get.varpro.names <- function (hidden = TRUE) {
                 "split.weight.only",
                 "use.lasso",
                 "use.vimp",
-                "sparse")
+                "sparse",
+                "nfolds")
   }
   vnames
 }

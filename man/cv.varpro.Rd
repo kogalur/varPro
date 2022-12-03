@@ -32,7 +32,8 @@ cv.varpro(f, data, ntree = 150,
   selected with probability according to split weight values, the latter
   being acquired in a preliminary lasso+tree step.}
 
-  \item{nodesize}{Nodesize of trees.}
+  \item{nodesize}{Nodesize of trees. If not specified, value is set
+  using an internal function optimized for sample size and dimension.}
 
   \item{max.rules.tree}{Maximum number of rules per tree.}
 
