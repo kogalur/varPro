@@ -19,7 +19,8 @@
 ###  FROM THE AUTHOR.
 ###
 ####################################################################
-varpro <- function(f, data, ntree = 500, split.weight = TRUE,
+varpro <- function(f, data, nvar = 20,
+                   ntree = 500, split.weight = TRUE,
                    nodesize = NULL,
                    max.rules.tree = 150, max.tree = min(150, ntree),
                    parallel = TRUE, cores = get.number.cores(),
@@ -45,12 +46,10 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
   ## this also cleans up missing data 
   stump <- rfsrc(f, data, mtry = 1, splitrule="random", nodedepth=0, perf.type = "none", save.memory = TRUE, ntree=1)
   yvar.names <- stump$yvar.names
-  xvar.names <- stump$xvar.names
   y <- stump$yvar
   y.org <- cbind(y)
   colnames(y.org) <- stump$yvar.names
   x <- stump$xvar
-  p <- length(xvar.names)
   n <- nrow(x)
   family <- stump$family
   rm(stump)
@@ -59,15 +58,11 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
   if (!(family == "regr" || family == "class" || family == "surv")) {
     stop("this function only works for regression, classification and survival")
   }
-  ## tree rules are encoded in terms of factor levels, therefore recode all
-  ## factors so that their levels correspond to integer values
-  anyF <- sapply(x, is.factor)
-  if (sum(anyF) > 0) {
-    lapply(names(which(anyF)), function(nn) {
-      xn <- x[, nn]
-      x[, nn] <<- factor(xn, levels(xn), 1:length(levels(xn)))
-    })
-  }
+  ## convert factors using hot-encoding
+  x <- get.hotencode(x, papply)
+  ## obtain the variable names and dimension
+  xvar.names <- colnames(x)
+  p <- length(xvar.names)
   ## set nodesize: optimized for n and p
   nodesize <- set.nodesize(n, p, nodesize)
   dots <- list(...)
@@ -133,9 +128,13 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
       cat("detected a survival family, using RSF to calculate external estimator...\n")
     }  
     ## survival forest used to calculate external estimator
-    o.external <- rfsrc(f, data, sampsize = sampsize,
-         ntree = ntree.external, save.memory = TRUE,
-         perf.type = "none", nodesize = nodesize.external, ntime = ntime.external)
+    o.external <- rfsrc(f, data,
+                        sampsize = sampsize,
+                        ntree = ntree.external,
+                        save.memory = TRUE,
+                        perf.type = "none",
+                        nodesize = nodesize.external,
+                        ntime = ntime.external)
     ## use mortality for y
     if (is.null(rmst)) {
       y <- as.numeric(randomForestSRC::get.mv.predicted(o.external, oob = FALSE))
@@ -202,7 +201,7 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
   ##
   ##
   ## ------------------------------------------------------------------------
-  if (split.weight) {
+  if (split.weight || split.weight.only) {
     ## verbose output
     if (verbose) {
       cat("acquiring split-weights for guided rule generation ...\n")
@@ -212,7 +211,7 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
     ##---------------------------------------------------------
     ##
     ## lasso split weight calculation
-    ## now allows factors by converting them brute force using data.matrix
+    ## now allows factors by hot-encoding
     ##
     ##---------------------------------------------------------
     ## uncomment if factors not allowed
@@ -367,9 +366,20 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
     ## if the user only wants the xvar weights
     if (split.weight.only) {
       names(xvar.wt) <- xvar.names
-      return(xvar.wt)
+      return(list(
+        xvar.wt = xvar.wt,
+        xvar.names = xvar.names,
+        yvar.names = yvar.names,
+        x = x,
+        y = y,
+        y.org = y.org,
+        family = family))
     }
     ## final assignment
+    if (sum(xvar.wt > 0) > nvar) {
+      pt <- order(xvar.wt, decreasing = TRUE)
+      xvar.wt[setdiff(1:length(xvar.wt), pt[1:nvar])] <- 0
+    }
     xvar.names <- xvar.names[xvar.wt > 0]
     xvar.wt <- xvar.wt[xvar.wt > 0]
     ## verbose
@@ -381,7 +391,7 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
     data <- data.frame(y = y, x[, xvar.names, drop = FALSE])
     colnames(data)[1:length(yvar.names)] <- yvar.names
     p <- length(xvar.names)
-  }
+  }###########split weight calculations end here
   ## ------------------------------------------------------------------------
   ##
   ##
@@ -437,11 +447,13 @@ varpro <- function(f, data, ntree = 500, split.weight = TRUE,
   ## ------------------------------------------------------------------------
   rO <- list(
     rf = object,
+    xvar.wt = (if (split.weight) xvar.wt else NULL),
     max.rules.tree = max.rules.tree,
     max.tree = max.tree,
     results = var.strength,
     xvar.names = xvar.names,
     yvar.names = yvar.names,
+    x = x,
     y = y,
     y.org = y.org,
     family = family)

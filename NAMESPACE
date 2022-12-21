@@ -6,7 +6,7 @@ importFrom("graphics", "barplot", "boxplot", "bxp")
 importFrom("parallel", "mclapply")
 importFrom("stats", "as.formula", "coef", "median", "qnorm",
            "pnorm", "quantile", "runif", "var", "setNames",
-           "na.omit", "sd")
+           "na.omit", "sd", "model.matrix", "prcomp")
 importFrom("utils", "combn")
 
 
@@ -15,13 +15,15 @@ importFrom("randomForestSRC", "rfsrc")
 ## export(importance, importance.varpro, cv.varpro, unsupv.varpro, varpro)
   
 ## for testing purposes we exported varpro.strength
-export(importance,
+export(cv.varpro,
+       get.orgvimp,
+       importance,
        importance.varpro,
-       cv.varpro,
        unsupv.varpro,
        varpro,
-       varpro.strength,
-       varpro.news)
+       varpro.news,
+       varpro.strength)
+
 
 
 

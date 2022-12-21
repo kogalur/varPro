@@ -159,7 +159,7 @@ SEXP varProStrength(SEXP traceFlag,
     if(VECTOR_ELT(sampleInfo, 2) != R_NilValue) {  
       RF_bootstrapSize        = INTEGER(VECTOR_ELT(sampleInfo, 2))[0];
       if(VECTOR_ELT(sampleInfo, 3) != R_NilValue) {
-        RF_bootstrapIn = (uint **) copy2DObject(VECTOR_ELT(sampleInfo, 3), NATIVE_TYPE_INTEGER, (RF_opt & OPT_BOOT_TYP1) && (RF_opt & OPT_BOOT_TYP2), RF_ntree, RF_subjSize);
+        RF_bootstrapIn = (uint **) copy2DObject(VECTOR_ELT(sampleInfo, 3), NATIVE_TYPE_INTEGER, (RF_opt & OPT_BOOT_TYP2), RF_ntree, RF_subjSize);
       }
     }
     else {
@@ -263,7 +263,7 @@ SEXP varProStrength(SEXP traceFlag,
   free_1DObject(RF_xType, NATIVE_TYPE_CHARACTER, RF_xSize);
   if (RF_responseIn != NULL) free_2DObject(RF_responseIn, NATIVE_TYPE_NUMERIC, RF_ySize > 0, RF_ySize, RF_observationSize);
   if (RF_observationIn != NULL) free_2DObject(RF_observationIn, NATIVE_TYPE_NUMERIC, TRUE, RF_xSize, RF_observationSize);
-  free_2DObject(RF_bootstrapIn, NATIVE_TYPE_INTEGER, (RF_opt & OPT_BOOT_TYP1) && (RF_opt & OPT_BOOT_TYP2), RF_ntree, RF_subjSize);
+  free_2DObject(RF_bootstrapIn, NATIVE_TYPE_INTEGER, (RF_opt & OPT_BOOT_TYP2), RF_ntree, RF_subjSize);
   memoryCheck();
   VP_cpuTime_[1] = (double) (clock() - cpuTimeStart) / CLOCKS_PER_SEC;
   R_ReleaseObject(RF_sexpVector[RF_OUTP_ID]);

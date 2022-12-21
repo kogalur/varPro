@@ -74,8 +74,7 @@ void acquireTree(char mode, uint b) {
   for (i = 1; i <= RF_observationSize; i++) {
     ((NodeBase*) RF_root[treeID]) -> allMembrIndx[i] = i;
   }
-  if ( (!(RF_opt & OPT_BOOT_TYP1) && !(RF_opt & OPT_BOOT_TYP2)) ||
-       ( (RF_opt & OPT_BOOT_TYP1) &&  (RF_opt & OPT_BOOT_TYP2)) ) {
+  if ( (RF_opt & OPT_BOOT_TYP1) || (RF_opt & OPT_BOOT_TYP2)) {
     bootMembrSize = RF_bootstrapSize;
   }
   else {

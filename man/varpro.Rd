@@ -7,7 +7,8 @@
 }
 
 \usage{
-varpro(f, data, ntree = 500, split.weight = TRUE,
+varpro(f, data, nvar = 20,
+       ntree = 500, split.weight = TRUE,
        nodesize = NULL, max.rules.tree = 150, max.tree = min(150, ntree),
        parallel = TRUE, cores = get.number.cores(),
        papply = mclapply, verbose = FALSE, seed = NULL, ...)
@@ -17,7 +18,9 @@ varpro(f, data, ntree = 500, split.weight = TRUE,
 
   \item{f}{Formula describing the model to be fit.}
 
-  \item{data}{Training data set (a data frame).} 
+  \item{data}{Training data set (a data frame).}
+
+  \item{nvar}{Upper limit to number of variables returned.}  
 
   \item{ntree}{Number of trees to grow.}
   
@@ -77,14 +80,18 @@ varpro(f, data, ntree = 500, split.weight = TRUE,
   a random subset of branches, \code{max.rules.tree}, are chosen from
   each tree.  These rules are used for forming the VarPro estimator of
   importance.  Applies to regression, multiclass and survival data.  
-
+  
   Regarding the guided feature selection: this is generally a very
   useful techinque as it supervises the rules obtained from the trees.
   For this reason it is recommended to keep the \code{split.weight}
   option on and this is especially true for high-dimensional, or even
   moderately high-dimensional, problems.  If this option is turned off,
   then \code{nodesize} should be increased to improve precision of the
-  estimators.  
+  estimators.
+
+  Note also that in order to use lasso in the feature selection, all
+  factors are converted using one-hot-encoding.  Thus all features are
+  real valued after the conversion.
 
   Selection of variables is based on a preset cutoff value set using
   the \code{importance} function.  However, there is also a cross-validation
@@ -151,6 +158,27 @@ print(imp)
 
 ## plot importance values
 importance(o, plot.it = TRUE)
+
+
+## ------------------------------------------------------------
+## regression example: boston housing illustrating hot-encoding
+## ------------------------------------------------------------
+
+## convert some of the features to factors
+Boston <- BostonHousing
+Boston$zn <- factor(Boston$zn)
+Boston$chas <- factor(Boston$chas)
+Boston$lstat <- factor(round(0.2 * Boston$lstat))
+Boston$nox <- factor(round(20 * Boston$nox))
+Boston$rm <- factor(round(Boston$rm))
+
+
+## call varpro and print the importance
+print(importance(o <- varpro(medv~., Boston)))
+
+## convenient function to map importance values back to
+## original features
+print(get.orgvimp(Boston, o))
 
 ## ------------------------------------------------------------
 ## regression example: friedman 1

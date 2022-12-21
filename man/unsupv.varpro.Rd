@@ -7,11 +7,11 @@
 }
 
 \usage{
-unsupv.varpro(data, nvar = 5, cutoff = NULL,
-       method = c("sh1", "sh2"), cv = FALSE,
-       auto.encoder = FALSE, tolerance = 1e-10,
+unsupv.varpro(data, nvar = 20, 
+       mode = c("sh1", "sh2", "none"), 
+       tolerance = 1e-10,
        ntree = 150, nodesize = NULL,
-       max.rules.tree = 150, max.tree = min(150, ntree), 
+       max.rules.tree = 150, max.tree = 150,
        papply = mclapply, verbose = FALSE, seed = NULL,
        ...)
 }
@@ -20,27 +20,14 @@ unsupv.varpro(data, nvar = 5, cutoff = NULL,
 
   \item{data}{Data frame containing the usupervised data.}
 
-  \item{nvar}{This is the number of variables returned.}
+  \item{nvar}{Upper limit to number of variables returned.}
 
-  \item{cutoff}{Optional cut-off value for selecting variables.
-  Over-rides \code{nvar} if specified.}
+  \item{mode}{Method used for creating aritifical two-class data used
+    for filtering variables.  Choices are "sh1" (mode 1) or 
+    "sh2" (mode 2) of Shi-Horvath's (2006) artificial data generating
+    procedure.  Selecting "none" by-passes the filtering step.}
 
-  \item{method}{Method used for creating aritifical two-class data.
-    Choices are mode 1 ("sh1") or mode 2 ("sh2") of Shi-Horvath's (2006)
-    artificial data generating procedure.  See details below.}
-
-  \item{cv}{Instead of using a pre-set number of variables, use CV to
-    determine the top variables (more accurate but slower)?}
-
-  \item{auto.encoder}{After filtering variables in an initial step a
-  random forest autoencoder is run by fitting filtered variables
-  against the same filtered variables - a special type of multivariate
-  forest.  VarPro importance is obtained for this forest.  Many options
-  are turned off in this setting.  For example \code{cv} and
-  \code{cutoff} do not apply.}
-
-  \item{tolerance}{Tolerance used for filtering variables if
-  \code{auto.encoder} is requested.  Ignored otherwise.}
+  \item{tolerance}{Tolerance used for filtering variables.}
 
   \item{ntree}{Number of trees to grow.}
 
@@ -57,8 +44,7 @@ unsupv.varpro(data, nvar = 5, cutoff = NULL,
 
   \item{seed}{Seed for repeatability.}
 
-  \item{...}{Further arguments to be passed to \command{varpro} or
-    \command{cv.varpro}.}
+  \item{...}{Further arguments to be passed to \command{varpro}.}
 
 }
 
@@ -70,36 +56,29 @@ unsupv.varpro(data, nvar = 5, cutoff = NULL,
   artificially created.  Breiman's method is generally used for
   unsupervised learning, however here we use the artificially created
   data for the purpose of unsupervised variable selection. Specifically,
-  VarPro is applied by running a two-class classifier on the artificially
-  created two class data.  The idea is that the classifier will identify
-  variables that are informative for clusters.
-
-  The result of applying VarPro is a ranked set of variables. The top
-  \code{nvar} of these are returned (if \code{cutoff} is set then the
-  top variables meeting this cutoff value is returned; see
-  \command{importance} for details).  The option \code{cv} uses
-  cross-validation to select variables (see \command{cv.varpro} for details).
-  This is more accurate, but much slower.
+  VarPro is applied by running a two-class classifier on the
+  artificially created two class data.  The result of applying VarPro is
+  a ranked set of variables. The top \code{nvar} of these are then used
+  in a random forest autoencoder run by fitting the selected variables
+  against themselves - a special type of multivariate forest.  Then
+  using rules acquired from the multivariate forest, VarPro importance is
+  obtained where importance is measured by overall feature variance.
 
   Artificial data is created using "mode 1" or "mode 2" of Shi-Horvath
-  (2006).  Mode 1 (default) randomly draws from each set of observed
+  (2006).  Mode 1 (default) randomly permutes each set of observed
   features.  Mode 2 draws a uniform value from the minimum and maximum
   values of a feature.
 
-  Finally, selecting \code{auto.encoder} runs a different type of method
-  where in the first step, variables are filtered using the two-class
-  approach.  The filtered variables are then used for both the reponse
-  outcomes and the features - a special type of multivariate forest we
-  can call an autoencoder.  VarPro importance is obtained for this
-  forest.
+  Selecting \code{mode}="none" by-passes the filtering step in which
+  case the random forests autoencoder is applied to all variables.  Only
+  use this option for low-dimensional problems.
 
+  
 }
   
 \value{
 
-  Vector containing names of variables found to be informative using
-  VarPro.  If autoencoder is selected, a matrix of informative
-  variables (rows) with importance values (columns).
+  A VarPro object.
  
 }
 
@@ -123,7 +102,6 @@ unsupv.varpro(data, nvar = 5, cutoff = NULL,
 }
 
 \seealso{
-  \command{\link{cv.varpro}}
   \command{\link{varpro}}
 }
 
@@ -135,12 +113,54 @@ unsupv.varpro(data, nvar = 5, cutoff = NULL,
 data(BostonHousing, package = "mlbench")
 
 ## default call
-print(unsupv.varpro(BostonHousing))
-
-## use cv with fast option
-print(unsupv.varpro(BostonHousing, cv = TRUE, fast = TRUE))
+o <- unsupv.varpro(BostonHousing)
+print(importance(o))
 
 \donttest{
+
+## ------------------------------------------------------------
+## latent variable simulation
+## ------------------------------------------------------------
+
+n <- 1000
+w <- rnorm(n)
+x <- rnorm(n)
+y <- rnorm(n)
+z <- rnorm(n)
+ei <- matrix(rnorm(n * 20, sd = sqrt(.1)), ncol = 20)
+e21 <- rnorm(n, sd = sqrt(.4))
+e22 <- rnorm(n, sd = sqrt(.4))
+wi <- w + ei[, 1:5]
+xi <- x + ei[, 6:10]
+yi <- y + ei[, 11:15]
+zi <- z + ei[, 16:20]
+h1 <- w + x + e21
+h2 <- y + z + e22
+dta <- data.frame(w=w,wi=wi,x=x,xi=xi,y=y,yi=yi,z=z,zi=zi,h1=h1,h2=h2)
+
+## default call
+print(importance(unsupv.varpro(dta)))
+
+## same as above, but without filtering
+print(importance(unsupv.varpro(dta, mode = "none")))
+
+
+## ------------------------------------------------------------
+## glass
+## ------------------------------------------------------------
+
+data(Glass, package = "mlbench")
+
+## remove the outcome
+Glass$Type <- NULL
+
+## get importance - no filtering
+o <- unsupv.varpro(Glass, mode = "none")
+print(importance(o))
+
+## compare to PCA
+(biplot(prcomp(o$x, scale = TRUE)))
+
 
 ## ------------------------------------------------------------
 ## glioma data
@@ -152,9 +172,7 @@ data(glioma, package = "varPro")
 glioma$y <- NULL
 
 ## reduce number of lasso iterations
-print(unsupv.varpro(glioma, nvar = 10, maxit = 1000))
-
-
+print(importance(unsupv.varpro(glioma, maxit = 1000)))
 
 ## ------------------------------------------------------------
 ## largish data set: illustrates various options to speed up calculations
@@ -165,25 +183,10 @@ data(housing, package = "randomForestSRC")
 housing2 <- randomForestSRC:::get.na.roughfix(housing)
 
 ## use bigger nodesize
-print(unsupv.varpro(housing2, ntree = 50, nodesize = 150, nvar = 10))
+print(importance(unsupv.varpro(housing2, ntree = 50, nodesize = 150)))
 
 ## use smaller bootstrap
-print(unsupv.varpro(housing2, ntree = 50, nodesize = 150, sampsize = 250, nvar = 10))
-
-## ------------------------------------------------------------
-## largish data set with CV option using fast=TRUE
-## ------------------------------------------------------------
-
-## roughly impute the data
-data(housing, package = "randomForestSRC")
-housing2 <- randomForestSRC:::get.na.roughfix(housing)
-
-## cv with fast = TRUE
-print(unsupv.varpro(housing2, ntree = 50, nodesize = 150, cv = TRUE, fast = TRUE))
-
-## cv even faster - use sampsize option
-print(unsupv.varpro(housing2, ntree = 50, nodesize = 150, cv = TRUE, fast = TRUE, sampsize = 250))
-
+print(importance(unsupv.varpro(housing2, ntree = 50, nodesize = 150, sampsize = 250)))
 
 ## ------------------------------------------------------------
 ## survival data
@@ -191,7 +194,11 @@ print(unsupv.varpro(housing2, ntree = 50, nodesize = 150, cv = TRUE, fast = TRUE
 
 data(peakVO2, package = "randomForestSRC")
 
-print(unsupv.varpro(peakVO2, ntree = 100, nvar = 10))
+## remove the outcome
+peakVO2$died <- peakVO2$ttodead <- NULL
+
+## get importance
+print(importance(unsupv.varpro(peakVO2)))
 
 }}
 

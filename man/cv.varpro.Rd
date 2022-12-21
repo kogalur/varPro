@@ -6,7 +6,8 @@
 }
 
 \usage{
-cv.varpro(f, data, ntree = 150,
+cv.varpro(f, data, nvar = 30,
+       ntree = 150,
        zcut = seq(0.1, 2, length = 50),
        nblocks = 10,
        split.weight = TRUE, nodesize = NULL, 
@@ -19,7 +20,9 @@ cv.varpro(f, data, ntree = 150,
 
   \item{f}{Formula describing the model to be fit.}
 
-  \item{data}{Training data set (a data frame).} 
+  \item{data}{Training data set (a data frame).}
+
+  \item{nvar}{Upper limit to number of variables returned.}  
 
   \item{ntree}{Number of trees to grow.}
 

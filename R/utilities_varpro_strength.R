@@ -1,12 +1,12 @@
 get.bootstrap.bits <- function (bootstrap) {
-  if (bootstrap == "by.root") {
+  if (bootstrap == "none") {
     bootstrap <- 0
   }
-  else if (bootstrap == "none") {
-    bootstrap <- 2^20
+  else if (bootstrap == "by.root") {
+    bootstrap <- 2^19
   }
   else if (bootstrap == "by.user") {
-    bootstrap <- 2^19 + 2^20
+    bootstrap <- 2^20
   }
   else {
     stop("Invalid choice for 'bootstrap' option:  ", bootstrap)

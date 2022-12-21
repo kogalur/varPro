@@ -435,7 +435,7 @@ void stackPreDefinedCommonArrays(char          mode,
     (*nodeCount)[i] = 0;    
   }
   *bootMembershipIndex = (uint **) new_vvector(1, ntree, NRUTIL_UPTR);
-  if ( (RF_opt & OPT_BOOT_TYP1) && (RF_opt & OPT_BOOT_TYP2) ) {
+  if (RF_opt & OPT_BOOT_TYP2) {
     for (i = 1; i <= ntree; i++) {
       k = 0;
       for (j = 1; j <= subjSize; j++) {
@@ -473,8 +473,7 @@ void stackPreDefinedCommonArrays(char          mode,
     *pTermList = (TerminalBase ***) new_vvector(1, ntree, NRUTIL_NPTR2);
     *pLeafCount = uivector(1, ntree);
   }
-  if ( ( (RF_opt & OPT_BOOT_TYP1) && !(RF_opt & OPT_BOOT_TYP2)) ||
-       (!(RF_opt & OPT_BOOT_TYP1) && !(RF_opt & OPT_BOOT_TYP2)) ) {
+  if ((RF_opt & OPT_BOOT_TYP1) || (RF_opt & OPT_BOOT_TYP2)) {
     for (i = 1; i <= subjSize; i++) {
       if(subjWeight[i] < 0) {
         RF_nativeError("\nRF-SRC:  *** ERROR *** ");
@@ -597,7 +596,7 @@ void unstackPreDefinedCommonArrays(char             mode,
   free_new_vvector(leafLinkedObjTail, 1, ntree, NRUTIL_LEAFPTR);
   free_uivector(nodeCount, 1, ntree);
   free_new_vvector(bootMembershipIndex, 1, ntree, NRUTIL_UPTR);
-  if ( (RF_opt & OPT_BOOT_TYP1) && (RF_opt & OPT_BOOT_TYP2) ) {
+  if (RF_opt & OPT_BOOT_TYP2) {
   }
   free_new_vvector(bootMembershipFlag, 1, ntree, NRUTIL_CPTR);
   free_new_vvector(bootMembershipCount, 1, ntree, NRUTIL_UPTR);
@@ -617,8 +616,7 @@ void unstackPreDefinedCommonArrays(char             mode,
     free_new_vvector(pTermList, 1, ntree, NRUTIL_NPTR2);
     free_uivector(pLeafCount, 1, ntree);
   }
-  if ( (!(RF_opt & OPT_BOOT_TYP1) && !(RF_opt & OPT_BOOT_TYP2)) ||
-       ( (RF_opt & OPT_BOOT_TYP1) &&  (RF_opt & OPT_BOOT_TYP2)) ) {
+  if ((RF_opt & OPT_BOOT_TYP1) || (RF_opt & OPT_BOOT_TYP2)) {
     unstackWeights(subjWeightType, subjSize, subjWeightSorted); 
   }
   if ((startTimeIndex > 0) && (timeIndex > 0) && (statusIndex > 0)) {
@@ -1078,49 +1076,49 @@ void stackFactorArrays(char    mode,
 void stackFactorGeneric(char    respFlag,
                         uint    size,
                         char   *type,
-                        uint  **p_factorMap,
+                        uint  **factorMap,
                         uint   *factorCount,
-                        uint  **p_factorIndex,
-                        uint  **p_factorSize,
-                        uint  **p_nonfactorMap,
+                        uint  **factorIndex,
+                        uint  **factorSize,
+                        uint  **nonfactorMap,
                         uint   *nonfactorCount,
-                        uint  **p_nonfactorIndex) {
+                        uint  **nonfactorIndex) {
   uint i, j;
   if (size > 0) {
-    *p_factorMap    = uivector(1, size);
-    *p_nonfactorMap = uivector(1, size);
+    *factorMap    = uivector(1, size);
+    *nonfactorMap = uivector(1, size);
     *factorCount    = 0;
     *nonfactorCount = 0;
     for (i = 1; i <= size; i++) {
-      (*p_factorMap)[i]    = 0;
-      (*p_nonfactorMap)[i] = 0;
+      (*factorMap)[i]    = 0;
+      (*nonfactorMap)[i] = 0;
       if ((type[i] == 'B') ||
           ((type[i] == 'I') && respFlag) ||
           (type[i] == 'C')) {
         (*factorCount) ++;
-        (*p_factorMap)[i] = *factorCount;
+        (*factorMap)[i] = *factorCount;
       }
       else {
         (*nonfactorCount) ++;
-        (*p_nonfactorMap)[i] = *nonfactorCount;
+        (*nonfactorMap)[i] = *nonfactorCount;
       }
     }
     if (*factorCount > 0) {
-      *p_factorIndex = uivector(1, *factorCount);
+      *factorIndex = uivector(1, *factorCount);
       j = 0;
       for (i = 1; i <= size; i++) {
-        if ((*p_factorMap)[i] > 0) {
-          (*p_factorIndex)[++j] = i;
+        if ((*factorMap)[i] > 0) {
+          (*factorIndex)[++j] = i;
         }
       }
-      *p_factorSize = uivector(1, *factorCount);
+      *factorSize = uivector(1, *factorCount);
     }
     if (*nonfactorCount > 0) {
-      *p_nonfactorIndex = uivector(1, *nonfactorCount);
+      *nonfactorIndex = uivector(1, *nonfactorCount);
       j = 0;
       for (i = 1; i <= size; i++) {
-        if ((*p_nonfactorMap)[i] > 0) {
-          (*p_nonfactorIndex)[++j] = i;
+        if ((*nonfactorMap)[i] > 0) {
+          (*nonfactorIndex)[++j] = i;
         }
       }
     }
@@ -1177,8 +1175,10 @@ void unstackFactorArrays(char     mode,
   if (xNonFactorCount > 0) {
     free_uivector(xNonFactorIndex, 1, xNonFactorCount);
   }
-  if ((rFactorCount + xFactorCount) > 0) {
-    free_new_vvector(factorList, 1, ntree, NRUTIL_FPTR2);
+  if (ntree > 0) {
+    if ((rFactorCount + xFactorCount) > 0) {
+      free_new_vvector(factorList, 1, ntree, NRUTIL_FPTR2);
+    }
   }
   if (ySize == 0) {
   }
@@ -1224,9 +1224,11 @@ void initializeFactorArrays(char  mode,
       }
     }
     *maxFactorLevel = (*xMaxFactorLevel > *rMaxFactorLevel) ? *xMaxFactorLevel : *rMaxFactorLevel;
-    *factorList = (Factor ***) new_vvector(1, ntree, NRUTIL_FPTR2);
-    for (j = 1; j <= ntree; j++) {
-      (*factorList)[j] = NULL;
+    if (ntree > 0 ) {
+      *factorList = (Factor ***) new_vvector(1, ntree, NRUTIL_FPTR2);
+      for (j = 1; j <= ntree; j++) {
+        (*factorList)[j] = NULL;
+      }
     }
   }
 }

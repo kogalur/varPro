@@ -40,13 +40,13 @@ char bootstrap (char      mode,
   char result;
   uint i, j, k;
   result = TRUE;
-  if (!(RF_opt & OPT_BOOT_TYP1) && (RF_opt & OPT_BOOT_TYP2)) {
+  if (!(RF_opt & OPT_BOOT_TYP1) && !(RF_opt & OPT_BOOT_TYP2)) {
     for (i=1; i <= subsetSize; i++) {
       index[i] = subsetIndex[i];
     }
   }
   else {
-    if ( (RF_opt & OPT_BOOT_TYP1) && (RF_opt & OPT_BOOT_TYP2) ) {
+    if (RF_opt & OPT_BOOT_TYP2) {
       i = 0;
       for (k = 1; k <= subjSize; k++) {
         for (j = 1; j <= bootstrapIn[treeID][k]; j++) {

@@ -1,4 +1,5 @@
-cv.varpro <- function(f, data, ntree = 150,
+cv.varpro <- function(f, data, nvar = 30,
+                      ntree = 150,
                       zcut = seq(0.1, 2, length = 50),
                       nblocks = 10,
                       split.weight = TRUE,
@@ -19,8 +20,13 @@ cv.varpro <- function(f, data, ntree = 150,
   ## re-define the original data in case there are missing values
   ##
   ##--------------------------------------------------------------
-  stump <- rfsrc(f, data, mtry = 1, nodedepth = 0, perf.type = "none", save.memory = TRUE,
-                    ntree = 1, splitrule = "random")
+  stump <- rfsrc(f, data,
+                 mtry = 1,
+                 nodedepth = 0,
+                 perf.type = "none",
+                 save.memory = TRUE,
+                 ntree = 1,
+                 splitrule = "random")
   n <- stump$n
   p <- length(stump$xvar.names)
   yvar.names <- stump$yvar.names
@@ -93,23 +99,18 @@ cv.varpro <- function(f, data, ntree = 150,
   ## varpro call
   ##
   ##--------------------------------------------------------------
-  o <- do.call("varpro", c(list(f = f, data = data,
+  o <- do.call("varpro", c(list(f = f, data = data, nvar = nvar,
                   ntree = ntree, split.weight = split.weight,
                   nodesize = nodesize, max.rules.tree = max.rules.tree, max.tree = max.tree,
 		  papply = papply, verbose = verbose, seed = seed), dots))
   ##--------------------------------------------------------------
   ##
   ## extract importance values
+  ## map importance values which are hot-encoded back to original data 
   ##
   ##--------------------------------------------------------------
-  v <- importance(o)
-  if (o$family == "class") {
-    v <- v$unconditional
-  }
-  if (o$family == "regr+") {
-    v <- v[[1]]
-  }
-  xvar.names <- rownames(v)
+  v <- get.orgvimp(data, o)
+  xvar.names <- v$variable
   imp <- v$z
   imp[is.na(imp)] <- 0
   ##--------------------------------------------------------------

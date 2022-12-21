@@ -18,6 +18,33 @@ customSampler <- function(n, x, uniform = TRUE, ndiscrete = 10) {
     resample(x, size = n, replace = TRUE)
   }
 }
+## hot-encoding
+get.hotencode <- function(x, papply = mclapply) {
+  anyF <- sapply(x, is.factor)
+  if (sum(anyF) > 0) {
+    x.f <- do.call(cbind, papply(names(anyF[anyF]), function(nn) {
+      xn <- x[, nn]
+      ## one-level factors are converted to zero
+      if (length(levels(xn)) == 1) {
+        as.numeric(xn) - 1
+      }
+      ## two-level factors are converted to binary
+      else if (length(levels(xn)) == 2) {
+        xn <- data.frame(as.numeric(factor(xn, labels = c(0, 1))) - 1)
+        colnames(xn) <- nn
+        xn
+      }
+      else {
+        f <- as.formula(paste0("~ -1 +", nn))
+        xn <- data.frame(xn)
+        colnames(xn) <- nn
+        model.matrix(f, xn)
+      }
+    }))
+    x <- data.frame(x[, !anyF, drop = FALSE], x.f)
+  }
+  x
+}
 ## rmst
 sIndex <- function(x,y) {sapply(1:length(y), function(j) {sum(x <= y[j])})}
 get.rmst <- function(o, tau.horizon = NULL) {
