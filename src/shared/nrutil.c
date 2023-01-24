@@ -2,7 +2,6 @@
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 #include           "globalCore.h"
 #include           "externalCore.h"
-#include           "trace.h"
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 
       
@@ -764,7 +763,7 @@ void nrCopyVector(char *new, char *old, unsigned int ncol) {
     new[j] = old[j];
   }
 }
-void testEndianness() {
+void testEndianness(void) {
   unsigned int     test = 0x12345678;
   unsigned int *testPtr = & test;
   RF_nativePrint("\nTest of Endianness:  ");

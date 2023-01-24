@@ -2,7 +2,6 @@
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 #include           "shared/globalCore.h"
 #include           "shared/externalCore.h"
-#include           "shared/trace.h"
 #include           "global.h"
 #include           "external.h"
 
@@ -41,11 +40,6 @@ void varProMain(char mode, int seedValue) {
     RF_nativeError("\nRF-SRC:  *** ERROR *** ");
     RF_nativeError("\nRF-SRC:  Parameter verification failed.");
     RF_nativeError("\nRF-SRC:  Number of bootstrap iterations must be greater than zero:  %10d \n", RF_ntree);
-    RF_nativeExit();
-  }
-  if (RF_hdim != 0) {
-    RF_nativeError("\nRF-SRC:  *** ERROR *** ");
-    RF_nativeError("\nRF-SRC:  hdim must be 0.");
     RF_nativeExit();
   }
   if (RF_observationSize < 1) {
@@ -138,6 +132,8 @@ void varProMain(char mode, int seedValue) {
                       &RF_startTimeIndex,
                       &RF_statusIndex,
                       &RF_masterTime,
+                      &RF_masterTimeSize,
+                      &RF_sortedTimeInterestSize,
                       &RF_startMasterTimeIndexIn,
                       &RF_masterTimeIndexIn,
                       &RF_ptnCount,
@@ -153,7 +149,6 @@ void varProMain(char mode, int seedValue) {
                               RF_bootstrapIn,
                               RF_subjSize,
                               RF_ptnCount,
-                              RF_hdim,
                               RF_getTree,
                               RF_observationSize,
                               RF_subjCount,
@@ -182,10 +177,6 @@ void varProMain(char mode, int seedValue) {
                               &RF_leafLinkedObjHead,
                               &RF_leafLinkedObjTail,
                               &RF_pLeafCount,
-                              &RF_baseLearnDepthINTR,
-                              &RF_baseLearnRuleINTR,
-                              &RF_baseLearnDepthSYTH,
-                              &RF_nodeCountSyth,
                               &RF_getTreeIndex,
                               &RF_getTreeCount,
                               &RF_subjWeightType,
@@ -336,13 +327,11 @@ void varProMain(char mode, int seedValue) {
                                      RF_tLeafCount_,
                                      RF_holdBLKptr);
   preprocessForestRecord(RF_ntree,
-                         RF_hdim,
                          RF_totalNodeCount_,
                          RF_treeID_,
                          RF_nodeID_,
                          RF_parmID_,
                          RF_mwcpSZ_,
-                         RF_hcDim_,
                          RF_tLeafCount_,
                          RF_nodeSZ_,
                          RF_restoreTreeID,
@@ -859,9 +848,6 @@ void varProMain(char mode, int seedValue) {
                                 RF_leafLinkedObjHead,
                                 RF_leafLinkedObjTail,
                                 RF_pLeafCount,
-                                RF_baseLearnDepthINTR,
-                                RF_baseLearnDepthSYTH,
-                                RF_nodeCountSyth,
                                 RF_getTreeIndex,
                                 RF_subjWeightType,
                                 RF_subjWeightSorted,

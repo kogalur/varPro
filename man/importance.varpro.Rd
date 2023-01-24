@@ -17,8 +17,7 @@
 
 \arguments{
   
-  \item{o}{VarPro object obtained from previous call to \code{varpro}.
-  Must be an object of class \code{varpro}.}
+  \item{o}{varpro object obtained from previous call to \code{varpro}.}
 
   \item{cutoff}{Cut-off value for selecting variables.  Default uses
   two standard deviations.}

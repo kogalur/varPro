@@ -24,7 +24,7 @@ double getApproxQuantile(QuantileObj *head, double phi, uint streamSize);
 void populateBand(uint p, uint *band);
 void makeLookUpTree(LookUpInfo *infoObj, QuantileObj *qObj, uint size, uint depth);
 void findApproximateInsertionPoint(QuantileObj *head, LookUpInfo *tree, double value, QuantileObj **insertPtr);
-LookUpInfo *makeLookUpInfo();
+LookUpInfo *makeLookUpInfo(void);
 void freeLookUpInfo(LookUpInfo *obj);
 void freeLookUpTree(LookUpInfo *obj);
 void testQuantile(uint treeID);

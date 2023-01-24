@@ -2,7 +2,6 @@
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 #include           "shared/globalCore.h"
 #include           "shared/externalCore.h"
-#include           "shared/trace.h"
 #include           "global.h"
 #include           "external.h"
 
@@ -86,7 +85,6 @@ void acquireTree(char mode, uint b) {
                           (NodeBase*) RF_root[treeID],
                           ((NodeBase*) RF_root[treeID]) -> allMembrIndx,
                           ((NodeBase*) RF_root[treeID]) -> allMembrSize,
-                          bootMembrIndx,
                           bootMembrSize,
                           RF_bootstrapIn,
                           RF_subjSize,
@@ -95,6 +93,7 @@ void acquireTree(char mode, uint b) {
                           RF_subjWeightSorted,
                           RF_subjWeightDensitySize,
                           RF_observationSize,
+                          bootMembrIndx,
                           RF_bootMembershipFlag,
                           RF_oobMembershipFlag,
                           RF_bootMembershipCount,

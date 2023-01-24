@@ -47,7 +47,7 @@ varpro <- function(f, data, nvar = 20,
   stump <- rfsrc(f, data, mtry = 1, splitrule="random", nodedepth=0, perf.type = "none", save.memory = TRUE, ntree=1)
   yvar.names <- stump$yvar.names
   y <- stump$yvar
-  y.org <- cbind(y)
+  y.org <- data.frame(y)
   colnames(y.org) <- stump$yvar.names
   x <- stump$xvar
   n <- nrow(x)
@@ -125,7 +125,7 @@ varpro <- function(f, data, nvar = 20,
   ## ------------------------------------------------------------------------
   if (family == "surv") {
     if (verbose) {
-      cat("detected a survival family, using RSF to calculate external estimator...\n")
+      cat("detected a survival family, using RSF to calculate external estimator ...\n")
     }  
     ## survival forest used to calculate external estimator
     o.external <- rfsrc(f, data,
@@ -400,7 +400,7 @@ varpro <- function(f, data, nvar = 20,
   ##
   ## ------------------------------------------------------------------------
   if (verbose) {
-    cat("model based rule generation...\n")
+    cat("model based rule generation ...\n")
   }  
   if (split.weight) {
     object <- rfsrc(f, data,

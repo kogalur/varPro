@@ -7,7 +7,7 @@ void getSplitObjectInfo(SplitInfo *info);
 void getNodeBaseInfo(NodeBase *nodePtr);
 void getTerminalBaseInfo(TerminalBase *termPtr);
 void printTreeInfo(uint treeID, NodeBase *parent);
-void initTimer();
-void printTimer();
+void initTimer(void);
+void printTimer(void);
 void printParameters(char mode);
 #endif

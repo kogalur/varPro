@@ -19,5 +19,5 @@ void *stackAndProtect(struct auxiliaryDimensionConstants *dimConst,
                       uint   auxiliaryDimSize,
                       ...);
 void setUserTraceFlag (uint traceFlag);
-uint getUserTraceFlag ();
+uint getUserTraceFlag (void);
 #endif

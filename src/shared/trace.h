@@ -31,20 +31,15 @@
 void setTraceFlag(unsigned int traceFlag, unsigned int tree);
 unsigned int getTraceFlag(unsigned int tree);
 unsigned int updateTimeStamp(unsigned int before);
-unsigned int getNodeDefTraceFlag();
-unsigned int getForkDefTraceFlag();
-unsigned int getTurnOffTraceFlag();
-unsigned int getNumrDefTraceFlag();
-unsigned int getTimeDefTraceFlag();
 void   setMaxMemoryAllocation(size_t value);
 void   setMinMemoryAllocation(size_t value);
 void   setProbeMemoryAllocation(size_t value);
-size_t getMaxMemoryAllocation();
-size_t getMinMemoryAllocation();
-size_t getProbeMemoryAllocation();
+size_t getMaxMemoryAllocation(void);
+size_t getMinMemoryAllocation(void);
+size_t getProbeMemoryAllocation(void);
 void   increaseMemoryAllocation(size_t amount);
 void   increaseProbeMemoryAllocation(size_t amount);
 void   decreaseMemoryAllocation(size_t amount);
 void   decreaseProbeMemoryAllocation(size_t amount);
-void memoryCheck();
+void memoryCheck(void);
 #endif

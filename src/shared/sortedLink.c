@@ -2,7 +2,6 @@
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 #include           "globalCore.h"
 #include           "externalCore.h"
-#include           "trace.h"
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 
       
@@ -10,7 +9,7 @@
 
 #include "sortedLink.h"
 #include "nrutil.h"
-SortedLinkedObj *makeSortedLinkedObj() {
+SortedLinkedObj *makeSortedLinkedObj(void) {
   SortedLinkedObj *obj = (SortedLinkedObj*) gblock((size_t) sizeof(SortedLinkedObj));
   obj -> fwdLink = NULL;
   obj -> bakLink = NULL;

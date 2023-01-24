@@ -2,7 +2,6 @@
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 #include           "globalCore.h"
 #include           "externalCore.h"
-#include           "trace.h"
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 
       
@@ -20,8 +19,7 @@
 void restoreTree(char mode, uint treeID, NodeBase *parent) {
   ulong *offset;
   SplitInfo *info;
-  uint adj;
-  uint i, k;
+  uint i;
   offset = &RF_restoreTreeOffset[treeID];
   if (treeID != RF_treeID_[*offset]) {
     RF_nativeError("\nRF-SRC:  Diagnostic Trace of Tree Record:  \n");
@@ -42,61 +40,21 @@ void restoreTree(char mode, uint treeID, NodeBase *parent) {
   parent -> repMembrSize = RF_nodeSZ_[*offset];
   if (RF_parmID_[1][*offset] != 0) {
     info = parent -> splitInfo = makeSplitInfo(0);
-    if (RF_hdim == 0) {
-      info -> hcDim = 0;
-      adj = 1;
+    info -> mwcpSizeAbs = uivector(1, 1);
+    info -> randomVar   = ivector(1, 1);
+    info -> randomPts   = new_vvector(1, 1, NRUTIL_VPTR);
+    info -> randomVar[1] = RF_parmID_[1][*offset];
+    info -> mwcpSizeAbs[1] = RF_mwcpSZ_[1][*offset];
+    if (RF_mwcpSZ_[1][*offset] > 0) {
+      info -> randomPts[1] = uivector(1, RF_mwcpSZ_[1][*offset]);
+      for (i = 1; i <= RF_mwcpSZ_[1][*offset]; i++) {
+        RF_restoreMWCPoffset[1][treeID] ++;
+        ((uint *) info -> randomPts[1])[i] = RF_mwcpPT_[1][RF_restoreMWCPoffset[1][treeID]];
+      }
     }
     else {
-      info -> hcDim = RF_hcDim_[*offset];      
-      adj = RF_hcDim_[*offset];
-    }
-    if (RF_baseLearnDepthINTR > 1) {
-      info -> pairCT = RF_pairCT_[*offset];
-    }
-    if (RF_baseLearnDepthSYTH > 1) {
-      if (RF_lotsSZ_[*offset] > 0) {
-        info -> sythFlag = TRUE;
-        parent -> lotsSize = RF_lotsSZ_[*offset];
-      }
-    }
-    info -> mwcpSizeAbs = uivector(1, adj);
-    info -> randomVar   = ivector(1, adj);
-    info -> randomPts   = new_vvector(1, adj, NRUTIL_VPTR);
-    if (RF_baseLearnDepthINTR > 1) {
-      info -> augmX1    = ivector(1, adj);
-      info -> augmX2    = ivector(1, adj);
-    }
-    if (RF_baseLearnDepthSYTH > 1) {
-      info -> augmXS    = ivector(1, adj);
-    }
-    if (RF_hdim > 0) {
-      info -> randomPtsRight   = new_vvector(1, adj, NRUTIL_VPTR);
-    }
-    for (k = 1; k <= adj; k++) {
-      info -> randomVar[k] = RF_parmID_[k][*offset];
-      info -> mwcpSizeAbs[k] = RF_mwcpSZ_[k][*offset];
-      if (RF_mwcpSZ_[k][*offset] > 0) {
-        info -> randomPts[k] = uivector(1, RF_mwcpSZ_[k][*offset]);
-        for (i = 1; i <= RF_mwcpSZ_[k][*offset]; i++) {
-          RF_restoreMWCPoffset[k][treeID] ++;
-          ((uint *) info -> randomPts[k])[i] = RF_mwcpPT_[k][RF_restoreMWCPoffset[k][treeID]];
-        }
-      }
-      else {
-        info -> randomPts[k] = dvector(1, 1);
-        ((double *) info -> randomPts[k])[1] =  RF_contPT_[k][*offset];
-        if (RF_hdim > 0) {
-          info -> randomPtsRight[k] = dvector(1, 1);
-          ((double *) info -> randomPtsRight[k])[1] =  RF_contPTR_[k][*offset];
-        }
-      }
-      if (RF_baseLearnDepthINTR > 1) {
-        info -> augmX1[k] = RF_augmX1_[k][*offset];
-        info -> augmX2[k] = RF_augmX2_[k][*offset];
-      }
-      if (RF_baseLearnDepthSYTH > 1) {
-        info -> augmXS[k] = RF_augmXS_[k][*offset];
-      }
+      info -> randomPts[1] = dvector(1, 1);
+      ((double *) info -> randomPts[1])[1] =  RF_contPT_[1][*offset];
     }
   }
   else {

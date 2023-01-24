@@ -2,7 +2,6 @@
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 #include           "globalCore.h"
 #include           "externalCore.h"
-#include           "trace.h"
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 
       
@@ -10,6 +9,7 @@
 
 #include "stackPreDefined.h"
 #include "factor.h"
+#include "factorOps.h"
 #include "leafLink.h"
 #include "nrutil.h"
 #include "error.h"
@@ -28,6 +28,8 @@ void stackIncomingResponseArrays(char     mode,
                                  uint    *startTimeIndex,
                                  uint    *statusIndex,
                                  double **masterTime,
+                                 uint    *masterTimeSize,
+                                 uint    *sortedTimeInterestSize,
                                  uint   **startMasterTimeIndexIn,
                                  uint   **masterTimeIndexIn,
                                  uint    *ptnCount,
@@ -36,6 +38,8 @@ void stackIncomingResponseArrays(char     mode,
   uint i, j;
   *startTimeIndex = *timeIndex = *statusIndex = 0;
   *masterTime = NULL;
+  *masterTimeSize = 0;
+  *sortedTimeInterestSize = 0;
   *startMasterTimeIndexIn = *masterTimeIndexIn = NULL;
   if (ySize > 0) {
     *yIndex = uivector(1, ySize);
@@ -147,6 +151,8 @@ void stackIncomingArrays(char     mode,
                          uint    *startTimeIndex,
                          uint    *statusIndex,
                          double **masterTime,
+                         uint    *masterTimeSize,
+                         uint    *sortedTimeInterestSize,
                          uint   **startMasterTimeIndexIn,
                          uint   **masterTimeIndexIn,
                          uint    *ptnCount,
@@ -168,6 +174,8 @@ void stackIncomingArrays(char     mode,
                               startTimeIndex,
                               statusIndex,
                               masterTime,
+                              masterTimeSize,
+                              sortedTimeInterestSize,
                               startMasterTimeIndexIn,
                               masterTimeIndexIn,
                               ptnCount,
@@ -272,26 +280,6 @@ void stackIncomingArrays(char     mode,
       }
     }
     if ((*timeIndex == 0) && (*statusIndex == 0)) {
-      if ((splitRule != RAND_SPLIT)  &&
-          (splitRule != REGR_NRM)    &&
-          (splitRule != REGR_SGS)    &&
-          (splitRule != REGR_QUANT)  &&
-          (splitRule != LARG_QUANT)  &&
-          (splitRule != CLAS_NRM)    &&
-          (splitRule != CLAS_SGS)    &&
-          (splitRule != CLAS_AU_ROC) &&
-          (splitRule != CLAS_ENTROP) &&
-          (splitRule != MVRG_SPLIT)  &&
-          (splitRule != MVCL_SPLIT)  &&
-          (splitRule != MVMX_SPLIT)  &&
-          (splitRule != USPV_SPLIT)  &&
-          (splitRule != CUST_SPLIT)  &&
-          (splitRule != MAHALANOBIS)) {
-        RF_nativeError("\nRF-SRC:  *** ERROR *** ");
-        RF_nativeError("\nRF-SRC:  !SURV data and split rule specified are incompatible.");
-        RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
-        RF_nativeExit();
-      }
       if  ((splitRule == REGR_QUANT) || (splitRule == LARG_QUANT)) {
         if (quantileSize > 0) {
         }
@@ -306,26 +294,8 @@ void stackIncomingArrays(char     mode,
     }
     else if ((*timeIndex != 0) && (*statusIndex != 0)) {
       if (*startTimeIndex == 0) {
-        if ((splitRule != SURV_LGRNK)  &&
-            (splitRule != SURV_LRSCR)  &&
-            (splitRule != SURV_BSG1)   &&
-            (splitRule != SURV_CR_LAU) &&
-            (splitRule != SURV_CR_GEN) &&
-            (splitRule != RAND_SPLIT)  &&
-            (splitRule != CUST_SPLIT)) {
-          RF_nativeError("\nRF-SRC:  *** ERROR *** ");
-          RF_nativeError("\nRF-SRC:  SURV data and split rule specified are incompatible.");
-          RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
-          RF_nativeExit();
-        }
       }
       else {
-        if (splitRule != SURV_TDC) {
-          RF_nativeError("\nRF-SRC:  *** ERROR *** ");
-          RF_nativeError("\nRF-SRC:  SURV data and split rule specified are incompatible.");
-          RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
-          RF_nativeExit();
-        }
       }
     }
     else {
@@ -379,7 +349,6 @@ void stackPreDefinedCommonArrays(char          mode,
                                  uint        **bootstrapIn,
                                  uint          subjSize,
                                  uint          ptnCount,
-                                 uint          hdim,
                                  uint         *getTree,
                                  uint          observationSize,
                                  uint          subjCount,
@@ -408,10 +377,6 @@ void stackPreDefinedCommonArrays(char          mode,
                                  LeafLinkedObj ***leafLinkedObjHead,
                                  LeafLinkedObj ***leafLinkedObjTail,
                                  uint        **pLeafCount,
-                                 uint         *baseLearnDepthINTR,
-                                 uint         *baseLearnRuleINTR,
-                                 uint         *baseLearnDepthSYTH,
-                                 uint        **nodeCountSyth,
                                  uint        **getTreeIndex,
                                  uint         *getTreeCount,
                                  uint         *subjWeightType,
@@ -488,26 +453,6 @@ void stackPreDefinedCommonArrays(char          mode,
                  subjWeightSorted,
                  subjWeightDensitySize); 
   }
-  if (hdim == 0) {
-    *baseLearnDepthINTR = 0;
-    *baseLearnDepthSYTH = 0;
-    *baseLearnRuleINTR  = AUGT_INTR_NONE;
-  }
-  if ((startTimeIndex > 0) && (timeIndex > 0) && (statusIndex > 0)) {
-    *baseLearnDepthINTR = 0;
-    *baseLearnDepthSYTH = 0;
-    *baseLearnRuleINTR  = AUGT_INTR_NONE;
-  }
-  else {
-    if (*baseLearnDepthINTR > 1) {
-    }
-    if (*baseLearnDepthSYTH > 1) {
-      *nodeCountSyth = uivector(1, ntree);
-      for (i = 1; i <= ntree; i++) {
-        (*nodeCountSyth)[i] = 0;    
-      }
-    }
-  }
   *getTreeIndex = uivector(1, ntree);
   if (mode == RF_GROW) {
     for (i = 1; i <= ntree; i++) {
@@ -578,9 +523,6 @@ void unstackPreDefinedCommonArrays(char             mode,
                                    LeafLinkedObj  **leafLinkedObjHead,
                                    LeafLinkedObj  **leafLinkedObjTail,
                                    uint            *pLeafCount,
-                                   uint             baseLearnDepthINTR,
-                                   uint             baseLearnDepthSYTH,
-                                   uint            *nodeCountSyth,
                                    uint            *getTreeIndex,
                                    uint             subjWeightType,
                                    uint            *subjWeightSorted,
@@ -622,11 +564,6 @@ void unstackPreDefinedCommonArrays(char             mode,
   if ((startTimeIndex > 0) && (timeIndex > 0) && (statusIndex > 0)) {
   }
   else {
-    if (baseLearnDepthINTR > 1) {
-    }
-    if (baseLearnDepthSYTH > 1) {
-      free_uivector(nodeCountSyth, 1, ntree);
-    }
   }
   free_uivector(getTreeIndex, 1, ntree);
   free_uivector(identityMembershipIndex, 1, identityMembershipIndexSize);
@@ -929,10 +866,6 @@ void stackAndInitializeTimeAndSubjectArrays(char     mode,
       }
     }  
   }
-  else {
-    *masterTimeSize = 0;
-    *sortedTimeInterestSize = 0;
-  }
 }
 void unstackTimeAndSubjectArrays(char     mode,
                                  uint     startTimeIndex,
@@ -948,29 +881,31 @@ void unstackTimeAndSubjectArrays(char     mode,
                                  uint    *caseMap,
                                  uint     subjCount) {
   uint i;
-  if (!(RF_opt & OPT_ANON)) {
-    if (startTimeIndex == 0) {
-      free_dvector(masterTime, 1, observationSize);
-      free_uivector(masterTimeIndexIn, 1, observationSize);
+  if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
+    if (!(RF_opt & OPT_ANON)) {
+      if (startTimeIndex == 0) {
+        free_dvector(masterTime, 1, observationSize);
+        free_uivector(masterTimeIndexIn, 1, observationSize);
+      }
+      else {
+        free_dvector(masterTime, 1, 2 * observationSize);
+        free_uivector(startMasterTimeIndexIn, 1, observationSize);
+        free_uivector(masterTimeIndexIn, 1, observationSize);
+      }
     }
-    else {
-      free_dvector(masterTime, 1, 2 * observationSize);
-      free_uivector(startMasterTimeIndexIn, 1, observationSize);
-      free_uivector(masterTimeIndexIn, 1, observationSize);
+    if (startTimeIndex > 0) {
+      free_uivector(subjSlot, 1, observationSize);
+      free_uivector(caseMap, 1, observationSize);
+      for (i = 1; i <= subjCount; i++) {
+        free_uivector(subjList[i], 1, subjSlotCount[i]);
+      }
+      free_uivector(subjSlotCount, 1, observationSize);
+      free_new_vvector(subjList, 1, subjCount, NRUTIL_UPTR);
     }
-  }
-  if (startTimeIndex > 0) {
-    free_uivector(subjSlot, 1, observationSize);
-    free_uivector(caseMap, 1, observationSize);
-    for (i = 1; i <= subjCount; i++) {
-      free_uivector(subjList[i], 1, subjSlotCount[i]);
-    }
-    free_uivector(subjSlotCount, 1, observationSize);
-    free_new_vvector(subjList, 1, subjCount, NRUTIL_UPTR);
-  }
-  if (!(RF_opt & OPT_IMPU_ONLY)) {
-    if (startTimeIndex > 0) {    
-      free_uivector(masterToInterestTimeMap, 1, masterTimeSize);    
+    if (!(RF_opt & OPT_IMPU_ONLY)) {
+      if (startTimeIndex > 0) {    
+        free_uivector(masterToInterestTimeMap, 1, masterTimeSize);    
+      }
     }
   }
 }
@@ -1175,8 +1110,8 @@ void unstackFactorArrays(char     mode,
   if (xNonFactorCount > 0) {
     free_uivector(xNonFactorIndex, 1, xNonFactorCount);
   }
-  if (ntree > 0) {
-    if ((rFactorCount + xFactorCount) > 0) {
+  if ((rFactorCount + xFactorCount) > 0) {
+    if (ntree > 0) {
       free_new_vvector(factorList, 1, ntree, NRUTIL_FPTR2);
     }
   }
@@ -1885,6 +1820,49 @@ void unstackClassificationArrays(char    mode,
       free_dvector(rFactorThreshold, 1, rFactorCount);
       free_uivector(rFactorMinority, 1, rFactorCount);
       free_uivector(rFactorMajority, 1, rFactorCount);
+    }
+  }
+}
+void stackFactorInSitu(uint  treeID,
+                       uint  rFactorCount,
+                       uint  xFactorCount,
+                       uint  maxFactorLevel,
+                       uint *rFactorSize,
+                       uint *xFactorSize,
+                       Factor ***factorList) {
+  uint j;
+  if (rFactorCount + xFactorCount > 0) {
+    factorList[treeID] = (Factor **) new_vvector(1, maxFactorLevel, NRUTIL_FPTR);
+    for (j = 1; j <= maxFactorLevel; j++) {
+      factorList[treeID][j] = NULL;
+    }
+    for (j = 1; j <= xFactorCount; j++) {
+      if (factorList[treeID][xFactorSize[j]] == NULL) {
+        factorList[treeID][xFactorSize[j]] = makeFactor(xFactorSize[j], FALSE);
+      }
+    }
+    for (j = 1; j <= rFactorCount; j++) {
+      if (factorList[treeID][rFactorSize[j]] == NULL) {
+        factorList[treeID][rFactorSize[j]] = makeFactor(rFactorSize[j], FALSE);
+      }
+    }
+  }
+}
+void unstackFactorInSitu(uint  treeID,
+                         uint  rFactorCount,
+                         uint  xFactorCount,
+                         uint  maxFactorLevel,
+                         Factor ***factorList) {
+  uint j;
+  if (rFactorCount + xFactorCount > 0) {
+    if (factorList[treeID] != NULL) {
+      for (j = 1; j <= maxFactorLevel; j++) {
+        if (factorList[treeID][j] != NULL) {
+          freeFactor(factorList[treeID][j]);
+        }
+      }
+      free_new_vvector(factorList[treeID], 1, maxFactorLevel, NRUTIL_FPTR);
+      factorList[treeID] = NULL;
     }
   }
 }

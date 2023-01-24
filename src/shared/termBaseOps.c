@@ -2,7 +2,6 @@
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 #include           "globalCore.h"
 #include           "externalCore.h"
-#include           "trace.h"
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 
       
@@ -11,7 +10,7 @@
 #include "termBaseOps.h"
 #include "nrutil.h"
 #include "error.h"
-TerminalBase *makeTerminalBase() {
+TerminalBase *makeTerminalBase(void ) {
   TerminalBase *parent = (TerminalBase*) gblock((size_t) sizeof(TerminalBase));
   preInitTerminalBase(parent);
   return parent;

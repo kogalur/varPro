@@ -5,7 +5,7 @@ dnl which in turn is based on autoconf's openmp.m4,
 dnl with is licensed under GPL-3 with the 
 dnl Autoconf Configure Script Exception, version 3.0.
 
-AC_INIT([varPro], [0.0.20], [ubk@kogalur.com], [varPro], [https://github.com/kogalur/varPro])
+AC_INIT([varPro], [0.0.22], [ubk@kogalur.com], [varPro], [https://github.com/kogalur/varPro])
 
 AC_PREREQ([2.62])
 
@@ -50,6 +50,10 @@ dnl this the meat of R's m4/openmp.m4
 	OPENMP_[]_AC_LANG_PREFIX[]FLAGS=$ac_cv_prog_[]_AC_LANG_ABBREV[]_openmp ;;
     esac
   fi
+
+# substitute externalized source list
+PKG_SOURCES=$(cat src/sources.list)
+AC_SUBST(PKG_SOURCES)
 
 AC_SUBST(OPENMP_CFLAGS)
 AC_CONFIG_FILES([src/Makevars])

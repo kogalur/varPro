@@ -2,7 +2,6 @@
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 #include           "globalCore.h"
 #include           "externalCore.h"
-#include           "trace.h"
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 
       
@@ -11,7 +10,7 @@
 #include "leafLink.h"
 #include "nrutil.h"
 #include "terminalBase.h"
-LeafLinkedObj *makeLeafLinkedObj() {
+LeafLinkedObj *makeLeafLinkedObj(void) {
   LeafLinkedObj *obj = (LeafLinkedObj*) gblock((size_t) sizeof(LeafLinkedObj));
   obj -> fwdLink = NULL;
   obj -> bakLink = NULL;

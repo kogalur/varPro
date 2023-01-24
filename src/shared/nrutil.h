@@ -100,5 +100,5 @@ void nrCopyVector(
   char *old,
   unsigned int ncol
 );
-void testEndianness();
+void testEndianness(void);
 #endif

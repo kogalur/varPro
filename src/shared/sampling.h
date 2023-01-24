@@ -21,8 +21,8 @@ struct distributionObj {
   uint  uIndexAllocSize;
   uint  slot;
 };
-DistributionObj *makeDistributionObjRaw();
-DistributionObj *makeDistributionObjFull();
+DistributionObj *makeDistributionObjRaw(void);
+DistributionObj *makeDistributionObjFull(void);
 void freeDistributionObjRaw(DistributionObj *obj);
 void initializeCDFNew(uint treeID, DistributionObj *obj);
 uint sampleFromCDFNew (float (*genericGenerator) (uint), uint treeID, DistributionObj *obj);

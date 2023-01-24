@@ -9,7 +9,7 @@ struct leafLinkedObj {
   TerminalBase *termPtr;
   uint nodeID;  
 };
-LeafLinkedObj *makeLeafLinkedObj();
+LeafLinkedObj *makeLeafLinkedObj(void);
 LeafLinkedObj *makeAndSpliceLeafLinkedObj(LeafLinkedObj *tail);
 void freeLeafLinkedObj(LeafLinkedObj *obj);
 void freeLeafLinkedObjList(LeafLinkedObj *obj);

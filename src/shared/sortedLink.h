@@ -7,7 +7,7 @@ struct sortedLinkedObj {
   uint rank;
   uint indx;
 };
-struct sortedLinkedObj *makeSortedLinkedObj();
+struct sortedLinkedObj *makeSortedLinkedObj(void);
 void makeAndSpliceSortedLinkedObj(uint treeID,
                                   struct sortedLinkedObj **headPtr,
                                   struct sortedLinkedObj **tailPtr,

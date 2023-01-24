@@ -1,5 +1,6 @@
 \name{varpro}
 \alias{varpro}
+\alias{make.vt}
 \title{Variable Priority (VarPro) for Variable Selection in Rule-Based Models}
 \description{
   Variable Priority (VarPro) for Variable Selection in Rule-Based Models
@@ -271,10 +272,14 @@ print(system.time(o <- varpro(y~., d, ntree = 100, nodesize = 200,
            sampsize = 100)))
 print(importance(o))
 
-
-## use large nodesize, turn lasso off,
+## use large nodesize, turn lasso off
 print(system.time(o <- varpro(y~., d, ntree = 100, nodesize = 200,
            use.lasso = FALSE)))
+print(importance(o))
+
+## use large nodesize, reduce lasso iterations
+print(system.time(o <- varpro(y~., d, ntree = 100, nodesize = 200,
+           maxit = 100)))
 print(importance(o))
 
 

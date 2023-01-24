@@ -1,7 +1,7 @@
 #ifndef  RF_TERM_BASE_OPS_H
 #define  RF_TERM_BASE_OPS_H
 #include "terminalBase.h"
-TerminalBase *makeTerminalBase();
+TerminalBase *makeTerminalBase(void);
 void preInitTerminalBase(TerminalBase *parent);
 void initTerminalBase(TerminalBase *parent,
                       uint         eTypeSize,

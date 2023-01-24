@@ -29,11 +29,18 @@ unsupv.varpro <- function(data, nvar = 20,
   ##--------------------------------------------------------------
   ##
   ## extract additional options specified by user
+  ## define the entropy function used for importance
   ##
   ##--------------------------------------------------------------
   dots <- list(...)
   f <- as.formula("classes ~ .")
   varpro.names <- c(get.varpro.names())
+  ## default entropy is the mean difference in variance
+  if (is.null(dots$entropy)) {
+    entropy <- function(xC, xO) {
+      mean(abs(apply(xC, 2, sd, na.rm = TRUE) - apply(xO, 2, sd, na.rm = TRUE)))
+    }
+  }
   if (mode != "none") {
     ##------------------------------------------------------------------
     ##
@@ -136,6 +143,7 @@ unsupv.varpro <- function(data, nvar = 20,
   ##
   ##
   ## obtain the "X" importance values
+  ## uses the default (or user specified) entropy function
   ##
   ##
   ##------------------------------------------------------------------
@@ -143,7 +151,7 @@ unsupv.varpro <- function(data, nvar = 20,
     imp <- unlist(papply(keep.rules, function(i) {
       xO <- x[oobMembership[[i]],, drop = FALSE]
       xC <- x[compMembership[[i]],, drop = FALSE]
-      mean(abs(apply(xC, 2, sd, na.rm = TRUE) - apply(xO, 2, sd, na.rm = TRUE)))
+      entropy(xC, xO)
     }))
   }
   ##------------------------------------------------------------------

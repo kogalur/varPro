@@ -235,9 +235,6 @@ typedef unsigned long ulong;
 #define SURV_BSG1   14
 #define CLAS_AU_ROC 15
 #define CLAS_ENTROP 16
-#define REGR_SGS    17
-#define CLAS_SGS    18
-#define SURV_SGS    19
 #define SURV_TDC    20
 #define MAHALANOBIS 21
 #define SURV_CR_GEN 22

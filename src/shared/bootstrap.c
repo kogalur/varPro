@@ -2,7 +2,6 @@
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 #include           "globalCore.h"
 #include           "externalCore.h"
-#include           "trace.h"
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 
       
@@ -18,7 +17,6 @@ char bootstrap (char      mode,
                 NodeBase *nodePtr,
                 uint     *subsetIndex,
                 uint      subsetSize,
-                uint     *index,  
                 uint      indexSize,
                 uint    **bootstrapIn,
                 uint      subjSize,
@@ -27,6 +25,7 @@ char bootstrap (char      mode,
                 uint     *subjWeightSorted,
                 uint      subjWeightDensitySize,
                 uint      observationSize,
+                uint     *index,  
                 char    **bootMembershipFlag,
                 char    **oobMembershipFlag,
                 uint    **bootMembershipCount,

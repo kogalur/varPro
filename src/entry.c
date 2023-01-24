@@ -2,7 +2,6 @@
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 #include           "shared/globalCore.h"
 #include           "shared/externalCore.h"
-#include           "shared/trace.h"
 #include           "global.h"
 #include           "external.h"
 
@@ -177,12 +176,6 @@ SEXP varProStrength(SEXP traceFlag,
   RF_totalNodeCount_      = INTEGER(totalNodeCount)[0];
   RF_tLeafCount_          = (uint *) INTEGER(tLeafCount); RF_tLeafCount_ --;
   RF_seed_                = (int *) INTEGER(VECTOR_ELT(seedInfo, 0)); RF_seed_ --;
-  RF_hdim                 = INTEGER(hdim)[0];
-  RF_hcDim_      = NULL;
-  RF_contPTR_    = NULL;
-  RF_baseLearnDepthINTR = 0;
-  RF_baseLearnRuleINTR  = AUGT_INTR_NONE;
-  RF_baseLearnDepthSYTH = 0;
   RF_treeID_              = (uint *) INTEGER(treeID);   RF_treeID_ --;
   RF_nodeID_              = (uint *) INTEGER(nodeID);   RF_nodeID_ --;
   RF_nodeSZ_              = (uint *) INTEGER(nodeSZ);   RF_nodeSZ_ --;
@@ -223,14 +216,12 @@ SEXP varProStrength(SEXP traceFlag,
   processDefaultPredict();
   mode = RF_REST;  
   stackForestObjectsAuxOnly(mode,
-                            RF_hdim,
                             RF_ntree,
                             &RF_restoreTreeID,
                             &RF_restoreTreeOffset,
                             &RF_restoreMWCPoffset,
                             &RF_parmID_,
                             &RF_contPT_,
-                            &RF_contPTR_,
                             &RF_mwcpSZ_,
                             &RF_fsrecID_,
                             &RF_mwcpPT_,
@@ -245,8 +236,6 @@ SEXP varProStrength(SEXP traceFlag,
   else {
     RF_mwcpPT_[1] = NULL;
   }
-  RF_hcDim_      = NULL;
-  RF_contPTR_    = NULL;
   varProMain(mode, seedValue);
   unstackForestObjectsAuxOnly(mode,
                               RF_ntree,
@@ -264,7 +253,12 @@ SEXP varProStrength(SEXP traceFlag,
   if (RF_responseIn != NULL) free_2DObject(RF_responseIn, NATIVE_TYPE_NUMERIC, RF_ySize > 0, RF_ySize, RF_observationSize);
   if (RF_observationIn != NULL) free_2DObject(RF_observationIn, NATIVE_TYPE_NUMERIC, TRUE, RF_xSize, RF_observationSize);
   free_2DObject(RF_bootstrapIn, NATIVE_TYPE_INTEGER, (RF_opt & OPT_BOOT_TYP2), RF_ntree, RF_subjSize);
-  memoryCheck();
+  if (RF_nativeIndex != RF_stackCount) {
+    RF_nativeError("\nRF-SRC:  *** ERROR *** ");
+    RF_nativeError("\nRF-SRC:  Stack imbalance in PROTECT/UNPROTECT:  %10d versus %10d  ", RF_nativeIndex, RF_stackCount);
+    RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
+    RF_nativeExit();
+  }
   VP_cpuTime_[1] = (double) (clock() - cpuTimeStart) / CLOCKS_PER_SEC;
   R_ReleaseObject(RF_sexpVector[RF_OUTP_ID]);
   R_ReleaseObject(RF_sexpVector[RF_STRG_ID]);

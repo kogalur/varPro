@@ -2,7 +2,6 @@
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 #include           "globalCore.h"
 #include           "externalCore.h"
-#include           "trace.h"
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 
       
@@ -50,13 +49,13 @@ void setMinMemoryAllocation(size_t value) {
 void setProbeMemoryAllocation(size_t value) {
   RF_memor_probeMemoryAllocation = value;
 }
-size_t getMaxMemoryAllocation() {
+size_t getMaxMemoryAllocation(void) {
   return (RF_memor_maxMemoryAllocation);
 }
-size_t getMinMemoryAllocation() {
+size_t getMinMemoryAllocation(void) {
   return (RF_memor_minMemoryAllocation);
 }
-size_t getProbeMemoryAllocation() {
+size_t getProbeMemoryAllocation(void) {
   return (RF_memor_probeMemoryAllocation);
 }
 void increaseMemoryAllocation(size_t amount) {
@@ -74,11 +73,5 @@ void decreaseMemoryAllocation(size_t amount) {
 void decreaseProbeMemoryAllocation(size_t amount) {
     RF_memor_probeMemoryAllocation -= amount;
 }
-void memoryCheck() {
-  if (RF_nativeIndex != RF_stackCount) {
-    RF_nativeError("\nRF-SRC:  *** ERROR *** ");
-    RF_nativeError("\nRF-SRC:  Stack imbalance in PROTECT/UNPROTECT:  %10d versus %10d  ", RF_nativeIndex, RF_stackCount);
-    RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
-    RF_nativeExit();
-  }
+void memoryCheck(void) {
 }

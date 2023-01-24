@@ -2,7 +2,6 @@
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 #include           "globalCore.h"
 #include           "externalCore.h"
-#include           "trace.h"
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 
       
@@ -255,7 +254,7 @@ void makeLookUpTree(LookUpInfo *infoObj, QuantileObj *qObj, uint size, uint dept
   else {
   }
 }
-LookUpInfo *makeLookUpInfo() {
+LookUpInfo *makeLookUpInfo(void) {
   LookUpInfo *obj = (LookUpInfo*) gblock((size_t) sizeof(LookUpInfo));
   obj -> qPtr    = NULL;
   obj -> rootPtr = NULL;

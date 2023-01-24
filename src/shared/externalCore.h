@@ -6,7 +6,6 @@
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 #include           "globalCore.h"
 #include           "externalCore.h"
-#include           "trace.h"
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 
       
@@ -56,18 +55,8 @@ extern uint     *RF_nodeID_;
 extern uint     *RF_nodeSZ_;
 extern uint      *RF_hcDim_;
 extern int      **RF_parmID_;
-extern uint      RF_hdim;
-extern uint      RF_baseLearnDepthINTR;
-extern uint      RF_baseLearnRuleINTR;
-extern uint      RF_baseLearnDepthSYTH;
-extern uint      *RF_pairCT_;
-extern uint      *RF_lotsSZ_;
 extern double   **RF_contPT_;
-extern double   **RF_contPTR_;
 extern uint     **RF_mwcpSZ_;
-extern int      **RF_augmX1_;
-extern int      **RF_augmX2_;
-extern int      **RF_augmXS_;
 extern ulong   **RF_restoreMWCPoffset;
 extern uint     **RF_mwcpPT_;
 extern uint  **RF_AMBR_ID_ptr;
@@ -135,9 +124,6 @@ extern uint     *RF_yIndexZero;
 extern uint      RF_yIndexZeroSize;
 extern uint      RF_frSize;
 extern uint      RF_ptnCount;
-extern int       RF_lotSize;
-extern int       RF_lotLag;
-extern int       RF_lotStrikeout;
 extern double  **RF_fresponseIn;
 extern double  **RF_responseIn;
 extern double  **RF_observationIn;

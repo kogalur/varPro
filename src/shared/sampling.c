@@ -2,7 +2,6 @@
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 #include           "globalCore.h"
 #include           "externalCore.h"
-#include           "trace.h"
 // *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
 
       
@@ -10,11 +9,11 @@
 
 #include "sampling.h"
 #include "nrutil.h"
-DistributionObj *makeDistributionObjRaw() {
+DistributionObj *makeDistributionObjRaw(void) {
   DistributionObj *obj = (DistributionObj*) gblock((size_t) sizeof(DistributionObj));
   return obj;
 }
-DistributionObj *makeDistributionObjFull() {
+DistributionObj *makeDistributionObjFull(void) {
   DistributionObj *obj = (DistributionObj*) gblock((size_t) sizeof(DistributionObj));
   obj -> permissibleIndex  = NULL;
   obj -> permissible       = NULL;
