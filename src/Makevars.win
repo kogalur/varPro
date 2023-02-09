@@ -1,4 +1,0 @@
-PKG_CFLAGS = -fopenmp
-PKG_LIBS   = -fopenmp
-SOURCES = @PKG_SOURCES@
-OBJECTS = $(SOURCES:.c=.o)

@@ -1,0 +1,23 @@
+#!/bin/env bash
+
+# Dependencies
+echo -n "checking sed... "
+if type sed >/dev/null 2>&1 ; then
+  echo "yes"
+else
+  echo "no"
+  echo "Please install Rtools and make sure it's in the PATH." >&2
+  exit 1
+fi
+
+PKG_SOURCES="$(cat src/sources.list)"
+
+# Take care that variables do not contain '\' backslashes or '#' hashes!
+sed "
+s#@PKG_SOURCES@#$PKG_SOURCES#;
+s#@OPENMP_CFLAGS@#-fopenmp#;
+s#@PKG_LIBS@#$PKG_LIBS#;
+s#@PKG_CFLAGS@#$PKG_CFLAGS#" \
+src/Makevars.in >src/Makevars.win
+
+echo "Makevar.win completed"
