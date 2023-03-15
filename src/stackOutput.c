@@ -432,6 +432,20 @@ void writeStrengthArray(uint     *strengthTreeID,
       }
     }
   }
+  else {
+    for(b = 1; b <= strengthTreeCount; b++) {
+      for(j = 1; j <= branchCount[b]; j++) {
+        parent = (Terminal *) RF_tTermList[strengthTreeID[b]][branchID[b][j]];
+        for(k = 1; k <= xReleaseCount[b][j]; k++) {
+          row++;
+          treeID[row]           = strengthTreeID[b];
+          nodeID[row]           = branchID[b][j];
+          xReleaseID[row]       = xReleaseIDArray[b][j][k];
+          ((uint *) oobCT)[row] = oobCount[b][j];
+        }
+      }
+    }
+  }
 }
 void writeMembershipArray(uint      strengthTreeCount,
                           uint     *branchCount,

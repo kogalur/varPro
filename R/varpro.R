@@ -19,7 +19,7 @@
 ###  FROM THE AUTHOR.
 ###
 ####################################################################
-varpro <- function(f, data, nvar = 20,
+varpro <- function(f, data, nvar = 30,
                    ntree = 500, split.weight = TRUE,
                    nodesize = NULL,
                    max.rules.tree = 150, max.tree = min(150, ntree),
@@ -50,7 +50,6 @@ varpro <- function(f, data, nvar = 20,
   y.org <- data.frame(y)
   colnames(y.org) <- stump$yvar.names
   x <- stump$xvar
-  n <- nrow(x)
   family <- stump$family
   rm(stump)
   gc()
@@ -60,23 +59,7 @@ varpro <- function(f, data, nvar = 20,
   }
   ## convert factors using hot-encoding
   x <- get.hotencode(x, papply)
-  ## obtain the variable names and dimension
   xvar.names <- colnames(x)
-  p <- length(xvar.names)
-  ## set nodesize: optimized for n and p
-  nodesize <- set.nodesize(n, p, nodesize)
-  dots <- list(...)
-  if (is.null(dots$sampsize)) {
-    dots$nodesize.external <- set.nodesize(n, p, dots$nodesize.external)
-  }
-  else {
-    if (is.function(dots$sampsize)) {
-      dots$nodesize.external <- set.nodesize(dots$sampsize(n), p, dots$nodesize.external)
-    }
-    else {
-      dots$nodesize.external <- set.nodesize(dots$sampsize, p, dots$nodesize.external)
-    }
-  }
   ## ------------------------------------------------------------------------
   ##
   ##
@@ -93,28 +76,45 @@ varpro <- function(f, data, nvar = 20,
   ##
   ##
   ## ------------------------------------------------------------------------
+  dots <- list(...)
   hidden <- get.varpro.hidden(dots, ntree)
   sampsize <- hidden$sampsize
   nsplit <- hidden$nsplit
   ntree.external <- hidden$ntree.external  
-  nodesize.external <- hidden$nodesize.external
   ntime.external <- hidden$ntime.external
-  nodesize.reduce <- hidden$nodesize.reduce
   ntree.reduce <- hidden$ntree.reduce
-  nodedepth.reduce <- hidden$nodedepth.reduce
-  dimension.n <- hidden$dimension.n
-  dimension.p <- hidden$dimension.p
-  dimension.q <- hidden$dimension.q
   dimension.index <- hidden$dimension.index
-  dimension.ir <- hidden$dimension.ir
+  use.rfq <- hidden$use.rfq
+  iratio.threshold <- hidden$iratio.threshold
   rmst <- hidden$rmst
-  other.external <- hidden$other.external
+  use.coxnet <- hidden$use.coxnet
   maxit <- hidden$maxit
   split.weight.only <- hidden$split.weight.only
+  split.weight.tolerance <- hidden$split.weight.tolerance
   use.lasso <- hidden$use.lasso
-  use.vimp <- hidden$use.vimp
   sparse <- hidden$sparse
   nfolds <- hidden$nfolds
+  ## set dimensions
+  n <- nrow(x)
+  p <- ncol(x)
+  nvar <- min(nvar, p)
+  ## set nodesize values: optimized for n and p
+  nodesize <- set.nodesize(n, p, nodesize)
+  nodesize.reduce <- set.nodesize(n, p, dots$nodesize.reduce)
+  nodedepth.reduce <- set.nodedepth.reduce(n, p, dots$nodedepth.reduce)
+  if (is.null(dots$sampsize)) {
+    nodesize.external <- set.nodesize(n, p, dots$nodesize.external)
+  }
+  else {
+    if (is.function(dots$sampsize)) {
+      nodesize.external <- set.nodesize(dots$sampsize(n), p, dots$nodesize.external)
+    }
+    else {
+      nodesize.external <- set.nodesize(dots$sampsize, p, dots$nodesize.external)
+    }
+  }
+  ## set use.vimp: optimized for n and p
+  use.vimp <- set.use.vimp(n, p, dots$use.vimp)
   ## ------------------------------------------------------------------------
   ##
   ##
@@ -125,35 +125,43 @@ varpro <- function(f, data, nvar = 20,
   ## ------------------------------------------------------------------------
   if (family == "surv") {
     if (verbose) {
-      cat("detected a survival family, using RSF to calculate external estimator ...\n")
+      cat("detected a survival family, using external estimator ...\n")
     }  
     ## survival forest used to calculate external estimator
-    o.external <- rfsrc(f, data,
-                        sampsize = sampsize,
-                        ntree = ntree.external,
-                        save.memory = TRUE,
-                        perf.type = "none",
-                        nodesize = nodesize.external,
-                        ntime = ntime.external)
-    ## use mortality for y
-    if (is.null(rmst)) {
-      y <- as.numeric(randomForestSRC::get.mv.predicted(o.external, oob = FALSE))
+    if (!use.coxnet) {
+      o.external <- rfsrc(f, data,
+                          sampsize = sampsize,
+                          ntree = ntree.external,
+                          nodesize = nodesize.external,
+                          ntime = ntime.external,
+                          save.memory = TRUE,
+                          perf.type = "none")
+      ## use mortality for y
+      if (is.null(rmst)) {
+        y <- as.numeric(randomForestSRC::get.mv.predicted(o.external, oob = FALSE))
+      }
+      ## use rmst if user requests
+      else {
+        y <- get.rmst(o.external, rmst)
+      }
+      ## we now have regression
+      if (!is.matrix(y)) {
+        family <- "regr"
+        yvar.names <- "y"
+        f <- as.formula(y ~ .)
+      }
+      ## rmst is a vector --> we now have multivariate regression
+      if (is.matrix(y)) {
+        family <- "regr+"
+        colnames(y) <- yvar.names <- paste0("y.", 1:ncol(y))
+        f <- randomForestSRC::get.mv.formula(yvar.names)
+      }
     }
-    ## use rmst if user requests
+    ## external estimation is over-riden
+    ## therefore we use coxnet downstream in split weight calculation
     else {
-      y <- get.rmst(o.external, rmst)
-    }
-    ## we now have regression
-    if (!is.matrix(y)) {
-      family <- "regr"
-      yvar.names <- "y"
-      f <- as.formula(y ~ .)
-    }
-    ## rmst is a vector --> we now have multivariate regression
-    if (is.matrix(y)) {
-      family <- "regr+"
-      colnames(y) <- yvar.names <- paste0("y.", 1:ncol(y))
-      f <- randomForestSRC::get.mv.formula(yvar.names)
+      y <- cbind(time = y.org[, 1], status = y.org[, 2])
+      split.weight <- use.lasso <- TRUE
     }
   }
   ## ------------------------------------------------------------------------
@@ -161,12 +169,13 @@ varpro <- function(f, data, nvar = 20,
   ## store information for classification analysis
   ##
   ## ------------------------------------------------------------------------
+  ## default setting
+  imbalanced.flag <- FALSE
   if (family == "class") {
     ## length of output
-    J <- length(levels(y))
-    ## two class processing
-    ## class labels are mapped to {0, 1}
-    if (J == 2) {
+    nclass <- length(levels(y))
+    ## two class processing: class labels are mapped to {0, 1}
+    if (nclass == 2) {
       ## majority label --> 0, minority label --> 1 
       y.frq <- table(y)
       class.labels <- names(y.frq)
@@ -175,9 +184,10 @@ varpro <- function(f, data, nvar = 20,
       yvar <- rep(0, length(y))
       yvar[y==class.labels[minority]] <- 1
       y <- factor(yvar, levels = c(0, 1))
-      ## extract useful parameters
+      ## determine if imbalanced analysis is in play
       threshold <- as.numeric(min(y.frq, na.rm = TRUE) / sum(y.frq, na.rm = TRUE))
       iratio <- max(y.frq, na.rm = TRUE) / min(y.frq, na.rm = TRUE)
+      imbalanced.flag <- (iratio > iratio.threshold) & use.rfq
     }
   }
   ## ------------------------------------------------------------------------
@@ -212,6 +222,8 @@ varpro <- function(f, data, nvar = 20,
     ##
     ## lasso split weight calculation
     ## now allows factors by hot-encoding
+    ## by default, lasso coefficients use 1 standard error rule
+    ## exception made for coxnet
     ##
     ##---------------------------------------------------------
     ## uncomment if factors not allowed
@@ -227,7 +239,7 @@ varpro <- function(f, data, nvar = 20,
               {suppressWarnings(cv.glmnet(scale(data.matrix(x)), y, nfolds = nfolds, parallel = parallel, maxit = maxit))},
           error=function(ex){NULL})
         if (!is.null(o.glmnet)) {
-          xvar.wt <-  abs(as.numeric(coef(o.glmnet)[-1]))            
+          xvar.wt <-  abs(as.numeric(coef(o.glmnet)[-1]))
         }
       }
       ## mv-regression
@@ -241,15 +253,55 @@ varpro <- function(f, data, nvar = 20,
         }
       }
       ## classification
-      else {
-        o.glmnet <- tryCatch(
+      else if (family == "class") {
+        ## two class
+        if (nclass == 2) {
+          o.glmnet <- tryCatch(
+               {suppressWarnings(cv.glmnet(scale(data.matrix(x)), y,
+                    nfolds = nfolds, parallel = parallel, maxit = maxit, family = "binomial"))}, error=function(ex){NULL})
+          if (!is.null(o.glmnet)) {
+            xvar.wt <-  abs(as.numeric(coef(o.glmnet)[-1]))
+          }
+        }
+        ## multiclass
+        else {
+          o.glmnet <- tryCatch(
                {suppressWarnings(cv.glmnet(scale(data.matrix(x)), y,
                     nfolds = nfolds, parallel = parallel, maxit = maxit, family = "multinomial"))}, error=function(ex){NULL})
-        if (!is.null(o.glmnet)) {
-          beta <- do.call(cbind, lapply(coef(o.glmnet), function(o) {as.numeric(o)[-1]}))
-          xvar.wt <- rowMeans(abs(beta), na.rm = TRUE)
+          if (!is.null(o.glmnet)) {
+            beta <- do.call(cbind, lapply(coef(o.glmnet), function(o) {as.numeric(o)[-1]}))
+            xvar.wt <- rowMeans(abs(beta), na.rm = TRUE)
+          }
         }
       }
+      ## survival: external rsf estimation was over-ridden we now apply coxnet
+      else if (family == "surv") {
+        o.glmnet <- tryCatch(
+               {suppressWarnings(cv.glmnet(scale(data.matrix(x)), y,
+                    nfolds = nfolds, parallel = parallel, maxit = maxit, family = "cox"))}, error=function(ex){NULL})
+        if (!is.null(o.glmnet)) {
+          beta <- as.numeric(coef(o.glmnet, s=o.glmnet$lambda.min))
+          xvar.wt <-  abs(beta)
+          ## map y to external continuous estimator and treat the problem as regression
+          family <- "regr"
+          yvar.names <- "y"
+          f <- as.formula(y ~ .)
+          y <- c(scale(data.matrix(x)) %*% beta)
+          data <- data.frame(y = y, x)
+        }
+        else {
+          stop("survival family external estimation cannot be implemented due to 'coxnet' failing")
+        }
+      }
+      ## something is wrong
+      else {
+        stop("family specified not currently supported: ", family)
+      }
+      ##----------------------------
+      ##
+      ## final lasso details
+      ##
+      ##----------------------------
       ## unregister the backend
       nullO <- myUnRegister(parallel)
       ## assign missing values NA
@@ -272,32 +324,34 @@ varpro <- function(f, data, nvar = 20,
     ## sampsize is not deployed since this can non-intuitively slow calculations
     ##
     ##---------------------------------------------------------
-    if (n >= dimension.n || p >= dimension.p) {
-      use.vimp <- FALSE
-    }
     if (use.vimp) {
       if (sum(xvar.wt != 0) > 0) {
         ## regression
         if (family == "regr") {
           vmp <- rfsrc(y~., data.frame(y = y, x[, xvar.names, drop = FALSE]),
-                       ntree = ntree, nodesize = nodesize.reduce, importance = "permute",
+                       ntree = ntree,
+                       nodesize = nodesize.reduce,
+                       importance = "permute",
                        seed = seed)$importance 
         }
         ## mv-regression
         else if (family == "regr+") {
           vmp <- rowMeans(randomForestSRC::get.mv.vimp(rfsrc(f, data.frame(y, x[, xvar.names, drop = FALSE]),
-                ntree = ntree, nodesize = nodesize.reduce, importance = "permute",
+                ntree = ntree,
+                nodesize = nodesize.reduce,
+                importance = "permute",
                 seed = seed)), na.rm = TRUE)
         } 
         ## classification
+        ## for class imbalanced scenarios switch to rfq/gmean
         else {
-          ## determine if this is a class imbalanced scenario, if so switch to gmean performance
-          ## anti is too agressive when IR is high, so use permute in this case
-          iflag <- J == 2 && iratio > dimension.ir
           vmp <- rfsrc(y~., data.frame(y = y , x[, xvar.names, drop = FALSE]),
-                       perf.type = if (iflag) "gmean" else NULL,
-                       ntree = ntree, nodesize = nodesize.reduce,
-                       importance = if (iflag) "permute" else "anti",
+                       rfq = if (imbalanced.flag) TRUE else NULL,
+                       perf.type = if (imbalanced.flag) "gmean" else NULL,
+                       splitrule = if (imbalanced.flag) "auc" else NULL,
+                       ntree = ntree,
+                       nodesize = nodesize.reduce,
+                       importance = "permute",
                        seed = seed)$importance[, 1]
         }
         ## scale the weights using dimension.index
@@ -316,6 +370,7 @@ varpro <- function(f, data, nvar = 20,
           use.vimp <- FALSE
         }
       }
+      ## failed: we need to run shallow trees 
       else {
         use.vimp <- FALSE
       }
@@ -327,18 +382,16 @@ varpro <- function(f, data, nvar = 20,
     ##---------------------------------------------------------
     if (!use.vimp) {
       ## fast filtering based on number of splits
-      xvar.used <- rfsrc(f, data, sampsize = sampsize,
-                         ntree = ntree.reduce, nodedepth = nodedepth.reduce(nrow(data), ncol(data)),
-                         perf.type = "none", var.used = "all.trees", mtry = Inf, nsplit = 100)$var.used
-      ## assign relative frequency cutoff
-      if (n >= dimension.n) {
-        xvar.cut <- quantile(xvar.used, prob = dimension.q, na.rm = TRUE)
-      }
-      else {
-        xvar.cut <- 1
-      }
+      xvar.used <- rfsrc(f, data,
+                         splitrule = if (imbalanced.flag) "auc" else NULL,
+                         sampsize = sampsize,
+                         ntree = ntree.reduce, nodedepth = nodedepth.reduce,
+                         mtry = Inf,
+                         nsplit = 100,
+                         var.used = "all.trees",
+                         perf.type = "none")$var.used
       ## update the weights
-      pt <- xvar.used >= xvar.cut
+      pt <- xvar.used >= set.xvar.cut(xvar.used, n)
       if (sum(pt) > 0) {
         if (sparse) {
           xvar.wt[pt] <- (xvar.wt[pt] +
@@ -365,6 +418,8 @@ varpro <- function(f, data, nvar = 20,
     }
     ## if the user only wants the xvar weights
     if (split.weight.only) {
+      ## tolerance: keep weights from becoming too small
+      xvar.wt <- tolerance(xvar.wt, split.weight.tolerance)
       names(xvar.wt) <- xvar.names
       return(list(
         xvar.wt = xvar.wt,
@@ -382,6 +437,8 @@ varpro <- function(f, data, nvar = 20,
     }
     xvar.names <- xvar.names[xvar.wt > 0]
     xvar.wt <- xvar.wt[xvar.wt > 0]
+    ## tolerance: keep weights from becoming too small
+    xvar.wt <- tolerance(xvar.wt, split.weight.tolerance)
     ## verbose
     if (verbose) {
       cat("split weight calculation completed\n")
@@ -404,6 +461,7 @@ varpro <- function(f, data, nvar = 20,
   }  
   if (split.weight) {
     object <- rfsrc(f, data,
+                    splitrule = if (imbalanced.flag) "auc" else NULL,
                     xvar.wt = xvar.wt,
                     #sampsize = sampsize,
                     ntree = ntree,
@@ -415,6 +473,7 @@ varpro <- function(f, data, nvar = 20,
   else {
     object <- rfsrc(f,
                     data,
+                    splitrule = if (imbalanced.flag) "auc" else NULL,
                     mtry = Inf,
                     #sampsize = sampsize,
                     ntree = ntree,

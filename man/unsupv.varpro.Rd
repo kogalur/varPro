@@ -1,5 +1,8 @@
 \name{unsupv.varpro}
 \alias{unsupv.varpro}
+\alias{unsupv}
+\alias{get.matrix.performance}
+\alias{get.unsupervised.performance}
 \title{Unsupervised Variable Selection using Variable Priority (VarPro)}
 \description{
   Selects Variables in Unsupervised Problems using Variable Priority
@@ -7,9 +10,8 @@
 }
 
 \usage{
-unsupv.varpro(data, nvar = 20, 
-       mode = c("sh1", "sh2", "none"), 
-       tolerance = 1e-10,
+unsupv.varpro(data,
+       method = c("auto", "unsupv", "rnd"),
        ntree = 150, nodesize = NULL,
        max.rules.tree = 150, max.tree = 150,
        papply = mclapply, verbose = FALSE, seed = NULL,
@@ -20,15 +22,11 @@ unsupv.varpro(data, nvar = 20,
 
   \item{data}{Data frame containing the usupervised data.}
 
-  \item{nvar}{Upper limit to number of variables returned.}
-
-  \item{mode}{Method used for creating aritifical two-class data used
-    for filtering variables.  Choices are "sh1" (mode 1) or 
-    "sh2" (mode 2) of Shi-Horvath's (2006) artificial data generating
-    procedure.  Selecting "none" by-passes the filtering step.}
-
-  \item{tolerance}{Tolerance used for filtering variables.}
-
+  \item{method}{Type of forest used.  Choices are "auto" (the default
+   method called auto-encoder, a type of multivariate forest), "unsupv"
+   (unsupervised analysis, the default), and "rnd" (pure random
+   forests).}
+ 
   \item{ntree}{Number of trees to grow.}
 
   \item{nodesize}{Nodesize of trees. If not specified, value is set
@@ -44,35 +42,24 @@ unsupv.varpro(data, nvar = 20,
 
   \item{seed}{Seed for repeatability.}
 
-  \item{...}{Further arguments to be passed to \command{varpro}.}
+  \item{...}{Further arguments to be passed to \command{rfsrc}.}
 
 }
 
 \details{
 
-  Breiman (2003; see also Shi-Horvath, 2006) transform the unsupervised
-  learning problem into a two class supervised problem.  The first class
-  consists of the original observations, while the second class is
-  artificially created.  Breiman's method is generally used for
-  unsupervised learning, however here we use the artificially created
-  data for the purpose of unsupervised variable selection. Specifically,
-  VarPro is applied by running a two-class classifier on the
-  artificially created two class data.  The result of applying VarPro is
-  a ranked set of variables. The top \code{nvar} of these are then used
-  in a random forest autoencoder run by fitting the selected variables
-  against themselves - a special type of multivariate forest.  Then
-  using rules acquired from the multivariate forest, VarPro importance is
-  obtained where importance is measured by overall feature variance.
+  VarPro is applied to the branches of a random forest to obtain
+  importance values.  Three types of forests can be used specified by
+  the option \code{method}.  The default \code{method}="auto" runs a
+  random forest autoencoder by fitting selected variables against
+  themselves - a special type of multivariate forest.  The second is
+  \code{method}="unsupv" which runs unsupervised forests.  The third is
+  random forests using pure random splitting, \code{method}="rnd".  For
+  very large data sets the auto-encoder might be slow.  The other two
+  methods are much faster.
 
-  Artificial data is created using "mode 1" or "mode 2" of Shi-Horvath
-  (2006).  Mode 1 (default) randomly permutes each set of observed
-  features.  Mode 2 draws a uniform value from the minimum and maximum
-  values of a feature.
-
-  Selecting \code{mode}="none" by-passes the filtering step in which
-  case the random forests autoencoder is applied to all variables.  Only
-  use this option for low-dimensional problems.
-
+  VarPro importance is measured by entropy defined in terms of
+  overall feature variance.
   
 }
   
@@ -88,16 +75,8 @@ unsupv.varpro(data, nvar = 20,
 
 \references{
 
-  Breiman, L. (2003). \emph{Manual on setting up, using and
-  understanding random forest, V4.0}.  University of California
-  Berkeley, Statistics Department, Berkeley.
-
   Lu M. and  Ishwaran H. (2022).  Variable Priority for Variable
   Selection in Rule-Based Models.
-
-   Shi, T. and Horvath, S. (2006). Unsupervised learning with random forest
-  predictors. \emph{Journal of Computational and Graphical Statistics},
-  15(1):118-138. 
 
 }
 
@@ -107,13 +86,23 @@ unsupv.varpro(data, nvar = 20,
 
 \examples{
 ## ------------------------------------------------------------
-## boston housing
+## boston housing: default call
 ## ------------------------------------------------------------
 
 data(BostonHousing, package = "mlbench")
 
 ## default call
-o <- unsupv.varpro(BostonHousing)
+o <- unsupv(BostonHousing)
+print(importance(o))
+
+## ------------------------------------------------------------
+## boston housing: using method="unsupv"
+## ------------------------------------------------------------
+
+data(BostonHousing, package = "mlbench")
+
+## unsupervised splitting 
+o <- unsupv(BostonHousing, method = "unsupv")
 print(importance(o))
 
 \donttest{
@@ -139,14 +128,11 @@ h2 <- y + z + e22
 dta <- data.frame(w=w,wi=wi,x=x,xi=xi,y=y,yi=yi,z=z,zi=zi,h1=h1,h2=h2)
 
 ## default call
-print(importance(unsupv.varpro(dta)))
-
-## same as above, but without filtering
-print(importance(unsupv.varpro(dta, mode = "none")))
+print(importance(unsupv(dta)))
 
 
 ## ------------------------------------------------------------
-## glass
+## glass (remove outcome)
 ## ------------------------------------------------------------
 
 data(Glass, package = "mlbench")
@@ -154,25 +140,12 @@ data(Glass, package = "mlbench")
 ## remove the outcome
 Glass$Type <- NULL
 
-## get importance - no filtering
-o <- unsupv.varpro(Glass, mode = "none")
+## get importance
+o <- unsupv(Glass)
 print(importance(o))
 
 ## compare to PCA
 (biplot(prcomp(o$x, scale = TRUE)))
-
-
-## ------------------------------------------------------------
-## glioma data
-## ------------------------------------------------------------
-
-data(glioma, package = "varPro")
-
-## remove the outcome
-glioma$y <- NULL
-
-## reduce number of lasso iterations
-print(importance(unsupv.varpro(glioma, maxit = 1000)))
 
 ## ------------------------------------------------------------
 ## largish data set: illustrates various options to speed up calculations
@@ -180,25 +153,13 @@ print(importance(unsupv.varpro(glioma, maxit = 1000)))
 
 ## first we roughly impute the data
 data(housing, package = "randomForestSRC")
+
+## to speed up analysis, convert all factors to real values
 housing2 <- randomForestSRC:::get.na.roughfix(housing)
+housing2 <- data.frame(data.matrix(housing2))
 
-## use bigger nodesize
-print(importance(unsupv.varpro(housing2, ntree = 50, nodesize = 150)))
-
-## use smaller bootstrap
-print(importance(unsupv.varpro(housing2, ntree = 50, nodesize = 150, sampsize = 250)))
-
-## ------------------------------------------------------------
-## survival data
-## ------------------------------------------------------------
-
-data(peakVO2, package = "randomForestSRC")
-
-## remove the outcome
-peakVO2$died <- peakVO2$ttodead <- NULL
-
-## get importance
-print(importance(unsupv.varpro(peakVO2)))
+## use fewer trees and bigger nodesize
+print(importance(unsupv(housing2, ntree = 50, nodesize = 150)))
 
 }}
 

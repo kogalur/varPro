@@ -3,7 +3,7 @@ get.cens.dist <- function(data, ntree, nodesize, ssize) {
   colnames(data)[1:2] <- c("time", "cens")
   data$cens <- 1 * (data$cens == 0)
   ssize <- min(ssize, eval(formals(randomForestSRC::rfsrc.fast)$sampsize)(nrow(data)), na.rm = TRUE)
-  cens.o <- randomForestSRC::rfsrc.fast(Surv(time, cens) ~ ., data,
+  cens.o <- randomForestSRC::rfsrc(Surv(time, cens) ~ ., data, splitrule = "random",
                        ntree = ntree, nodesize = nodesize, sampsize = ssize, perf.type = "none")
   list(surv = cens.o$survival.oob, time.interest = cens.o$time.interest)
 }
@@ -106,13 +106,24 @@ get.sderr.workhorse <- function(obj, standardize = TRUE, outcome.target = NULL,
   }
 }
 ## standard error
-get.sderr <- function(obj, nblocks, outcome.target = NULL,
-                      crps = FALSE, papply = mclapply, newdata = NULL, cens.dist = NULL) {
+get.sderr <- function(obj, nblocks,
+                      outcome.target = NULL,
+                      crps = FALSE,
+                      papply = mclapply,
+                      newdata = NULL,
+                      imbalanced.obj = NULL,
+                      cens.dist = NULL) {
+  ## error metrics are normalized so that > 1.0 is bad.
   ## use normalized brier score for classification
-  ## this way all error metrics are normalized so that > 1.0 is bad.
+  ## brier score is over-ridden with gmean for imbalanced two class setting
   nblocks <- min(nblocks, obj$ntree)
   if (obj$family == "class") {
-    perf.type <- "brier"
+    if (is.null(imbalanced.obj)) {
+      perf.type <- "brier"
+    }
+    else {
+      perf.type <- imbalanced.obj$perf.type
+    }
   }
   else {
     if (obj$family == "surv" && crps) {

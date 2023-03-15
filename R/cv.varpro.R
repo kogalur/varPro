@@ -10,12 +10,6 @@ cv.varpro <- function(f, data, nvar = 30,
 {		   
   ##--------------------------------------------------------------
   ##
-  ## extract additional options specified by user
-  ##
-  ##--------------------------------------------------------------
-  dots <- list(...)
-  ##--------------------------------------------------------------
-  ##
   ## extract original yvalue names
   ## re-define the original data in case there are missing values
   ##
@@ -36,10 +30,14 @@ cv.varpro <- function(f, data, nvar = 30,
   rm(stump)
   ##--------------------------------------------------------------
   ##
-  ## set nodesize
+  ## extract additional options specified by user
   ##
   ##--------------------------------------------------------------
+  dots <- list(...)
+  ## set nodesize
   nodesize <- set.cv.nodesize(n, p, nodesize)
+  dots$nodesize.reduce <- set.nodesize(n, p, dots$nodesize.reduce)
+  dots$nodedepth.reduce <- set.nodedepth.reduce(n, p, dots$nodedepth.reduce)
   if (is.null(dots$sampsize)) {
     dots$nodesize.external <- set.nodesize(n, p, dots$nodesize.external)
   }
@@ -51,14 +49,21 @@ cv.varpro <- function(f, data, nvar = 30,
       dots$nodesize.external <- set.nodesize(dots$sampsize, p, dots$nodesize.external)
     }
   }
+  ## set rfq parameters for class imbalanced scenario
+  use.rfq <- get.varpro.hidden(NULL, NULL)$use.rfq
+  iratio.threshold <- get.varpro.hidden(NULL, NULL)$iratio.threshold
+  ##--------------------------------------------------------------
+  ##
+  ## default settings
+  ##
+  ##--------------------------------------------------------------
+  trn <- 1:n
+  newdata <- splitrule <- rfq <- imbalanced.obj <- cens.dist <- NULL
   ##--------------------------------------------------------------
   ##
   ## set the type of sampling, define train/test (fast=TRUE)
   ##
   ##--------------------------------------------------------------
-  ## default settings
-  trn <- 1:n
-  newdata <- cens.dist <- NULL
   ## use same inbag/oob members to reduce MC error
   if (!fast) {
     if (is.null(dots$sampsize)) {##default sample size function used by rfsrc.fast
@@ -84,7 +89,7 @@ cv.varpro <- function(f, data, nvar = 30,
       ssize <- ssize(n)
     }
     ## now hold out a test data set equal to the tree sample size (if possible)
-    if ((2 * ssize)  < n)  {
+    if (n > (2 * ssize))  {
       tst <- sample(1:n, size = ssize, replace = FALSE)
       trn <- setdiff(1:n, tst)
       newdata <- data[tst,, drop = FALSE]
@@ -109,9 +114,9 @@ cv.varpro <- function(f, data, nvar = 30,
   ## map importance values which are hot-encoded back to original data 
   ##
   ##--------------------------------------------------------------
-  v <- get.orgvimp(data, o)
-  xvar.names <- v$variable
-  imp <- v$z
+  vorg <- get.orgvimp(data, o, papply = papply)
+  xvar.names <- vorg$variable
+  imp <- vorg$z
   imp[is.na(imp)] <- 0
   ##--------------------------------------------------------------
   ##
@@ -122,6 +127,25 @@ cv.varpro <- function(f, data, nvar = 30,
     1 * (imp >= zz)
   }))
   zcut <- zcut[!duplicated(zcut.models)]
+  ##--------------------------------------------------------------
+  ##
+  ## rfq details: only applies to two class imbalanced scenarios
+  ##
+  ##--------------------------------------------------------------
+  if (family == "class" && length(levels(data[, yvar.names])) == 2 && use.rfq) {
+    ## calculate imblanced ratio
+    y.frq <- table(data[, yvar.names])
+    class.labels <- names(y.frq)
+    iratio <- max(y.frq, na.rm = TRUE) / min(y.frq, na.rm = TRUE)
+    ## check if this is imbalanced using default threshold setting
+    if (iratio > iratio.threshold) {
+      rfq <- TRUE
+      splitrule <- "auc"
+      imbalanced.obj <- list(perf.type = "gmean",
+                             iratio = iratio,
+                             iratio.threshold = iratio.threshold)
+    }
+  }  
   ##--------------------------------------------------------------
   ##
   ## censoring distribution: only applies to survival families
@@ -144,17 +168,37 @@ cv.varpro <- function(f, data, nvar = 30,
     if (sum(pt) > 0) {
       if (!fast) {
         err.zz <- get.sderr(rfsrc(f, data[trn, c(yvar.names, xvar.names[pt]), drop = FALSE],
-                            nodesize = nodesize, ntree = ntree, perf.type = "none",
-                            bootstrap = "by.user", samp = samp, seed = seed),
-                            nblocks = nblocks, crps = crps, papply = papply, cens.dist = cens.dist)
+                                  nodesize = nodesize,
+                                  ntree = ntree,
+                                  rfq = rfq,
+                                  splitrule = splitrule,
+                                  perf.type = "none",
+                                  bootstrap = "by.user",
+                                  samp = samp,
+                                  seed = seed),
+                            nblocks = nblocks,
+                            crps = crps,
+                            papply = papply,
+                            imbalanced.obj = imbalanced.obj,
+                            cens.dist = cens.dist)
       }
       else {
         ## nodesize is not deployed because fast subsampling is in play
         err.zz <- get.sderr(randomForestSRC::rfsrc.fast(f, data[trn, c(yvar.names, xvar.names[pt]), drop = FALSE],
-                            #nodesize = nodesize,
-                            ntree = ntree, perf.type = "none",
-                            forest = TRUE, bootstrap = "by.user", samp = samp, seed = seed),
-                            nblocks = nblocks, crps = crps, papply = papply, newdata = newdata, cens.dist = cens.dist)
+                            ntree = ntree,
+                            rfq = rfq,
+                            splitrule = splitrule,
+                            perf.type = "none",
+                            forest = TRUE,
+                            bootstrap = "by.user",
+                            samp = samp,
+                            seed = seed),
+                         nblocks = nblocks,
+                         crps = crps,
+                         papply = papply,
+                         newdata = newdata,
+                         imbalanced.obj = imbalanced.obj,
+                         cens.dist = cens.dist)
       }
     }
     else {
@@ -171,53 +215,55 @@ cv.varpro <- function(f, data, nvar = 30,
   colnames(err) <- c("zcut", "nvar", "err", "sd")
   ##--------------------------------------------------------------
   ##
-  ## return the importace values after filtering 
+  ## return the importance values after filtering 
   ##
   ##--------------------------------------------------------------
   ## minimum error
-  vmin <- v
+  vmin <- vorg
+  zcut.min <- 0
   if (!all(is.na(err[,3]))) {
-    zcut.opt <- zcut[which.min(err[,3])]
+    zcut.min <- zcut[which.min(err[,3])]
     if (verbose) {
-      cat("optimal cutoff value", zcut.opt, "\n")
+      cat("optimal cutoff value", zcut.min, "\n")
     }
-    vmin <- v[imp >= zcut.opt,, drop = FALSE]
+    vmin <- vorg[imp >= zcut.min,, drop = FALSE]
   }
-  vmin$selected <- vmin$zcenter <- NULL
   ## 1sd error rule -conservative
-  v1sd.conserve <- v
-  v1sd.conserve$selected <- v1sd.conserve$zcenter <- NULL
+  v1sd.conserve <- vorg
+  zcut.1sd <- 0
   if (!all(is.na(err[,3]))) {
     idx.opt <- which.min(err[,3])
     serr <- mean(err[,4], na.rm = TRUE)
     idx2.opt <- err[,3] < 1 & (err[,3] <= (err[idx.opt,3] + serr))
     idx2.opt[is.na(idx2.opt)] <- FALSE
     if (sum(idx2.opt) > 0) {
-      zcut.opt <- zcut[max(which(idx2.opt))]
+      zcut.1sd <- zcut[max(which(idx2.opt))]
       if (verbose) {
-        cat("optimal 1sd + (conservative) cutoff value", zcut.opt, "\n")
+        cat("optimal 1sd + (conservative) cutoff value", zcut.1sd, "\n")
       }
-      v1sd.conserve <- v[imp >= zcut.opt,, drop = FALSE]
-      v1sd.conserve$selected <- v1sd.conserve$zcenter <- NULL
+      v1sd.conserve <- vorg[imp >= zcut.1sd,, drop = FALSE]
     }
     else {
       v1sd.conserve <- NULL
     }
   }
   ## 1sd error rule -liberal
-  v1sd.liberal <- v
+  v1sd.liberal <- vorg
+  zcut.liberal <- 0
   if (!all(is.na(err[,3]))) {
     idx.opt <- which.min(err[,3])
     serr <- mean(err[,4], na.rm = TRUE)
-    zcut.opt <- zcut[min(which(err[,3] <= (err[idx.opt,3] + serr)), na.rm = TRUE)]
+    zcut.liberal <- zcut[min(which(err[,3] <= (err[idx.opt,3] + serr)), na.rm = TRUE)]
     if (verbose) {
-      cat("optimal 1sd - (liberal) cutoff value", zcut.opt, "\n")
+      cat("optimal 1sd - (liberal) cutoff value", zcut.liberal, "\n")
     }
-    v1sd.liberal <- v[imp >= zcut.opt,, drop = FALSE]
+    v1sd.liberal <- vorg[imp >= zcut.liberal,, drop = FALSE]
   }
-  v1sd.liberal$selected <- v1sd.liberal$zcenter <- NULL
   list(imp = vmin,
        imp.conserve = v1sd.conserve,
        imp.liberal = v1sd.liberal,
-       err = err)
+       err = err,
+       zcut = zcut.min,
+       zcut.conserve = zcut.1sd,
+       zcut.liberal = zcut.liberal)
 }

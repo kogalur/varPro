@@ -13,6 +13,7 @@ importance.varpro <- function(o, cutoff = 2, trim = 0.1,
                               plot.it = FALSE, conf = TRUE, sort = TRUE,
                               ylab = if (conf) "Importance" else "Standardized Importance",
                               max.rules.tree, max.tree,
+                              papply = mclapply,
                               ...)
 {
   ## ------------------------------------------------------------------------
@@ -37,7 +38,8 @@ importance.varpro <- function(o, cutoff = 2, trim = 0.1,
     }
     ## obtain varpro strength
     var.strength <- varpro.strength(object = o$rf,
-                      max.rules.tree = max.rules.tree, max.tree = max.tree)$strengthArray
+                                    max.rules.tree = max.rules.tree,
+                                    max.tree = max.tree)$strengthArray
     ## process the strength array
     var.strength <- get.varpro.strengthArray(var.strength, o$family, o$y)
     ## over-ride original object with updated information
@@ -51,8 +53,14 @@ importance.varpro <- function(o, cutoff = 2, trim = 0.1,
   ##
   ## ------------------------------------------------------------------------
   if (o$family != "regr+") {
-    importance.varpro.workhorse(o=o, cutoff=cutoff, trim=trim, plot.it=plot.it,
-                                  conf=conf, sort=sort, ylab=ylab, ...) 
+    importance.varpro.workhorse(o=o,
+                                cutoff=cutoff,
+                                trim=trim,
+                                plot.it=plot.it,
+                                conf=conf,
+                                sort=sort,
+                                ylab=ylab,
+                                papply=papply, ...) 
   }
   ## ------------------------------------------------------------------------
   ##
@@ -62,12 +70,17 @@ importance.varpro <- function(o, cutoff = 2, trim = 0.1,
   else {
     lapply(1:ncol(o$y), function(j) {
       o$results <- o$results[, c((1:4), 4+j)]
-      importance.varpro.workhorse(o=o, cutoff=cutoff, trim=trim, plot.it=FALSE, sort=sort)
+      importance.varpro.workhorse(o=o,
+                                  cutoff=cutoff,
+                                  trim=trim,
+                                  plot.it=FALSE,
+                                  sort=sort,
+                                  papply=papply)
     })
   }
 }
 importance <- importance.varpro 
-importance.varpro.workhorse <- function(o, cutoff, trim, plot.it, conf, sort, ylab, ...) {
+importance.varpro.workhorse <- function(o, cutoff, trim, plot.it, conf, sort, ylab, papply, ...) {
   ## ------------------------------------------------------------------------
   ##
   ## extract desired quantities from the varpro object
@@ -137,7 +150,7 @@ importance.varpro.workhorse <- function(o, cutoff, trim, plot.it, conf, sort, yl
   xvarused.names <- rownames(rO)
   p <- length(xvarused.names)
   ## acquire the tree importance for each variable
-  imp.tree = do.call(rbind, mclapply(split(dta, dta$tree), function(dd) {
+  imp.tree = do.call(rbind, papply(split(dta, dta$tree), function(dd) {
     imp <- rep(0, p)
     names(imp) <- xvarused.names
     ## extract the rule based importance, converting it to a fraction, then apply weighting
@@ -299,12 +312,12 @@ importance.varpro.workhorse <- function(o, cutoff, trim, plot.it, conf, sort, yl
   ##
   ## ------------------------------------------------------------------------
   if (o$family != "class") {
-    invisible(rO)
+    rO
   }
   else {
-    invisible(list(unconditional = rO,
-                   conditional.z = rOC.z,
-                   conditional.zcenter = rOC.zcenter,
-                   conditional.selected = rOC.selected))
+    list(unconditional = rO,
+         conditional.z = rOC.z,
+         conditional.zcenter = rOC.zcenter,
+         conditional.selected = rOC.selected)
   }
 }

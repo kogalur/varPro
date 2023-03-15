@@ -1,8 +1,8 @@
 \name{varpro.strength}
 \alias{varpro.strength}
-\title{xxxxxxxxxxx}
+\title{Obtain Strength Array and Other Values from a VarPro Object}
 \description{
-  xxxxxxxxxxx
+  Used to parse values from a VarPro object.
 }
 
 \usage{
@@ -36,29 +36,14 @@ varpro.strength(object,
 
   \item{seed}{Seed for repeatability.}
 
-  \item{do.trace}{xxxxxxxx}
+  \item{do.trace}{Used to obtain detailed trace.}
 }
 
 \details{
-  xxxxxxxxxxx
+  Not intended for end-user use and is primarily meant for internal
+  use by the package.
+  
 }
-
-\value{
- xxxxxxxxxxx
-}
-
-\author{
- xxxxxxxxxxx 
-}
-
-\references{
- xxxxxxxxxxx
-}
-
-\seealso{
- xxxxxxxxxx
-}
-
 
 \examples{
   

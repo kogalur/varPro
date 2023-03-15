@@ -1,6 +1,5 @@
-unsupv.varpro <- function(data, nvar = 20, 
-                          mode = c("sh1", "sh2", "none"), 
-                          tolerance = 1e-10,                          
+unsupv.varpro <- function(data,
+                          method = c("auto", "unsupv", "rnd"),
                           ntree = 150, nodesize = NULL,
                           max.rules.tree = 150, max.tree = 150,
                           papply = mclapply, verbose = FALSE, seed = NULL,
@@ -13,111 +12,129 @@ unsupv.varpro <- function(data, nvar = 20,
   ##
   ##
   ##------------------------------------------------------------------
+  # set method
+  method <- match.arg(method, c("auto", "unsupv", "rnd"))
+  ##--------------------------------------------------------------
+  ##
+  ## define the entropy function (or obtain user specified one)
+  ##
+  ## can be a number or a list
+  ## for numbers: this is the importance
+  ## for lists:   (a) entry 1 = importance: (b) entry 2 -> returned 
+  ## 
+  ##
+  ##--------------------------------------------------------------
+  dots <- list(...)
+  custom.entropy.flag <- FALSE
+  ## default entropy returns a list
+  ## first entry = total variance
+  ## second entry = pc-simple results
+  if (is.null(dots$entropy)) {
+    entropy <- entropy.default
+  }
+  ## user specified entropy function
+  else {
+    custom.entropy.flag <- TRUE
+    entropy <- dots$entropy
+  }
+  ##--------------------------------------------------------------
+  ##
+  ## extract additional options specified by user
+  ## we lock this down to allowed types
+  ## define the entropy function used for importance
+  ##
+  ##--------------------------------------------------------------
+  ## threshold value used with default entropy function
+  if (is.null(dots$alpha)) {
+    alpha <- .05
+  }
+  else {
+    alpha <- dots$alpha
+  }
+  user.provided.varpro.flag <- FALSE
+  ## special feature allowing user to pass in an arbitrary varpro object
+  ## the purpose of this is to allow access to the entropy function framework
+  if (!is.null(dots$object)) {
+    user.provided.varpro.flag <- TRUE
+    o <- dots$object
+    ## over-ride the supplied data if this is a varpro object
+    if (inherits(o, "varpro", TRUE)) {
+      data <- o$x[, o$xvar.names, drop = FALSE]
+    }
+  }
+  ## list of (non-hidden) forest parameters
+  rfnames <- names(formals(rfsrc))
+  ## restrict to allowed values
+  rfnames <- rfnames[rfnames != "formula" &
+                     rfnames != "data" &
+                     rfnames != "ntree" &
+                     rfnames != "nodesize" &
+                     rfnames != "perf.type"]
+  ## get the permissible hidden options
+  dots <- dots[names(dots) %in% rfnames]
+  ##-----------------------------------------------------------------
+  ##
+  ## process data
+  ##
+  ##
+  ##------------------------------------------------------------------
   ## remove any column with less than two unique values
   void.var <- sapply(data, function(x){length(unique(x, na.rm = TRUE)) < 2})
   if (sum(void.var) > 0) {
     data[, which(void.var)] <- NULL
   }
-  ## decide which mode to use
-  mode <- match.arg(mode, c("sh1", "sh2", "none"))
-  if (mode == "sh1") {
-    mode <- 1
-  }
-  if (mode == "sh2") {
-    mode <- 2
-  }
-  ##--------------------------------------------------------------
+  ## hot encode the data
+  data <- get.hotencode(data, papply)
+  ## assign the xvar names
+  xvar.names <- colnames(data)
+  ##------------------------------------------------------------------
   ##
-  ## extract additional options specified by user
-  ## define the entropy function used for importance
   ##
-  ##--------------------------------------------------------------
-  dots <- list(...)
-  f <- as.formula("classes ~ .")
-  varpro.names <- c(get.varpro.names())
-  ## default entropy is the mean difference in variance
-  if (is.null(dots$entropy)) {
-    entropy <- function(xC, xO) {
-      mean(abs(apply(xC, 2, sd, na.rm = TRUE) - apply(xO, 2, sd, na.rm = TRUE)))
+  ## unsupervised forests
+  ##
+  ##
+  ##------------------------------------------------------------------
+  if (method == "unsupv" && !user.provided.varpro.flag) {
+    if (is.null(dots$ytry)) {
+      dots$ytry <- min(ceiling(sqrt(ncol(data))), ncol(data) - 1)
     }
-  }
-  if (mode != "none") {
-    ##------------------------------------------------------------------
-    ##
-    ##
-    ## use varPro on artificially created two class data
-    ## extract weights only
-    ##
-    ##
-    ##------------------------------------------------------------------
-    dots$split.weight.only <- TRUE
-    max.tree <- min(150, ntree)  
-    o <- do.call(varpro, c(list(f = f, data = make.sh(data, mode, papply)),
-                           nvar = nvar,
-                           ntree = ntree, nodesize = nodesize,
-                           max.rules.tree = max.rules.tree, max.tree = max.tree,
-                           papply = papply, verbose = verbose, seed = seed,
-                           dots[names(dots) %in% varpro.names]))
-    xvar.wt <- o$xvar.wt
-    data <- o$x[o$y.org == 1,, drop = FALSE]
-    ##------------------------------------------------------------------
-    ##
-    ##
-    ## filter variables
-    ##
-    ##
-    ##------------------------------------------------------------------
-    xvar.wt <- sort(xvar.wt, decreasing = TRUE)
-    xvar.names <- names(xvar.wt)
-    pt <- xvar.wt > tolerance
-    if (sum(pt)  > 0) {
-      ntop <- min(nvar, sum(pt), length(xvar.names))
-      xvar.names <- xvar.names[1:ntop]
-      xvar.wt <- xvar.wt[1:ntop]
-    }
-    else {
-      xvar.names <- xvar.names[1]
-      xvar.wt <- 1
-    }
-    ##------------------------------------------------------------------
-    ##
-    ##
-    ## obtain the subsetted data
-    ##
-    ##
-    ##------------------------------------------------------------------
-    data <- data[, xvar.names, drop = FALSE]
-  }
-  else {
-    ##------------------------------------------------------------------
-    ##
-    ## no filtering has been requested
-    ##
-    ##
-    ##------------------------------------------------------------------
-    data <- get.hotencode(data, papply)
-    xvar.names <- colnames(data)
-    xvar.wt <- rep(1, ncol(data))
+    o <- do.call("rfsrc", c(list(
+                   data = data,
+                   ntree = ntree,
+                   nodesize = set.unsupervised.nodesize(nrow(data), ncol(data), nodesize),
+                   perf.type = "none"), dots))
   }
   ##------------------------------------------------------------------
   ##
   ##
-  ## run regr+ with weighted mtry 
+  ## pure random forests
   ##
   ##
   ##------------------------------------------------------------------
-  ## set nodesize: optimized for n and p
-  nodesize <- set.nodesize(nrow(data), ncol(data), nodesize)
-  ## use weighted mtry?  default = no
-  use.weights <- !is.null(dots$use.weights)
-  mv.dta <- data.frame(y = data, data)
-  f <- randomForestSRC::get.mv.formula(xvar.names)
-  o <- rfsrc(f, mv.dta,
-             ntree = ntree,
-             nodesize = nodesize,
-             xvar.wt = (if (use.weights) xvar.wt else NULL),
-             perf.type = "none")
-  rm(mv.dta)
+  if (method == "rnd" && !user.provided.varpro.flag) {
+    dots$splitrule <- NULL
+    o <- do.call("rfsrc", c(list(formula = yxyz123~.,
+                   data = data.frame(yxyz123 = rnorm(nrow(data)), data),
+                   splitrule = "random",
+                   ntree = ntree,
+                   nodesize = set.unsupervised.nodesize(nrow(data), ncol(data) + 1, nodesize),
+                   perf.type = "none"), dots))
+  }
+  ##------------------------------------------------------------------
+  ##
+  ##
+  ## auto-encoder (regr+)
+  ##
+  ##
+  ##------------------------------------------------------------------
+  if (method == "auto" && !user.provided.varpro.flag) {
+    ## call regr+
+    o <- do.call("rfsrc", c(list(formula = get.mv.formula(xvar.names),
+                   data = data.frame(y = data, data),
+                   ntree = ntree,
+                   nodesize = set.unsupervised.nodesize(nrow(data), ncol(data), nodesize),
+                   perf.type = "none"), dots))
+  }
   ##------------------------------------------------------------------
   ##
   ##
@@ -125,14 +142,15 @@ unsupv.varpro <- function(data, nvar = 20,
   ##
   ##
   ##------------------------------------------------------------------
-  oo <- varpro.strength(o, membership = TRUE, max.rules.tree = max.rules.tree, max.tree = max.tree)
-  ## membership lists
+  ## switch for varpro strength depends on whether o is a forest or not
+  oo <- get.varpro.strength(o, membership = TRUE, max.rules.tree = max.rules.tree, max.tree = max.tree)
+  ## identify useful rules and variables at play
+  keep.rules <- which(oo$strengthArray$oobCT > 0 & oo$strengthArray$compCT > 0)
+  ## membership lists 
   oobMembership <- oo$oobMembership
   compMembership <- oo$compMembership
-  ## identify useful rules and variables at play
+  ## keep track of which variable is released for a rule
   xreleaseId <- oo$strengthArray$xReleaseID
-  keep.rules <- which(oo$strengthArray$oobCT > 0 & oo$strengthArray$compCT > 0)
-  keep.xvar <- xvar.names[sort(unique(xreleaseId))]
   ## standardize x
   x <- scale(data, center = FALSE)
   ## used to store the new importance values
@@ -143,35 +161,75 @@ unsupv.varpro <- function(data, nvar = 20,
   ##
   ##
   ## obtain the "X" importance values
-  ## uses the default (or user specified) entropy function
-  ##
+  ## - uses the default entropy function (can be user specified) 
+  ## - data is ordered so that first coordinate is the target variable
+  ##   potentially this allows refined/customization of the entropy function 
   ##
   ##------------------------------------------------------------------
+  p <- ncol(x)
   if (length(keep.rules) > 0) {
-    imp <- unlist(papply(keep.rules, function(i) {
-      xO <- x[oobMembership[[i]],, drop = FALSE]
-      xC <- x[compMembership[[i]],, drop = FALSE]
-      entropy(xC, xO)
-    }))
+    impO <- papply(keep.rules, function(i) {
+      ordernms <- c(xreleaseId[i], setdiff(1:p, xreleaseId[i]))
+      xO <- x[oobMembership[[i]], ordernms, drop = FALSE]
+      xC <- x[compMembership[[i]], ordernms, drop = FALSE]
+      val <- entropy(xC, xO, alpha)
+      if (!is.list(val)) {
+        list(imp = val, attr = NULL, xvar = xreleaseId[i])
+      }
+      else {
+        list(imp = val[[1]], attr = val[[2]], xvar = xreleaseId[i])
+      }
+    })
+    ## extract importance
+    imp <- unlist(lapply(impO, "[[", 1))
+    results$imp[keep.rules] <- imp
+    ## extract attributes
+    entropy.imp <- lapply(impO, "[[", 2)
+    if (length(!sapply(entropy.imp, is.null)) == 0) {
+      entropy.imp <- NULL
+    }
+    else {
+      xreleaseId <- unlist(lapply(impO, "[[", 3))
+      xreleaseIdUnq <- sort(unique(xreleaseId))
+      entropy.imp <- lapply(xreleaseIdUnq, function(k) {
+        ii <- entropy.imp[xreleaseId == k]
+        ii[!sapply(ii, is.null)]        
+      })
+      names(entropy.imp) <- xvar.names[xreleaseIdUnq]
+    }
+  }
+  else {
+    entropy.imp <- NULL
   }
   ##------------------------------------------------------------------
   ##
   ##
-  ## package the results up as a varpro object
+  ## for default entropy, package up pc-simple results 
   ##
   ##
   ##------------------------------------------------------------------
-  results$imp[keep.rules] <- imp
+  if (!custom.entropy.flag) {
+    entropy.imp <- entropy.default.importance(entropy.imp, xvar.names)
+  }
+  ##------------------------------------------------------------------
+  ##
+  ##
+  ## package results up as a varpro object
+  ##
+  ##
+  ##------------------------------------------------------------------
   rO <- list()
   rO$results <- results
   rO$x <- data
   rO$y <- NULL
   rO$y.org <- NULL
   rO$xvar.names <- xvar.names
-  rO$xvar.wt <- xvar.wt
+  rO$xvar.wt <- rep(1, length(xvar.names))
   rO$max.rules.tree <- max.rules.tree
   rO$max.tree <- max.tree
+  rO$entropy <- entropy.imp
   rO$family <- "unsupv"
   class(rO) <- "varpro"
   rO
 }
+unsupv <- unsupv.varpro

@@ -2,6 +2,7 @@
 \alias{importance.varpro}
 \alias{importance}
 \alias{get.orgvimp}
+\alias{get.topvars}
 \title{Calculate VarPro Importance}
 
 \description{
@@ -12,6 +13,7 @@
   plot.it = FALSE, conf = TRUE, sort = TRUE,
   ylab = if (conf) "Importance" else "Standardized Importance",
   max.rules.tree, max.tree,
+  papply = mclapply,
   ...)
 }
 
@@ -40,6 +42,8 @@
 
   \item{max.tree}{Maximum number of trees used for extracting rules.
     If left unspecified, uses the value from the VarPro object.}
+
+  \item{papply}{Use mclapply or lapply.}
   
   \item{...}{Additional options.}
   

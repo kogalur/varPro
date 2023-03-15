@@ -1,6 +1,7 @@
 ## hot-encoding
 get.hotencode <- function(x, papply = mclapply) {
   anyF <- sapply(x, is.factor)
+  ## factors are present -> hotencode them
   if (sum(anyF) > 0) {
     x.f <- do.call(cbind, papply(names(anyF[anyF]), function(nn) {
       xn <- x[, nn]
@@ -22,6 +23,11 @@ get.hotencode <- function(x, papply = mclapply) {
       }
     }))
     x <- data.frame(x[, !anyF, drop = FALSE], x.f)
+    attr(x, "hotencode") <- TRUE
+  }
+  ## no hotencoding performed
+  else {
+    attr(x, "hotencode") <- FALSE
   }
   x
 }

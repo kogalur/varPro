@@ -183,7 +183,7 @@ get.varpro.strengthArray <- function(var.strength, family, y) {
     var.strength[, imp.names] <- var.strength[, imp.names] / sqrt(var.y)
   }
   ## classification
-  else {
+  else if (family == "class") {
     J <- length(levels(y))
     colnames(var.strength) <- c("tree",
                                 "branch",
@@ -191,6 +191,20 @@ get.varpro.strengthArray <- function(var.strength, family, y) {
                                 "n.oobCT",
                                 c("n.oob", paste0("n.oob.", 1:J)),
                                 c("imp", paste0("imp.", 1:J)))
+  }
+  ## unsupervised
+  else if (family == "unsupv") {
+    ## add fake column for vimp
+    colnames(var.strength) <-  c("tree",
+                                 "branch",
+                                 "variable",
+                                 "n.oobCT",
+                                 "n.oob")
+    var.strength$imp <- NA 
+  }
+  ## something's wrong
+  else {
+    stop("family not supported")
   }
   ## remove complementary sample size from array
   var.strength$n.oobCT <- NULL
@@ -202,6 +216,7 @@ get.varpro.strength <- function(object,
                                 m.target = NULL,
                                 max.rules.tree = 150,
                                 max.tree = 150,
+                                membership = FALSE,
                                 seed = NULL)
 {
   ## ------------------------------------------------------------------------
@@ -216,17 +231,23 @@ get.varpro.strength <- function(object,
     ## this is a random forest object, need to process according to family
     else {
       o <- object
+      ## survival
       if (o$family == "surv") {
         ## "convert" the survival forest to a regression forest to trick varpro.strength
-        y <- object$predicted
         o$family <- "regr"
-        o$y <- o$yvar <- y
+        o$y <- o$yvar <- object$predicted
         o$yvar.names <- "y"
       }
+      ## regression, class, mv-regr
       else if (o$family == "regr" | o$family == "class" | o$family == "regr+") {
         o$y <- object$yvar
       }
-      else {
+      ## unsupervised
+      else if (o$family == "unsupv") {
+        ## nothing to do
+      }
+      ## something's wrong
+      else  {
         stop("family not supported")
       }
     }
@@ -238,21 +259,15 @@ get.varpro.strength <- function(object,
   }
   ## ------------------------------------------------------------------------
   ##
-  ## obtain the varpro.strength arrray
+  ## obtain varpro strength values
   ##
   ## ------------------------------------------------------------------------
-  ## obtain varpro strength
-  var.strength <- varpro.strength(object = o,
+  vp.strength.o <- varpro.strength(object = o,
                                   m.target = m.target,
                                   max.rules.tree = max.rules.tree,
                                   max.tree = max.tree,
-                                  seed = seed)$strengthArray
-  ## ------------------------------------------------------------------------
-  ##
-  ## process the strength array
-  ##
-  ## ------------------------------------------------------------------------
-  var.strength <- get.varpro.strengthArray(var.strength, o$family, o$y)
+                                  membership = membership,
+                                  seed = seed)
   ## ------------------------------------------------------------------------
   ##
   ## ## over-ride original object with updated information and return
@@ -260,7 +275,10 @@ get.varpro.strength <- function(object,
   ## ------------------------------------------------------------------------
   o$max.rules.tree <- max.rules.tree
   o$max.tree <- max.tree
-  o$results <- var.strength
+  o$strengthArray <- vp.strength.o$strengthArray
+  o$results <- get.varpro.strengthArray(vp.strength.o$strengthArray, o$family, o$y)
+  o$oobMembership <- vp.strength.o$oobMembership
+  o$compMembership <- vp.strength.o$compMembership
   class(o) <- "varpro"
   o
 }

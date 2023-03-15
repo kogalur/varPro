@@ -5,31 +5,44 @@ importFrom("gbm", "gbm", "predict.gbm", "gbm.perf")
 
 importFrom("glmnet", "cv.glmnet")
 
-importFrom("graphics", "barplot", "boxplot", "bxp", "lines", "rug")
+importFrom("graphics", "barplot", "boxplot", "bxp", "lines", "rug", "axis", "legend")
 
 importFrom("parallel", "mclapply")
 
-importFrom("randomForestSRC", "rfsrc", "predict.rfsrc")
+importFrom("randomForestSRC", "rfsrc", "predict.rfsrc",
+           "get.mv.formula", "get.auc", "get.pr.auc")
 
 importFrom("stats", "as.formula", "coef", "median", "qnorm",
            "pnorm", "quantile", "runif", "var", "setNames",
            "na.omit", "sd", "model.matrix", "prcomp",
-           "loess", "lowess", "lm", "supsmu", "predict.lm")
+           "loess", "loess.control", "lowess",
+           "lm", "supsmu", "predict.lm",
+           "rnorm", "ecdf", "qt")
 
 importFrom("utils", "combn")
 
-
-## for testing purposes we export varpro.strength
 export(cv.varpro,
        get.orgvimp,
+       get.topvars,
+       get.iso.performance,
+       get.matrix.performance,
+       get.unsupervised.performance,
        importance,
        importance.varpro,
+       isopro,
+       isopro.varpro,
+       predict.isopro,
+       predict.isopro.varpro,
         
        unsupv.varpro,
+       unsupv,
        varpro,
        varpro.news,
        varpro.strength)
 
  
+S3method(predict, isopro)
+S3method(predict, isopro.varpro)
+
 
 

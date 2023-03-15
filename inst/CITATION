@@ -4,10 +4,10 @@ titl <- meta$Title
 year <- sub(".*(2[[:digit:]]{3})-.*", "\\1", meta$Date)
 vers <- paste("R package version", meta$Version)
 
-citEntry(entry="Manual",
+bibentry(bibtype="Manual",
          title = titl,
-         author = personList(person(family="Ishwaran", given="H."),
-	                     person(family="Kogalur", given="U.B.")),
+         author = c(person(family="Ishwaran", given="H."),
+                    person(family="Kogalur", given="U.B.")),
 	 publisher = "manual",
          year         = year,
          note         = vers,

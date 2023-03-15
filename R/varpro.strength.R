@@ -289,7 +289,7 @@ varpro.strength <- function(object,
           strengthArrayHeader <- c(strengthArrayHeader, impArrayHeader)
       }
   }
-  else if(family == "class"){
+  else if (family == "class") {
       ## The incoming vector from the c-side is virtualized as
       ## [strengthArraySize] x [1] x [1 + levels.count[]]
       ## Here is an example for the offsets
@@ -344,6 +344,12 @@ varpro.strength <- function(object,
           }
       }
   }
+  else {
+      ## Unsupervised!
+      strengthArray <- as.data.frame(cbind(strengthArray,
+                                           nativeOutput$oobCT[1:strengthArraySize]))
+      strengthArrayHeader <- c(strengthArrayHeader, "oobCT")
+  }
   names(strengthArray) <- strengthArrayHeader
   ## -----------------------------------------------------------------
   ##
@@ -372,24 +378,24 @@ varpro.strength <- function(object,
         compMembershipList[[i]] = list(NULL)
       }
     }
-    ## safe the vector
-    countOOB = NULL
+    ## create and zero the maximum vector
+    countOOB = rep(0, membershipListSize)
     ## k will count the number of branches which is less than or equal to the
     ## number of records (membershipListSize) because of the different
     ## xRelease variables for each branch
     k = 0
-    ## initialize countOOB
-    for(i in 1:membershipListSize) {
-      if(i == 1) {
-        k = k + 1
-        countOOB[k] = strengthArray$oobCT[i]
-      } else {
-        if((strengthArray$nodeID[i] != strengthArray$nodeID[i-1]) || (strengthArray$treeID[i] != strengthArray$treeID[i-1])) {
-          k = k + 1
-          countOOB[k] = strengthArray$oobCT[i]
-        }
+    ## Initialize countOOB.
+      for(i in 1:membershipListSize) {
+          if(i == 1) {
+              k = k + 1
+              countOOB[k] = strengthArray$oobCT[i]
+          } else {
+              if((strengthArray$nodeID[i] != strengthArray$nodeID[i-1]) || (strengthArray$treeID[i] != strengthArray$treeID[i-1])) {
+                  k = k + 1
+                  countOOB[k] = strengthArray$oobCT[i]
+              }
+          }
       }
-    }
     ## initialize the oob count vectors
     countToOOB = cumsum(countOOB)
     countFromOOB = countToOOB + 1

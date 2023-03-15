@@ -8,7 +8,7 @@
 }
 
 \usage{
-varpro(f, data, nvar = 20,
+varpro(f, data, nvar = 30,
        ntree = 500, split.weight = TRUE,
        nodesize = NULL, max.rules.tree = 150, max.tree = min(150, ntree),
        parallel = TRUE, cores = get.number.cores(),
@@ -96,12 +96,21 @@ varpro(f, data, nvar = 20,
 
   Selection of variables is based on a preset cutoff value set using
   the \code{importance} function.  However, there is also a cross-validation
-  (CV) method to automate this.  See \code{cv.varpro}.
+  (CV) method to automate this.  See \command{cv.varpro}.
   
   For very large data sets, computational speeds can be improved by
   using smaller values of \code{ntree} and larger values of
   \code{nodesize}.  There are other options available as well.
   See examples below for illustrations.
+
+  For class imbalanced settings (two class problems where relative
+  frequency of labels is skewed towards one class) the code
+  automatically switches to random forest quantile classification (RFQ;
+  see O'Brien and Ishwaran, 2019) under the gmean (geometric mean)
+  performance metric.  This can be over-ridden by the hidden option
+  \code{use.rfq}.
+  
+  
   
 }
 
@@ -120,13 +129,19 @@ varpro(f, data, nvar = 20,
 \references{
   Lu M. and  Ishwaran H. (2022).  Variable Priority for Variable
   Selection in Rule-Based Models.
+
+  O'Brien R. and Ishwaran H. (2019).  A random forests quantile
+  classifier for class imbalanced data. \emph{Pattern Recognition},
+  90, 232-249.
 }
 
 \seealso{
   \command{\link{glioma}}
   \command{\link{cv.varpro}}  
   \command{\link{importance.varpro}}
+  \command{\link{isopro.varpro}}
   \command{\link{unsupv.varpro}}
+  
 }
 
 \examples{
@@ -188,6 +203,14 @@ print(get.orgvimp(Boston, o))
 o <- varpro(y~., data.frame(mlbench::mlbench.friedman1(1000)))
 print(importance(o))
 
+## ------------------------------------------------------------
+## example without guided feature selection
+## (i.e. split.weight=FALSE and rules are not supervised)
+## ------------------------------------------------------------
+
+o <- varpro(y~., data.frame(mlbench::mlbench.friedman2(1000)),
+            nodesize = 10, split.weight = FALSE)
+print(importance(o))
 
 ## ------------------------------------------------------------
 ## regression example: all noise
@@ -198,17 +221,35 @@ y <- rnorm(100)
 o <- varpro(y~., data.frame(y = y, x = x))
 print(importance(o))
 
-
-## ------------------------------------------------------------
-## example without guided feature selection
-## (i.e. split.weight=FALSE and rules are not supervised)
-## ------------------------------------------------------------
-
-o <- varpro(y~., data.frame(mlbench::mlbench.friedman2(1000)),
-            nodesize = 10, split.weight = FALSE)
-print(importance(o))
-
 \donttest{
+##----------------------------------------------------------------
+##  class imbalanced problem 
+## 
+## - simulation example using the caret R-package
+## - creates imbalanced data by randomly sampling the class 1 values
+## 
+##----------------------------------------------------------------
+
+if (library("caret", logical.return = TRUE)) {
+
+  ## experimental settings
+  n <- 5000
+  q <- 20
+  ir <- 6
+  f <- as.formula(Class ~ .)
+ 
+  ## simulate the data, create minority class data
+  d <- twoClassSim(n, linearVars = 15, noiseVars = q)
+  d$Class <- factor(as.numeric(d$Class) - 1)
+  idx.0 <- which(d$Class == 0)
+  idx.1 <- sample(which(d$Class == 1), sum(d$Class == 1) / ir , replace = FALSE)
+  d <- d[c(idx.0,idx.1),, drop = FALSE]
+  d <- d[sample(1:nrow(d)), ]
+
+  ## varpro call
+  print(importance(varpro(f, d)))
+
+}
 
 ## ------------------------------------------------------------
 ## survival example: pbc 
@@ -233,7 +274,6 @@ data(pbc, package = "randomForestSRC")
 o <- varpro(Surv(days, status)~., pbc, rmst = c(500, 1000))
 print(importance(o))
 
-
 ## ------------------------------------------------------------
 ## survival example with more variables
 ## ------------------------------------------------------------
@@ -241,6 +281,25 @@ data(peakVO2, package = "randomForestSRC")
 o <- varpro(Surv(ttodead, died)~., peakVO2)
 imp <- importance(o, plot.it = TRUE)
 print(imp)
+
+## ------------------------------------------------------------
+## high dimensional survival example
+## ------------------------------------------------------------
+data(vdv, package = "randomForestSRC")
+o <- varpro(Surv(Time, Censoring)~., vdv)
+print(importance(o))
+
+## ------------------------------------------------------------
+## high dimensional survival example without sparse option
+## ------------------------------------------------------------
+data(vdv, package = "randomForestSRC")
+print(importance(varpro(Surv(Time, Censoring)~., vdv, sparse = FALSE)))
+
+## ------------------------------------------------------------
+## high dimensional survival example with coxnet external estimator
+## ------------------------------------------------------------
+data(vdv, package = "randomForestSRC")
+print(importance(varpro(Surv(Time, Censoring)~., vdv, use.coxnet = TRUE)))
 
 ## ------------------------------------------------------------
 ## largish data (iowa housing data)

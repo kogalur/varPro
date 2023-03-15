@@ -424,8 +424,16 @@ void varProMain(char mode, int seedValue) {
   for (b = 1; b <= VP_strengthTreeCount; b++) {
     acquireTree(mode, b);
   }
-  RF_stackCount = 9;
-  initProtect(RF_stackCount);
+  if (RF_rNonFactorCount > 0) {
+    RF_stackCount = 9;
+  }
+  else if (RF_rFactorCount > 0) {
+    RF_stackCount = 9;    
+  }
+  else {
+    RF_stackCount = 8;
+  }
+    initProtect(RF_stackCount);
   stackAuxiliaryInfoList(&RF_snpAuxiliaryInfoList, RF_stackCount);
   VP_cpuTime_ = (double*) stackAndProtect(RF_auxDimConsts,
                                           mode,
@@ -544,19 +552,19 @@ void varProMain(char mode, int seedValue) {
                                               VP_totalRecordCount);
       VP_oobStat_ --;
     }
-      writeStrengthArray(VP_strengthTreeID,
-                         VP_strengthTreeCount,
-                         VP_branchID,
-                         VP_branchCount,
-                         VP_oobCount,
-                         VP_complementCount,
-                         VP_xReleaseCount,
-                         VP_xReleaseIDArray,
-                         VP_treeID_,
-                         VP_nodeID_,
-                         VP_xReleaseID_,
-                         VP_oobCT_,
-                         VP_dimImpRGRptr);
+    writeStrengthArray(VP_strengthTreeID,
+                       VP_strengthTreeCount,
+                       VP_branchID,
+                       VP_branchCount,
+                       VP_oobCount,
+                       VP_complementCount,
+                       VP_xReleaseCount,
+                       VP_xReleaseIDArray,
+                       VP_treeID_,
+                       VP_nodeID_,
+                       VP_xReleaseID_,
+                       VP_oobCT_,
+                       VP_dimImpRGRptr);
   }
   else if (RF_rFactorCount > 0) {
     localSize = VP_totalRecordCount;
@@ -640,6 +648,33 @@ void varProMain(char mode, int seedValue) {
                        VP_xReleaseID_,
                        VP_oobCTptr,
                        VP_dimImpCLSptr);
+  }
+  else {
+    VP_oobCT_ = (uint*) stackAndProtect(RF_auxDimConsts,
+                                        mode,
+                                        &RF_nativeIndex,
+                                        NATIVE_TYPE_INTEGER,
+                                        VP_OOBG_CT,
+                                        VP_totalRecordCount,
+                                        0,
+                                        RF_sexpStringOutgoing[VP_OOBG_CT],
+                                        NULL,
+                                        1,
+                                        VP_totalRecordCount);
+    VP_oobCT_ --;
+    writeStrengthArray(VP_strengthTreeID,
+                       VP_strengthTreeCount,
+                       VP_branchID,
+                       VP_branchCount,
+                       VP_oobCount,
+                       VP_complementCount,
+                       VP_xReleaseCount,
+                       VP_xReleaseIDArray,
+                       VP_treeID_,
+                       VP_nodeID_,
+                       VP_xReleaseID_,
+                       VP_oobCT_,
+                       NULL);
   }
   VP_complementCT_ = (uint*) stackAndProtect(RF_auxDimConsts,
                                              mode,

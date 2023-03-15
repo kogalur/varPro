@@ -1,47 +1,79 @@
-get.orgvimp <- function(o1, o2) {
-  ## be flexible and allow various input values
-  if (is.data.frame(o1) || is.matrix(o1)) {
-    o1 <- colnames(o1)
-  }
+## map hot encoded vimp to original variables
+get.orgvimp <- function(o1, o2, papply = mclapply) {
   ## second input value must be a varpro object
   if (!inherits(o2, "varpro", TRUE)) {
     stop("o2 must be a varpro object")
   }
-  ## extract the vimp and names
-  vmp <- importance(o2)
+  ## extract the vimp 
+  vmp <- importance(o2, papply = papply)
   if (o2$family == "regr+") {
       vmp <- do.call(rbind, vmp)
   }
   if (o2$family == "class") {
     vmp <- vmp$unconditional
   }
-  o2 <- rownames(vmp)
-  ## match original variable names to varpro names which uses hot encode data
-  vars <- o1[which(unlist(lapply(o1, function(nn) {
-  if (any(grepl(nn, o2))) {
-    TRUE
+  ## we are finished if the data was not hotencoded
+  if (!attr(o2$x, "hotencode")) {
+    vars <- rownames(vmp)
+    vars.z <- vmp$z
   }
+  ## data was hotencoded, so we need to map names appropriately
   else {
-    FALSE
-  }
-  })))]
-  ## obtain z for mapped variables
-  vars.z <- lapply(o1, function(nn) {
-    if (any((pt <- grepl(nn, o2)))) {
-      if (!all(is.na(vmp[pt, 3]))) {
-        max(vmp[pt, 3], na.rm = TRUE)
+    ## o1 has to be a vector of names, but be flexible
+    if (is.data.frame(o1) || is.matrix(o1)) {
+      o1 <- setdiff(colnames(o1), c(o2$yvar.names, colnames(o2$y.org)))##remove y names!
+    }
+    ## we only need the rownames for vimp from the varpro object hereafter
+    o2 <- rownames(vmp)
+    ## match original variable names to varpro names which uses hot encode data
+    vars <- o1[which(unlist(lapply(o1, function(nn) {
+      if (any(grepl(nn, o2))) {
+        TRUE
       }
       else {
-        NA
+        FALSE
       }
-    }
-    else {
-      NULL
-    }
-  })
-  vars.z <- unlist(vars.z[!sapply(vars.z, is.null)])
+    })))]
+    ## obtain z for mapped variables
+    vars.z <- lapply(o1, function(nn) {
+      if (any((pt <- grepl(nn, o2)))) {
+        if (!all(is.na(vmp[pt, 3]))) {
+          max(vmp[pt, 3], na.rm = TRUE)
+        }
+        else {
+          NA
+        }
+      }
+      else {
+        NULL
+      }
+    })
+    ## remove NULL entries
+    vars.z <- unlist(vars.z[!sapply(vars.z, is.null)])
+  }
+  ##---------------------------------------------------------
+  ## make nice table for return
   topvars <- data.frame(variable = vars, z = vars.z)
   topvars[order(topvars$z, decreasing = TRUE),, drop = FALSE]
+}
+## extract signal variables from varpro analysis
+get.topvars <- function(o, papply = mclapply) {
+  ## input value must be a varpro object
+  if (!inherits(o, "varpro", TRUE)) {
+    stop("object must be a varpro object")
+  }
+  ## extract the vimp and names
+  vmp <- importance(o, papply = papply)
+  ## mv-regression
+  if (o$family == "regr+") {
+      vmp <- do.call(rbind, vmp)
+  }
+  ## classification
+  if (o$family == "class") {
+    vmp <- vmp$unconditional
+  }
+  ##rownames(na.omit(vmp))
+  rownames(vmp)
 }
 ##  winsorized statistics
 winsorize <- function (x, trim = 0.1, na.rm = TRUE) {

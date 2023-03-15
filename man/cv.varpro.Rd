@@ -71,7 +71,15 @@ cv.varpro(f, data, nvar = 30,
   comprises variables using the largest cutoff with error rate within
   one standard deviation from the optimal cutoff error rate, whereas the
   liberal list uses the smallest cutoff value with error rate within one
-  standard deviation of the optimal cutoff error rate.}
+  standard deviation of the optimal cutoff error rate.
+
+  For class imbalanced settings (two class problems where relative
+  frequency of labels is skewed towards one class) the code
+  automatically switches to random forest quantile classification (RFQ;
+  see O'Brien and Ishwaran, 2019) under the gmean (geometric mean)
+  performance metric.
+
+}
 
 \value{
 
@@ -87,6 +95,10 @@ cv.varpro(f, data, nvar = 30,
 \references{
   Lu M. and  Ishwaran H. (2022).  Variable Priority for Variable
   Selection in Rule-Based Models.
+
+   O'Brien R. and Ishwaran H. (2019).  A random forests quantile
+  classifier for class imbalanced data. \emph{Pattern Recognition},
+  90, 232-249.
 }
 
 \seealso{
@@ -119,12 +131,40 @@ print(cv.varpro(medv~., BostonHousing))
 print(cv.varpro(Species~., iris))
 
 \donttest{
-
 ## ------------------------------------------------------------
 ## friedman 1
 ## ------------------------------------------------------------
 
 print(cv.varpro(y~., data.frame(mlbench::mlbench.friedman1(1000))))
+
+##----------------------------------------------------------------
+##  class imbalanced problem 
+## 
+## - simulation example using the caret R-package
+## - creates imbalanced data by randomly sampling the class 1 values
+## 
+##----------------------------------------------------------------
+
+if (library("caret", logical.return = TRUE)) {
+
+  ## experimental settings
+  n <- 5000
+  q <- 20
+  ir <- 6
+  f <- as.formula(Class ~ .)
+ 
+  ## simulate the data, create minority class data
+  d <- twoClassSim(n, linearVars = 15, noiseVars = q)
+  d$Class <- factor(as.numeric(d$Class) - 1)
+  idx.0 <- which(d$Class == 0)
+  idx.1 <- sample(which(d$Class == 1), sum(d$Class == 1) / ir , replace = FALSE)
+  d <- d[c(idx.0,idx.1),, drop = FALSE]
+  d <- d[sample(1:nrow(d)), ]
+
+  ## cv.varpro call
+  print(cv.varpro(f, d))
+
+}
 
 ## ------------------------------------------------------------
 ## peak VO2 with cutoff selected using fast option
