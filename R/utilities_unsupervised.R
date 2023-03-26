@@ -5,12 +5,44 @@
 ##
 ##
 ####################################################################
-entropy.custom <- function(xC, xO, alpha) {
-  imp <- mean(abs(apply(xC, 2, sd, na.rm = TRUE) - apply(xO, 2, sd, na.rm = TRUE)))
+entropy.ssq <- function(xC, xO) {
+  mean(abs(apply(xC, 2, sd, na.rm = TRUE) - apply(xO, 2, sd, na.rm = TRUE)))
+}
+entropy.ssq <- function(xC, xO) {
+  wss <- mean(apply(rbind(xO, xC), 2, sd, na.rm = TRUE))
+  bss <- mean(apply(xC, 2, sd, na.rm = TRUE)) + mean(apply(xO, 2, sd, na.rm = TRUE))
+  0.5 * bss / wss
+}
+entropy.default <- function(xC, xO, alpha = .025, beta = FALSE) {
+  imp <- entropy.ssq(xC, xO)
   x <- data.matrix(rbind(xO, xC))
-  pc.o <- tryCatch({suppressWarnings(pcsel(x[, 1], x[, -1],
+  o <- tryCatch({suppressWarnings(pcsel(x[, 1], x[, -1, drop = FALSE],
+        alpha = alpha, beta = beta))}, error=function(ex){NULL})
+  list(imp = imp,
+       partial = if (!is.null(o)) switch(1 + beta, o$partial, o$beta) else NULL)
+}
+entropy.default.importance <- function(entropy.imp, xvar.names, nlegit = 25) {
+  do.call(rbind, lapply(entropy.imp, function(oo) {
+    pv <- unlist(oo)
+    if (length(pv) > 0) {
+      mn <- rep(0, length(xvar.names))
+      names(mn) <- xvar.names
+      if (length(na.omit(as.numeric(pv))) >= nlegit) {
+        mn[sort(unique(names(pv)))] <- tapply(as.numeric(pv), names(pv), mean, na.rm = TRUE)
+      }
+      mn
+    }
+    else {
+      NULL
+    }
+  }))
+}
+entropy.custom <- function(xC, xO, alpha = .025) {
+  imp <- entropy.ssq(xC, xO)
+  x <- data.matrix(rbind(xO, xC))
+  o <- tryCatch({suppressWarnings(pcsel(x[, 1], x[, -1, drop = FALSE],
                           alpha = alpha))}, error = function(ex){NULL})
-  list(imp = imp, select = if (!is.null(pc.o)) pc.o$vars else NULL)
+  list(imp = imp, select = if (!is.null(o)) o$vars else NULL)
 }
 entropy.custom.importance <- function(entropy.imp, xvar.names, sort = FALSE) {
   entropy.imp <- do.call(rbind, lapply(entropy.imp, function(oo) {
@@ -31,27 +63,6 @@ entropy.custom.importance <- function(entropy.imp, xvar.names, sort = FALSE) {
   else {
     entropy.imp
   }
-}
-entropy.default <- function(xC, xO, alpha) {
-  imp <- mean(abs(apply(xC, 2, sd, na.rm = TRUE) - apply(xO, 2, sd, na.rm = TRUE)))
-  x <- data.matrix(rbind(xO, xC))
-  pc.o <- tryCatch({suppressWarnings(pcsel(x[, 1], x[, -1],
-               alpha = alpha))}, error=function(ex){NULL})
-  list(imp = imp, partial = if (!is.null(pc.o)) pc.o$partial else NULL)
-}
-entropy.default.importance <- function(entropy.imp, xvar.names) {
-  do.call(rbind, lapply(entropy.imp, function(oo) {
-    pv <- unlist(oo)
-    if (length(pv) > 0) {
-      mn <- rep(0, length(xvar.names))
-      names(mn) <- xvar.names
-      mn[sort(unique(names(pv)))] <- tapply(as.numeric(pv), names(pv), mean, na.rm = TRUE)
-      mn
-    }
-    else {
-      NULL
-    }
-  }))
 }
 ####################################################################
 ##
@@ -129,6 +140,30 @@ get.unsupervised.performance <- function(o) {
 ####################################################################
 ##
 ##
+## residuals from generalized inverse regression
+## used to obtain beta from partial coefficients
+##
+##
+####################################################################
+ginvResidual <- function (y, x, tol = sqrt(.Machine$double.eps)) {
+  x <- as.matrix(cbind(1, x))
+  xsvd <- svd(x)
+  Positive <- xsvd$d > max(tol * xsvd$d[1L], 0)
+  if (all(Positive)) {
+    ginv <- xsvd$v %*% (1/xsvd$d * t(xsvd$u))
+  }
+  else if (!any(Positive)) {
+    ginv <- array(0, dim(x)[2L:1L])
+  }
+  else {
+    ginv <- xsvd$v[, Positive, drop = FALSE] %*% ((1/xsvd$d[Positive]) * 
+       t(xsvd$u[, Positive, drop = FALSE]))
+  }
+  c(y - x %*% (ginv %*% y))
+}
+####################################################################
+##
+##
 ## variable selection using the PC-simple algorithm
 ##
 ##  Buhlmann P., Kalisch M. and Maathuis M. H. (2010). Variable s
@@ -141,47 +176,36 @@ pcsel.critical <- function(n, k, alpha) {
   crit <- exp(2 * qt(1 - alpha/2, n - 3) / sqrt(n - k - 3))
   (crit - 1) / (crit + 1)
 }
-pcsel <- function (y, x, ystand = TRUE, xstand = TRUE, alpha = 0.05, tol = 1e-6) {
-  if (ystand) 
-    y <- (y - mean(y, na.rm = TRUE)) / sd(y, na.rm = TRUE)
-  x <- data.matrix(x)
-  if (xstand) {
-    x <- scale(x)
-    attr(x, "scaled.scale") <- attr(x, "scaled.center") <- NULL
-  }
-  dm <- dim(x)
-  n <- dm[1]
-  p <- dm[2]
-  ina <- 1:p
-  xyIdx <- 1:2
-  nu <- n - 1
-  k <- 0
-  r <- abs(colSums(x * y)) / nu
-  crit <- pcsel.critical(n, k, alpha)
-  sela <- which(r > crit)
+pcsel <- function (y, x, alpha = 0.025, beta = FALSE, tol = 1e-6) {
+  ## process data, obtain r
+  y <- (y - mean(y, na.rm = TRUE)) / sd(y, na.rm = TRUE)
+  x <- scale(data.matrix(x))
+  xnms <- colnames(x)
+  n <- nrow(x)
+  p <- ncol(x)
+  r <- abs(colSums(x * y)) / n
+  ## filter data based on r
+  sela <- which(r > pcsel.critical(n, 0, alpha))
   if (length(sela) == 0) {
     stop("error: no variables meet critical value\n")
   }
+  xyIdx <- c(1, length(sela) + 1)##last coordinate used for y
   r <- r[sela]
   sela <- sela[order(r)]
-  R <- crossprod(cbind(x[, sela, drop = FALSE], y))/nu##hereafter data is subsetted
-  n.tests <- p
-  len <- length(sela)
-  ina <- ina2 <- 1:len
-  d <- len + 1##last coordinate is used for y
-  xnms <- colnames(x)
-  xnms.sela <- colnames(x[, sela, drop = FALSE])
-  rall <- vector("list", len)##list for saving all partial correlations
-  names(rall) <- xnms.sela
-  while (k < len) {
+  ##hereafter data is subsetted
+  R <- crossprod(cbind(x[, sela, drop = FALSE], y)) / n
+  ina <- 1:length(sela)
+  ball <- rall <- vector("list", length(sela))
+  names(ball) <- names(rall) <- xnms.sela <- names(sela)
+  ## main loop
+  k <- 0
+  while (k < sum(ina > 0)) {
     k <- k + 1
     crit <- pcsel.critical(n, k, alpha)
-    tes <- 0
-    n.tests[k + 1] <- 0
     for (i in ina[ina > 0]) {
       j <- 0
       r <- Inf
-      sam <- setdiff(ina2[ina2 > 0], i)
+      sam <- setdiff(ina[ina > 0], i)
       if (length(sam) > k) {
         sam <- combn(sam, k)
       }
@@ -192,48 +216,69 @@ pcsel <- function (y, x, ystand = TRUE, xstand = TRUE, alpha = 0.05, tol = 1e-6)
         sam <- as.matrix(sam)
         r <- -Inf
       }
-      xyIdx <- c(i, d)
+      xyIdx[1] <- i
       corrMatrix <- R[xyIdx, xyIdx]
       while (j < NCOL(sam) & r > crit) {
         j <- j + 1
-        tes <- tes + 1
         csIdx <- sam[, j]
         ## obtain partial correlation of (X[i], y) after adjusting for other variables
-        ## partial correlation obtained using regression: see equation (27.50) from Kendall and Stuart II
+        ## be careful about division by zero
         residCorrMatrix <- corrMatrix - R[xyIdx, csIdx] %*% solve(R[csIdx, csIdx], rbind(R[csIdx, xyIdx]))
-        r11 <- residCorrMatrix[1, 1] + tol * (residCorrMatrix[1, 1] <= .Machine$double.xmin)##singularity
-        r22 <- residCorrMatrix[2, 2] + tol * (residCorrMatrix[2, 2] <= .Machine$double.xmin)##solution!
-        r <- abs(residCorrMatrix[1, 2]) / sqrt(r11 * r22)
-        ## store all the partial correlation information
-        rall[[i]][[length(rall[[i]])+1]] <- list(i=xnms[i], j=xnms[csIdx], r=r, crit=crit)
+        r11 <- residCorrMatrix[1, 1] +
+          tol * (residCorrMatrix[1, 1] <= .Machine$double.xmin)
+        r22 <- residCorrMatrix[2, 2] +
+          tol * (residCorrMatrix[2, 2] <= .Machine$double.xmin)
+        r <- abs(residCorrMatrix[1, 2] / sqrt(r11 * r22))
+        ## store absolute partial correlation information
+        if (r > crit) {
+          rall[[i]][[length(rall[[i]])+1]] <-
+            list(i=xnms.sela[i], S=xnms.sela[csIdx], r=r, crit=crit)
+          if (beta) {
+            r1 <- ginvResidual(y, x[, xnms.sela[csIdx], drop = FALSE])
+            r2 <- ginvResidual(x[, xnms.sela[i]], x[, xnms.sela[csIdx], drop = FALSE])
+            bhat <- r * sd(r1, na.rm = TRUE) / sd(r2, na.rm = TRUE)
+            ball[[i]][[length(ball[[i]])+1]] <-
+              list(i=xnms.sela[i], S=xnms.sela[csIdx], beta = bhat)
+          }
+        }
       }
       if (r < crit && r >= 0) {
         ina[i] <- 0
-        ina2[i] <- 0
       }
     }
-    n.tests[k + 1] <- n.tests[k + 1] + tes
-    len <- sum(ina > 0)
   }
+  ## process the output
   ## selected variables
-  vars <- names(sela[ina])
-  ## partial correlations
+  vars <- xnms.sela[ina]
+  ## abs partial correlations
   rallavg <- do.call(rbind, lapply(rall, function(rr) {
     rvec <- rep(0, p)
     names(rvec) <- xnms
     lapply(rr, function(rr2) {
-      rvec[rr2$j] <<- rvec[rr2$j] + rr2$r
+      rvec[rr2$S] <<- rvec[rr2$S] + rr2$r
     })
     rvec / length(rr)
   }))
   rallavg[rallavg == 0] <- NA
   rallavg <- rowMeans(rallavg, na.rm = TRUE)
   rallavg[setdiff(names(rallavg), vars)] <- 0##we only keep PC for vars selected
-  ## number of tests
-  n.tests <- n.tests[n.tests > 0]
-  names(n.tests) = paste("k=", 0:(length(n.tests) - 1), sep = "")
+  ## obtain abs beta?
+  ballavg <- NULL
+  if (beta) {
+    ballavg <- do.call(rbind, lapply(ball, function(bb) {
+      bvec <- rep(0, p)
+      names(bvec) <- xnms
+      lapply(bb, function(bb2) {
+        bvec[bb2$S] <<- bvec[bb2$S] + bb2$beta
+      })
+      bvec / length(bb)
+    }))
+    ballavg[ballavg == 0] <- NA
+    ballavg <- rowMeans(ballavg, na.rm = TRUE)
+    ballavg[setdiff(names(ballavg), vars)] <- 0##we only keep PC for vars selected
+  }
   ## return the goodies
-  list(vars = vars, partial = rallavg, n.tests = n.tests)
+  list(vars = vars, partial = rallavg, beta = ballavg)
 }
 ####################################################################
 ##
@@ -249,7 +294,7 @@ set.unsupervised.nodesize <- function(n, p, nodesize = NULL) {
       nodesize <- 2
     }
     else if (n <= 300 & p <= n) {
-      nodesize <- 20
+      nodesize <- min(n / 4, 20)
     }
     else if (n > 300 & n <= 2000) {
       nodesize <- 40

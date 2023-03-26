@@ -1,7 +1,7 @@
 unsupv.varpro <- function(data,
                           method = c("auto", "unsupv", "rnd"),
-                          ntree = 150, nodesize = NULL,
-                          max.rules.tree = 150, max.tree = 150,
+                          ntree = 200, nodesize = NULL,
+                          max.rules.tree = 50, max.tree = 200,
                           papply = mclapply, verbose = FALSE, seed = NULL,
                           ...)
 {		   
@@ -44,13 +44,10 @@ unsupv.varpro <- function(data,
   ## define the entropy function used for importance
   ##
   ##--------------------------------------------------------------
-  ## threshold value used with default entropy function
-  if (is.null(dots$alpha)) {
-    alpha <- .05
-  }
-  else {
-    alpha <- dots$alpha
-  }
+  ## parameters used with default entropy function(s)
+  alpha <- switch(1 + is.null(dots$alpha), dots$alpha, .025)
+  nlegit <- switch(1 + is.null(dots$nlegit), dots$nlegit, 25)
+  beta <- switch(1 + is.null(dots$beta), dots$beta, FALSE)
   user.provided.varpro.flag <- FALSE
   ## special feature allowing user to pass in an arbitrary varpro object
   ## the purpose of this is to allow access to the entropy function framework
@@ -70,7 +67,7 @@ unsupv.varpro <- function(data,
                      rfnames != "ntree" &
                      rfnames != "nodesize" &
                      rfnames != "perf.type"]
-  ## get the permissible hidden options
+  ## get the permissible hidden options for rfrsc
   dots <- dots[names(dots) %in% rfnames]
   ##-----------------------------------------------------------------
   ##
@@ -172,7 +169,7 @@ unsupv.varpro <- function(data,
       ordernms <- c(xreleaseId[i], setdiff(1:p, xreleaseId[i]))
       xO <- x[oobMembership[[i]], ordernms, drop = FALSE]
       xC <- x[compMembership[[i]], ordernms, drop = FALSE]
-      val <- entropy(xC, xO, alpha)
+      val <- entropy(xC, xO, alpha, beta)
       if (!is.list(val)) {
         list(imp = val, attr = NULL, xvar = xreleaseId[i])
       }
@@ -209,7 +206,7 @@ unsupv.varpro <- function(data,
   ##
   ##------------------------------------------------------------------
   if (!custom.entropy.flag) {
-    entropy.imp <- entropy.default.importance(entropy.imp, xvar.names)
+    entropy.imp <- entropy.default.importance(entropy.imp, xvar.names, nlegit)
   }
   ##------------------------------------------------------------------
   ##
