@@ -13,15 +13,15 @@ entropy.ssq <- function(xC, xO) {
   bss <- mean(apply(xC, 2, sd, na.rm = TRUE)) + mean(apply(xO, 2, sd, na.rm = TRUE))
   0.5 * bss / wss
 }
-entropy.default <- function(xC, xO, alpha = .025, beta = FALSE) {
+entropy.default <- function(xC, xO, alpha = .025, beta = FALSE, ...) {
   imp <- entropy.ssq(xC, xO)
   x <- data.matrix(rbind(xO, xC))
   o <- tryCatch({suppressWarnings(pcsel(x[, 1], x[, -1, drop = FALSE],
         alpha = alpha, beta = beta))}, error=function(ex){NULL})
   list(imp = imp,
-       partial = if (!is.null(o)) switch(1 + beta, o$partial, o$beta) else NULL)
+       pcselreturn = if (!is.null(o)) switch(1+(beta), o$partial, o$beta) else NULL)
 }
-entropy.default.importance <- function(entropy.imp, xvar.names, nlegit = 25) {
+entropy.default.importance <- function(entropy.imp, xvar.names, nlegit = 25, ...) {
   do.call(rbind, lapply(entropy.imp, function(oo) {
     pv <- unlist(oo)
     if (length(pv) > 0) {
@@ -37,14 +37,14 @@ entropy.default.importance <- function(entropy.imp, xvar.names, nlegit = 25) {
     }
   }))
 }
-entropy.custom <- function(xC, xO, alpha = .025) {
+entropy.custom <- function(xC, xO, alpha = .025, ...) {
   imp <- entropy.ssq(xC, xO)
   x <- data.matrix(rbind(xO, xC))
   o <- tryCatch({suppressWarnings(pcsel(x[, 1], x[, -1, drop = FALSE],
                           alpha = alpha))}, error = function(ex){NULL})
   list(imp = imp, select = if (!is.null(o)) o$vars else NULL)
 }
-entropy.custom.importance <- function(entropy.imp, xvar.names, sort = FALSE) {
+entropy.custom.importance <- function(entropy.imp, xvar.names, sort = FALSE, ...) {
   entropy.imp <- do.call(rbind, lapply(entropy.imp, function(oo) {
       sv <- unlist(oo)
       if (length(sv) > 0) {
@@ -161,6 +161,23 @@ ginvResidual <- function (y, x, tol = sqrt(.Machine$double.eps)) {
   }
   c(y - x %*% (ginv %*% y))
 }
+ginvMLS <- function (y, x, tol = sqrt(.Machine$double.eps)) {
+  x <- as.matrix(cbind(1, x))
+  xsvd <- svd(x)
+  Positive <- xsvd$d > max(tol * xsvd$d[1L], 0)
+  if (all(Positive)) {
+    ginv <- xsvd$v %*% (1/xsvd$d * t(xsvd$u))
+  }
+  else if (!any(Positive)) {
+    ginv <- array(0, dim(x)[2L:1L])
+  }
+  else {
+    ginv <- xsvd$v[, Positive, drop = FALSE] %*% ((1/xsvd$d[Positive]) * 
+       t(xsvd$u[, Positive, drop = FALSE]))
+  }
+  ## return the MLS coefficients (remove intercept)
+  c(ginv %*% y)[-1] 
+}
 ####################################################################
 ##
 ##
@@ -178,6 +195,8 @@ pcsel.critical <- function(n, k, alpha) {
 }
 pcsel <- function (y, x, alpha = 0.025, beta = FALSE, tol = 1e-6) {
   ## process data, obtain r
+  yorg <- y
+  xorg <- data.matrix(x)
   y <- (y - mean(y, na.rm = TRUE)) / sd(y, na.rm = TRUE)
   x <- scale(data.matrix(x))
   xnms <- colnames(x)
@@ -250,7 +269,7 @@ pcsel <- function (y, x, alpha = 0.025, beta = FALSE, tol = 1e-6) {
   ## process the output
   ## selected variables
   vars <- xnms.sela[ina]
-  ## abs partial correlations
+  ##partial correlations
   rallavg <- do.call(rbind, lapply(rall, function(rr) {
     rvec <- rep(0, p)
     names(rvec) <- xnms
@@ -262,8 +281,8 @@ pcsel <- function (y, x, alpha = 0.025, beta = FALSE, tol = 1e-6) {
   rallavg[rallavg == 0] <- NA
   rallavg <- rowMeans(rallavg, na.rm = TRUE)
   rallavg[setdiff(names(rallavg), vars)] <- 0##we only keep PC for vars selected
-  ## obtain abs beta?
-  ballavg <- NULL
+  ## beta coefficients
+  bmls <- ballavg <- NULL
   if (beta) {
     ballavg <- do.call(rbind, lapply(ball, function(bb) {
       bvec <- rep(0, p)
@@ -275,10 +294,13 @@ pcsel <- function (y, x, alpha = 0.025, beta = FALSE, tol = 1e-6) {
     }))
     ballavg[ballavg == 0] <- NA
     ballavg <- rowMeans(ballavg, na.rm = TRUE)
-    ballavg[setdiff(names(ballavg), vars)] <- 0##we only keep PC for vars selected
+    ballavg[setdiff(names(ballavg), vars)] <- 0
+    ## mls estimator
+    bmls <- ginvMLS(yorg, xorg[, vars, drop = FALSE])
+    names(bmls) <- vars
   }
   ## return the goodies
-  list(vars = vars, partial = rallavg, beta = ballavg)
+  list(vars = vars, partial = rallavg, beta = ballavg, betaorg = bmls)
 }
 ####################################################################
 ##

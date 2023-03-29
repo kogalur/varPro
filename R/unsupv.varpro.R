@@ -30,12 +30,13 @@ unsupv.varpro <- function(data,
   ## first entry = total variance
   ## second entry = pc-simple results
   if (is.null(dots$entropy)) {
-    entropy <- entropy.default
+    entropy.function <- entropy.default
+    entropy.importance.function <- entropy.default.importance
   }
   ## user specified entropy function
   else {
     custom.entropy.flag <- TRUE
-    entropy <- dots$entropy
+    entropy.function <- dots$entropy
   }
   ##--------------------------------------------------------------
   ##
@@ -45,9 +46,13 @@ unsupv.varpro <- function(data,
   ##
   ##--------------------------------------------------------------
   ## parameters used with default entropy function(s)
-  alpha <- switch(1 + is.null(dots$alpha), dots$alpha, .025)
-  nlegit <- switch(1 + is.null(dots$nlegit), dots$nlegit, 25)
-  beta <- switch(1 + is.null(dots$beta), dots$beta, FALSE)
+  alpha <- switch(1+(is.null(dots$alpha)), dots$alpha, .025)
+  beta <- switch(1+(is.null(dots$beta)), dots$beta, FALSE)
+  nlegit <- switch(1+(is.null(dots$nlegit)), dots$nlegit, 25)
+  dots.entropy <- list()
+  dots.entropy$alpha <- alpha
+  dots.entropy$beta <- beta
+  dots.entropy$nlegit <- nlegit
   user.provided.varpro.flag <- FALSE
   ## special feature allowing user to pass in an arbitrary varpro object
   ## the purpose of this is to allow access to the entropy function framework
@@ -169,7 +174,7 @@ unsupv.varpro <- function(data,
       ordernms <- c(xreleaseId[i], setdiff(1:p, xreleaseId[i]))
       xO <- x[oobMembership[[i]], ordernms, drop = FALSE]
       xC <- x[compMembership[[i]], ordernms, drop = FALSE]
-      val <- entropy(xC, xO, alpha, beta)
+      val <- do.call("entropy.function", c(list(xC, xO), dots.entropy))
       if (!is.list(val)) {
         list(imp = val, attr = NULL, xvar = xreleaseId[i])
       }
@@ -206,7 +211,8 @@ unsupv.varpro <- function(data,
   ##
   ##------------------------------------------------------------------
   if (!custom.entropy.flag) {
-    entropy.imp <- entropy.default.importance(entropy.imp, xvar.names, nlegit)
+    entropy.imp <- do.call("entropy.importance.function",
+                           c(list(entropy.imp, xvar.names), dots.entropy))
   }
   ##------------------------------------------------------------------
   ##
