@@ -5,7 +5,7 @@ importFrom("gbm", "gbm", "predict.gbm", "gbm.perf")
 
 importFrom("glmnet", "cv.glmnet")
 
-importFrom("graphics", "barplot", "boxplot", "bxp", "lines", "rug", "axis", "legend")
+importFrom("graphics", "barplot", "boxplot", "bxp", "lines", "rug", "axis", "legend", "arrows")
 
 importFrom("parallel", "mclapply")
 
@@ -21,12 +21,14 @@ importFrom("stats", "as.formula", "coef", "median", "qnorm",
 
 importFrom("utils", "combn")
 
-export(cv.varpro,
+export(cv.matrix.performance,
+       cv.matrix,
+       cv.varpro,
+       cv.unsupv,
+       cv.unsupv.varpro,
        get.orgvimp,
        get.topvars,
        get.iso.performance,
-       get.matrix.performance,
-       get.unsupervised.performance,
        importance,
        importance.varpro,
        isopro,

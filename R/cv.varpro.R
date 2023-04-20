@@ -221,8 +221,8 @@ cv.varpro <- function(f, data, nvar = 30,
   ## minimum error
   vmin <- vorg
   zcut.min <- 0
-  if (!all(is.na(err[,3]))) {
-    zcut.min <- zcut[which.min(err[,3])]
+  if (!all(is.na(err[, 3]))) {
+    zcut.min <- zcut[which.min(err[, 3])]
     if (verbose) {
       cat("optimal cutoff value", zcut.min, "\n")
     }
@@ -231,10 +231,10 @@ cv.varpro <- function(f, data, nvar = 30,
   ## 1sd error rule -conservative
   v1sd.conserve <- vorg
   zcut.1sd <- 0
-  if (!all(is.na(err[,3]))) {
-    idx.opt <- which.min(err[,3])
-    serr <- mean(err[,4], na.rm = TRUE)
-    idx2.opt <- err[,3] < 1 & (err[,3] <= (err[idx.opt,3] + serr))
+  if (!all(is.na(err[, 3]))) {
+    idx.opt <- which.min(err[, 3])
+    serr <- mean(err[, 4], na.rm = TRUE)
+    idx2.opt <- err[, 3] < 1 & (err[, 3] <= (err[idx.opt, 3] + serr))
     idx2.opt[is.na(idx2.opt)] <- FALSE
     if (sum(idx2.opt) > 0) {
       zcut.1sd <- zcut[max(which(idx2.opt))]
@@ -250,10 +250,10 @@ cv.varpro <- function(f, data, nvar = 30,
   ## 1sd error rule -liberal
   v1sd.liberal <- vorg
   zcut.liberal <- 0
-  if (!all(is.na(err[,3]))) {
-    idx.opt <- which.min(err[,3])
-    serr <- mean(err[,4], na.rm = TRUE)
-    zcut.liberal <- zcut[min(which(err[,3] <= (err[idx.opt,3] + serr)), na.rm = TRUE)]
+  if (!all(is.na(err[, 3]))) {
+    idx.opt <- which.min(err[, 3])
+    serr <- mean(err[, 4], na.rm = TRUE)
+    zcut.liberal <- zcut[min(which(err[, 3] <= (err[idx.opt, 3] + serr)), na.rm = TRUE)]
     if (verbose) {
       cat("optimal 1sd - (liberal) cutoff value", zcut.liberal, "\n")
     }

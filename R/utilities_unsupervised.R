@@ -66,77 +66,109 @@ entropy.custom.importance <- function(entropy.imp, xvar.names, sort = FALSE, ...
 }
 ####################################################################
 ##
-## performance metrics for unsupervised variable selection
+##
+## cv performance metrics for matrix
+##
 ##
 ####################################################################
-entropy.fp.workhorse <- function(x) {
-  if (ncol(x) == 1) {
-    (mean(c(x)^2, na.rm = TRUE))^2
+## need a custom prediction function since predict.mlm* is hidden
+predict.mlm <- function(o, x) {
+  if (class(o)[1] == "mlm") {
+    as.matrix(cbind(1, x[,rownames(coef(o))[-1],drop=FALSE])) %*% coef(o)
   }
   else {
-    ## loop over columns forming the frame-potential metric
-    sum(sapply(combn(1:ncol(x), 2, simplify = FALSE), function(j) {
-      abs(mean((x[, j[1]] * x[, j[2]]), na.rm = TRUE))^2
-    }))
+    predict.lm(o, x)
   }
 }
-entropy.fp <- function(x, nvar = NULL) {
-  ## restrict x to nvar columns
-  if (!is.null(nvar)) {
-    x <- x[, 1:min(nvar, ncol(x)), drop = FALSE]
+cv.matrix.performance <- function(x, K = 10, plot.it = TRUE,
+                                  papply = mclapply, tol = 1e-10) {
+  ## convert to real
+  x <- data.frame(data.matrix(x))
+  ## obtain variance of x features for standardization
+  vx <- apply(x, 2, var, na.rm = TRUE)
+  ## check for singular x variables: turn those into noise
+  zeropt <- vx < tol
+  if (sum(zeropt) > 0) {
+    x[, zeropt] <- matrix(rnorm(nrow(x)*sum(zeropt)), ncol=sum(zeropt))
+    vx[zeropt] <- 1
   }
-  ## standardize x
-  x <- scale(x, center = TRUE, scale = TRUE)
-  ## fp(x)
-  fpx <- entropy.fp.workhorse(x)
-  ## return fp for sequential models formed by columns
-  sapply(1:ncol(x), function(j) {
-    fpx - entropy.fp.workhorse(x[, 1:j, drop = FALSE])
-  })
-}
-entropy.auc <- function(x, nvar = NULL) {
-  ## restrict x to nvar columns
-  if (!is.null(nvar)) {
-    x <- x[, 1:min(nvar, ncol(x)), drop = FALSE]
+  ## set the folds
+  tst <- randomForestSRC:::cv.folds(nrow(x), min(nrow(x), K))
+  ## loop over the folds to acquire mse
+  mse <- do.call(rbind, papply(1:length(tst), function(k) {
+    ## train/test splits
+    xtrn <- x[setdiff(1:nrow(x), tst[[k]]),, drop = FALSE]
+    xtst <- x[tst[[k]],, drop = FALSE]
+    ## fit sequential multivariate regression models 
+    sapply(1:(ncol(x)-1), function(j) {
+      o <- tryCatch({suppressWarnings(
+         lm(do.call(cbind, as.list(xtrn[,1:j,drop=FALSE]))~., xtrn[,-(1:j),drop=FALSE]))},
+         error=function(ex){NULL})
+      if (!is.null(o)) {
+        mean(colMeans(cbind((xtst[,1:j]-predict.mlm(o, xtst)))^2, na.rm = TRUE) / vx[1:j])
+      }
+      else {
+        NA
+      }
+    })
+  }))
+  ## plot it?
+  if (plot.it) {
+    xv <- 1:ncol(mse)
+    avg <- colMeans(mse, na.rm = TRUE)
+    sdev <- apply(mse, 2, sd, na.rm = TRUE) / sqrt(nrow(mse))
+    ylim <- range(c(avg, avg-sdev, avg+sdev), na.rm = TRUE)
+    plot(xv, avg, type = "l", lwd = 3, ylim = ylim,
+         xlab = "number of variables", ylab = "std. mse")
+    arrows(xv, avg-sdev, xv, avg+sdev, length=0.05, angle=90, code=3)
+    lines(lowess(xv, avg), col = 2, lty = 2)
   }
-  ## standardize x
-  x <- as.matrix(scale(x, center = TRUE, scale = TRUE))
-  ## r(x), v(x)
-  gols <- randomForestSRC:::ginverse(x) %*% x
-  rx <- x - x %*% gols
-  vx <- sum(c(x)^2)
-  ## loop over columns forming the auc metric
-  sapply(1:ncol(x), function(j) {
-    xj <- x[, 1:j, drop = FALSE]
-    golsj <- randomForestSRC:::ginverse(xj) %*% x
-    rxj <- x - xj %*% golsj
-    1 - sum(c(rx - rxj)^2) / vx
-  })
+  ## extract mean/se from cv results
+  err <- cbind(colMeans(mse, na.rm = TRUE), apply(mse, 2, sd, na.rm = TRUE))
+  colnames(err) <- c("mean", "se")
+  rownames(err) <- colnames(x)[1:(ncol(x)-1)]
+  ## obtain the cv solution
+  idx <- which.min(err[, 1])
+  if (length(idx) > 0) {
+    serr <- mean(err[, 2], trim = .05, na.rm = TRUE)#trim the serr
+    idxpt <- err[, 1] <= (err[idx, 1] + serr)
+    idxpt[is.na(idxpt)] <- FALSE
+    if (sum(idxpt) > 0) {
+      idxc <- min(which(idxpt))
+      idxl <- max(which(idxpt))
+    }
+    else {
+      idxc <- idxl <- 1
+    }
+  }
+  else {
+    idx <- idxc <- idxl <- 1
+  }
+  ## return the goodies 
+  list(err = err,
+       vars = colnames(x)[1:idx],
+       vars.conserve = colnames(x)[1:idxc],
+       vars.liberal = colnames(x)[1:idxl])
 }
-get.matrix.performance <- function(x) {
-  ## convert x to a data matrix
-  x <- data.matrix(x)
-  ## pull the metrics
-  rO <- data.frame(rbind(fp = entropy.fp(x), auc = entropy.auc(x)))
-  colnames(rO) <- colnames(x)
-  rO
-}
-get.unsupervised.performance <- function(o) {
+cv.matrix <- cv.matrix.performance
+####################################################################
+##
+## cv for unsupervised variable selection
+##
+####################################################################
+cv.unsupv.varpro <- function(object, K = 10, plot.it = FALSE, tol = 1e-10) {
   ## input value must be a varpro object
-  if (!inherits(o, "varpro", TRUE)) {
+  if (!inherits(object, "varpro", TRUE)) {
     stop("object must be a varpro object")
   }
-  if (o$family != "unsupv") {
+  if (object$family != "unsupv") {
     stop("this wrapper only applies to unsupervised families")
   }
-  ## pull the top variables, sort x accordingly
-  topvars <- get.topvars(o)
-  x <- o$x[, c(topvars, setdiff(colnames(o$x), topvars))]
-  ## pull the metrics
-  rO <- data.frame(rbind(fp = entropy.fp(x), auc = entropy.auc(x)))
-  colnames(rO) <- colnames(x)
-  rO
+  ## obtain the cv solution 
+  cv.matrix(object$x[, rownames(importance(object)), drop = FALSE], K = K,
+            plot.it = plot.it, , tol = tol)
 }
+cv.unsupv <- cv.unsupv.varpro 
 ####################################################################
 ##
 ##
@@ -198,7 +230,7 @@ pcsel <- function (y, x, alpha = 0.025, beta = FALSE, tol = 1e-6) {
   yorg <- y
   xorg <- data.matrix(x)
   y <- (y - mean(y, na.rm = TRUE)) / sd(y, na.rm = TRUE)
-  x <- scale(data.matrix(x))
+  x <- scaleM(data.matrix(x))
   xnms <- colnames(x)
   n <- nrow(x)
   p <- ncol(x)
@@ -329,36 +361,33 @@ set.unsupervised.nodesize <- function(n, p, nodesize = NULL) {
 }
 ####################################################################
 ##
-## breiman shi-horvath legacy code
+## custom scale matrix: avoids NA's due to columns being singular
 ##
 ####################################################################
-##  make SH data (modes 1 and 2)
-make.sh <- function(dat, mode = 1, papply = mclapply) {
-  ## extract sample size dimension
-  nr <- dim(dat)[[1]]
-  nc <- dim(dat)[[2]]
-  if (nc == 0) {
-    stop("can't make SH data ... not enough unique values\n")
-  }
-  ## coerce to data frame format
-  if (!is.data.frame(dat)) {
-    dat <- data.frame(dat)
-  }
-  ## mode 1
-  if (mode == 1) {
-    data.frame(classes = factor(c(rep(1, nr), rep(2, nr))),
-      rbind(dat, data.frame(papply(dat, sample, replace = TRUE))))
-  }
-  ## mode 2
-  else {
-    data.frame(classes = factor(c(rep(1, nr), rep(2, nr))),
-      rbind(dat, data.frame(papply(dat, function(x) {
-        if (is.factor(x)) {
-          resample(x, replace = TRUE)
-        }
-        else {
-          runif(nr, min(x, na.rm = TRUE), max(x, na.rm = TRUE))
-        }
-      }))))
-  }
+scaleM <- function(x, center = TRUE, scale = TRUE) {
+  x <- data.matrix(x)
+  d <- do.call(cbind, lapply(1:ncol(x), function(j) {
+    sj <- sd(x[, j], na.rm = TRUE)
+    if (scale) {
+      if (sj < .Machine$double.eps) {
+        sj <- 1
+      }
+      if (center) {
+        (x[, j] - mean(x[, j], na.rm = TRUE)) / sj
+      }
+      else {
+        x[, j] / sj
+      }
+    }
+    else {
+      if (center) {
+        (x[, j] - mean(x[, j], na.rm = TRUE))
+      }
+      else {
+        x[, j]
+      }
+    }
+  }))
+  colnames(d) <- colnames(x)
+  data.matrix(d)
 }

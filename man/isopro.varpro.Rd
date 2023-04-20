@@ -11,15 +11,14 @@
 \usage{
 isopro.varpro(object,
          method = c("unsupv", "rnd", "auto"),
-         sampsize = function(x){if (x < 1000) min(2^8, .632 * x)
-                                  else min(2^10, .632 * x)},
+         sampsize = function(x){min(2^6, .632 * x)},
          ntree = 500, nodesize = 1,
          formula = NULL, data = NULL, ...)
 }
 
 \arguments{
   
-  \item{object}{varPro object obtained from previous call.}
+  \item{object}{VarPro object obtained from previous call.}
 
   \item{method}{Isolation forest method to be used.  Choices are
     "unsupv" (unsupervised analysis, the default), "rnd" (pure random
@@ -47,38 +46,46 @@ isopro.varpro(object,
 \details{
 
   Isolation Forest (Liu et al., 2008) is a random forest procedure for
-  outlier detection.  In the original method, random trees are
+  detecting anomalous data.  In the original method, random trees are
   constructed using pure random splitting with each tree constructed
   from a subsample of the data.  Typically the subsample size is much
-  smaller than the .632 rate used by usual random forests.  The key idea
+  smaller than 0.632, the rate used with random forests.  The key idea
   is that under random splitting, and because of extreme subsampling,
   rare or anomalous data will tend to split early and become isolated
-  very quickly.  Thus the depth at which a data point becomes a terminal
-  node can be used to find outlier observations: outliers are those 
-  identified by having relatively small depths.
+  very quickly.  Because of this, the depth of an observation, defined
+  as the number of splits needed to be become a terminal node, can be
+  used to find anomalous observations:  anomalous values are
+  those having relatively small depth values.
 
-  There are two ways to run the function.  The default is to pass a
-  varPro object obtained from a previous call (typically this being an
-  unsupervised analysis using \code{unsupv}).  Then using the VarPro
-  object attributes, including the underlying branches (rules)
-  discovered in the original VarPro call, isolation forests is applied.
-  The advantage with this approach is that dimension reduction is being
-  achieved via the prior VarPro call.
+  There are several ways to run the function.  The default is to provide
+  a formula and a data set via options \code{formula} and \code{data}.
+  In the case of unsupervised analysis (which is the usual application
+  of isolation forest), the user only needs to pass in a data set using
+  \code{data}.  In this setting, the option \code{method} is applicable
+  (see above).  In the case where both a formula and data set is
+  provided, then a supervised analysis is run.  The option \code{method}
+  is no longer applicable in this case.  This is a less conventional way
+  to proceed.
 
-  The second way is to provide a formula and a data set via options
-  \code{formula} and \code{data}, or in the case of unsupervised
-  analysis (which is the usual application of isolation forest), the
-  user only needs to pass in a data set.  This is the more conventional
-  way of applying isolation forests.
+  Another way (also unconventional) is to pass a VarPro object obtained
+  from a previous call (typically this being an unsupervised analysis
+  using \code{unsupv}, but this is not the only choice).  Then
+  unsupervised isolation forests is applied to the dimension reduced x
+  matrix from the VarPro call.  Thus, this results in an analysis
+  similar to using only the option \code{data}.  However, the difference
+  and advantage with this approach is that dimension reduction is being
+  achieved via VarPro.
 
-  Users should experiment with the type of isolation forest method to be
-  used.  This is because while isolation forest has general good
-  performance, there has been much empirical studies suggesting that its
-  performance can be improved in certain types of data sets.  See the
-  examples below which illustrate that the pure random splitting "rnd"
-  method may not always be the best.  However, note that "rnd" will
-  always be computationally the fastest.
-  
+  Users should experiment with the type of isolation forest method used.
+  This is because while isolation forest has general good performance,
+  empirical studies have suggested its performance can be improved in
+  certain types of data sets.  See the examples below which illustrate
+  that the pure random splitting "rnd" method may not always be the
+  best.
+
+  Computationally "rnd" is the fastest method followed by "unsupv".  The
+  slowest is "auto" which should be used in low-dimensional problems.
+
 }
 
 \author{

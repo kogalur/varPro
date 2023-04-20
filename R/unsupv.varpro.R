@@ -154,7 +154,7 @@ unsupv.varpro <- function(data,
   ## keep track of which variable is released for a rule
   xreleaseId <- oo$strengthArray$xReleaseID
   ## standardize x
-  x <- scale(data, center = FALSE)
+  x <- scaleM(data, center = FALSE)
   ## used to store the new importance values
   results <- oo$strengthArray[, 1:5, drop = FALSE]
   colnames(results) <- c("tree", "branch", "variable", "n.oob", "imp")
@@ -168,10 +168,17 @@ unsupv.varpro <- function(data,
   ##   potentially this allows refined/customization of the entropy function 
   ##
   ##------------------------------------------------------------------
+  ## add some useful information for the entropy function
+  dots.entropy$xvar.names <- xvar.names
+  dots.entropy$data <- data
+  ## set the dimension
   p <- ncol(x)
+  ## extract entropy
   if (length(keep.rules) > 0) {
     impO <- papply(keep.rules, function(i) {
       ordernms <- c(xreleaseId[i], setdiff(1:p, xreleaseId[i]))
+      dots.entropy$oobMembership <- oobMembership[[i]]
+      dots.entropy$compMembership <- compMembership[[i]]
       xO <- x[oobMembership[[i]], ordernms, drop = FALSE]
       xC <- x[compMembership[[i]], ordernms, drop = FALSE]
       val <- do.call("entropy.function", c(list(xC, xO), dots.entropy))

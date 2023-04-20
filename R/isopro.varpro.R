@@ -1,6 +1,6 @@
 isopro.varpro <- function(object,
                           method = c("unsupv", "rnd", "auto"),
-                          sampsize = function(x){if (x < 1000) min(2^8, .632 * x) else min(2^10, .632 * x)},
+                          sampsize = function(x){min(2^6, .632 * x)},
                           ntree = 500, nodesize = 1,
                           formula = NULL, data = NULL, ...) {
   ## ------------------------------------------------------------------------
@@ -11,6 +11,10 @@ isopro.varpro <- function(object,
   ## must be a varpro object
   if (is.null(formula) && is.null(data) && !inherits(object, "varpro", TRUE)) {
     stop("object must be a varpro object")
+  }
+  ## convert data to a data fram
+  if (!is.null(data) && !is.data.frame(data)) {
+    data <- data.frame(data)
   }
   ## if this is a varpro object use this to filter the data
   no.formula.data.flag <- FALSE
@@ -74,6 +78,7 @@ isopro.varpro <- function(object,
   ## ------------------------------------------------------------------------ 
   if (method == "unsupv") {
     if (is.null(dots$mtry)) {
+      dots$ytry <- min(ceiling(sqrt(ncol(data))), ncol(data) - 1)
       dots$mtry <- Inf
     }
     o.iso <- do.call("rfsrc", c(list(data = data,
@@ -119,8 +124,9 @@ isopro.varpro <- function(object,
     ## check if this is imbalanced using default threshold setting
     ## by default brf is used, unless the user over-rides this using "use.brf"
     if (imbalanced.flag) {
+      ## gini unweighting is exceptionally slow for imbalanced data - turn this off
       if (is.null(dots$splitrule)) {
-        dots$splitrule <- "gini.unwt"
+      #  dots$splitrule <- "gini.unwt"
       }
       if (is.null(dots$brf) || dots$brf == TRUE) {
         dots$brf <- dots$sampsize <- NULL
@@ -139,13 +145,13 @@ isopro.varpro <- function(object,
                            perf.type = "none"), dots))
       }
     }
-    ## default setting
+    ## default setting: for now we turn off unweighted splitting - more analysis required
     else {
       if (is.null(dots$splitrule) && family == "regr") {
-        dots$splitrule <- "mse.unwt"
+        #dots$splitrule <- "mse.unwt"
       }
       if (is.null(dots$splitrule) && family == "class") {
-        dots$splitrule <- "gini.unwt"
+        #dots$splitrule <- "gini.unwt"
       }
       o.iso <- do.call("rfsrc", c(list(formula = formula, data = data,
                        sampsize = sampsize,

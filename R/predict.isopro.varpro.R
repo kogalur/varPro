@@ -7,6 +7,10 @@ predict.isopro.varpro <- function(object, newdata, quantiles = TRUE, ...) {
   if (missing(newdata)) {
     newdata <- object$isoforest$xvar
   }
+  ## convert data to a data fram
+  if (!is.data.frame(newdata)) {
+    newdata <- data.frame(newdata)
+  }
   ## test case depth values
   test.case.depth <- colMeans(predict.rfsrc(object$isoforest,
             newdata, case.depth = TRUE)$case.depth, na.rm = TRUE)

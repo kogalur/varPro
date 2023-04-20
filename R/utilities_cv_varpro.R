@@ -141,7 +141,7 @@ get.sderr <- function(obj, nblocks,
   }
   ## extract error rates for blocks of trees
   tree.seq <- unique(c(1, round(seq(1, obj$ntree, length = nblocks)), obj$ntree))
-  err <- sapply(1:(length(tree.seq)-1), function(j) {
+  err <- sapply(1:(length(tree.seq) - 1), function(j) {
     if (is.null(newdata)) {
       get.sderr.workhorse(randomForestSRC::predict.rfsrc(obj,
         get.tree = tree.seq[j]:tree.seq[j+1], perf.type = perf.type),

@@ -228,14 +228,18 @@ get.varpro.strength <- function(object,
     if (sum(inherits(object, c("rfsrc", "grow"), TRUE) == c(1, 2)) != 2) {
       stop("This function only works for objects of class 'varpro' or `(rfsrc, grow)'")
     }
-    ## this is a random forest object, need to process according to family
+    ## this is a random forest object, need to process y according to family
     else {
       o <- object
+      x <- object$xvar
+      attr(x, "hotencode") <- FALSE
+      o$x <- x
+      o$xvar.names <- object$xvar.names
       ## survival
       if (o$family == "surv") {
         ## "convert" the survival forest to a regression forest to trick varpro.strength
         o$family <- "regr"
-        o$y <- o$yvar <- object$predicted
+        o$y <- object$predicted
         o$yvar.names <- "y"
       }
       ## regression, class, mv-regr
@@ -252,9 +256,11 @@ get.varpro.strength <- function(object,
       }
     }
   }
-  ## this is a varpro object, extract the random forest object
-  else {## extract the random forest object
+  ## this is a varpro object, extract the random forest object and x, y
+  else {
     o <- object$rf
+    o$x <- object$x
+    o$xvar.names <- object$xvar.names
     o$y <- object$y
   }
   ## ------------------------------------------------------------------------

@@ -1,8 +1,10 @@
 \name{unsupv.varpro}
 \alias{unsupv.varpro}
 \alias{unsupv}
-\alias{get.matrix.performance}
-\alias{get.unsupervised.performance}
+\alias{cv.matrix.performance}
+\alias{cv.matrix}
+\alias{cv.unsupv}
+\alias{cv.unsupv.varpro}
 \title{Unsupervised Variable Selection using Variable Priority (VarPro)}
 \description{
   Selects Variables in Unsupervised Problems using Variable Priority
