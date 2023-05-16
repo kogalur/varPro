@@ -93,10 +93,11 @@ cv.varpro(f, data, nvar = 30,
 }
 
 \references{
-  Lu M. and  Ishwaran H. (2022).  Variable Priority for Variable
-  Selection in Rule-Based Models.
+  Lu M. and Ishwaran H. (2022).  Model-Independent Variable Selection
+  via the Rule-based Variable Priority (VarPro).
 
-   O'Brien R. and Ishwaran H. (2019).  A random forests quantile
+
+  O'Brien R. and Ishwaran H. (2019).  A random forests quantile
   classifier for class imbalanced data. \emph{Pattern Recognition},
   90, 232-249.
 }

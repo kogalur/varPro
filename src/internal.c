@@ -1,15 +1,4 @@
-
-// *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
-#include           "shared/globalCore.h"
-#include           "shared/externalCore.h"
-#include           "global.h"
-#include           "external.h"
-
-// *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
-
-      
-    
-
+#include "shared/globalCore.h"
 uint    *VP_treeID_;
 uint    *VP_nodeID_;
 uint    *VP_xReleaseID_;

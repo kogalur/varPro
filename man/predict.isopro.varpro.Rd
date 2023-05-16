@@ -45,8 +45,9 @@
   forest.  2008 Eighth IEEE International Conference on Data
   Mining. IEEE.
 
-  Lu M. and Ishwaran H. (2022).  Variable Priority for Variable
-  Selection in Rule-Based Models.
+  Lu M. and Ishwaran H. (2022).  Model-Independent Variable Selection
+  via the Rule-based Variable Priority (VarPro).
+
 
 }
 

@@ -16,7 +16,7 @@ void printR(char *format, ...) {
   va_list aptr;
   buffer = (char *) malloc(sizeof(char) * 1023);
   va_start(aptr, format);
-  vsprintf(buffer, format, aptr);
+  vsnprintf(buffer, sizeof(char) * 1023, format, aptr);
   va_end(aptr);
   Rprintf(buffer);
   free((char *) buffer);

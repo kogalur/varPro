@@ -9,4 +9,9 @@ void calculateMeanResponse(uint           treeID,
                            uint          *membershipIndex,
                            uint           membershipSize,
                            uint          *membershipIterator);
+void updateEnsembleMean(char mode, uint treeID);
+double getMeanSquareError(uint    size,
+                          double *responsePtr,
+                          double *predictedOutcome,
+                          double *denomCount);
 #endif

@@ -8,6 +8,8 @@
     
 
 #include "termBaseOps.h"
+#include "classification.h"
+#include "regression.h"
 #include "nrutil.h"
 #include "error.h"
 TerminalBase *makeTerminalBase(void ) {
@@ -21,10 +23,12 @@ void preInitTerminalBase(TerminalBase *parent) {
   parent -> eTypeSize    = 0;
   parent -> mTimeSize    = 0;
   parent -> sTimeSize    = 0;
-  parent -> rnfCount     = 0;
   parent -> rfCount      = 0;
+  parent -> rfSize       = 0;
+  parent -> rfIndex      = NULL;
+  parent -> rnfCount     = 0;
+  parent -> rnfIndex     = NULL;
   parent -> meanResponse = NULL;
-  parent -> rfSize         = NULL;
   parent -> multiClassProb = NULL;
   parent -> maxClass       = NULL;
   parent -> survival       = NULL;
@@ -36,16 +40,22 @@ void preInitTerminalBase(TerminalBase *parent) {
   parent -> outcome      = NULL;
 }
 void initTerminalBase(TerminalBase *parent,
-                      uint         eTypeSize,
-                      uint         mTimeSize,
-                      uint         sTimeSize,
-                      uint         rnfCount,
-                      uint         rfCount) {
+                      uint  eTypeSize,
+                      uint  mTimeSize,
+                      uint  sTimeSize,
+                      uint  rnfCount,
+                      uint  rfCount,
+                      uint *rfSize,
+                      uint *rfIndex,
+                      uint *rnfIndex) {
   parent -> eTypeSize    = eTypeSize;
   parent -> mTimeSize    = mTimeSize;
   parent -> sTimeSize    = sTimeSize;
   parent -> rnfCount     = rnfCount;
   parent -> rfCount      = rfCount;
+  parent -> rfSize       = rfSize;
+  parent -> rfIndex      = rfIndex;
+  parent -> rnfIndex     = rnfIndex;
 }
 void deinitTerminalBase(TerminalBase *parent) {
   if ((parent -> rfCount > 0) || (parent -> rnfCount > 0)) {
@@ -83,13 +93,11 @@ void unstackMeanResponse(TerminalBase *tTerm) {
     }
   }
 }
-void stackMultiClassProb(TerminalBase *tTerm, unsigned int *rfSize) {
+void stackMultiClassProb(TerminalBase *tTerm) {
   unsigned int j;
   if (tTerm -> rfCount) {
-    tTerm -> rfSize = uivector(1, tTerm -> rfCount);
     tTerm -> multiClassProb = (unsigned int **) new_vvector(1, tTerm -> rfCount, NRUTIL_UPTR);
     for (j = 1; j <= tTerm -> rfCount; j++) {
-      (tTerm -> rfSize)[j] = rfSize[j];
       (tTerm -> multiClassProb)[j] = uivector(1, (tTerm -> rfSize)[j]);
     }
     tTerm -> maxClass = dvector(1, tTerm -> rfCount);
@@ -109,8 +117,6 @@ void unstackMultiClassProb(TerminalBase *tTerm) {
         free_new_vvector(tTerm -> multiClassProb, 1, tTerm -> rfCount, NRUTIL_UPTR);
         tTerm -> multiClassProb = NULL;
       }
-      free_uivector(tTerm -> rfSize, 1, tTerm -> rfCount);
-      tTerm -> rfSize = NULL;
     }
   }
   if (tTerm -> rfCount > 0) {
@@ -183,5 +189,49 @@ void unstackMortality(TerminalBase *tTerm) {
       free_dvector(tTerm -> mortality, 1, tTerm -> eTypeSize);
       tTerm -> mortality = NULL;
     }
+  }
+}
+void updateTerminalNodeOutcomes(char       mode,
+                                uint       treeID,
+                                TerminalBase  *parent,
+                                uint      *repMembrIndx,
+                                uint       repMembrSize,
+                                uint      *genMembrIndx,
+                                uint       genMembrSize) {
+  uint i;
+  for (i = 1; i <= genMembrSize; i++) {
+    RF_tTermMembership[treeID][genMembrIndx[i]] = parent;
+  }
+  if ((RF_opt & OPT_PERF) ||
+      (RF_opt & OPT_OENS) ||
+      (RF_opt & OPT_FENS)) {
+    if (RF_rFactorCount > 0) {
+      calculateMultiClassProb(treeID, parent, repMembrIndx, repMembrSize, NULL);
+    }
+    if (RF_rNonFactorCount > 0) {
+      calculateMeanResponse(treeID, parent, repMembrIndx, repMembrSize, NULL);
+    }
+  }
+  else {
+    getMembrCountOnly(treeID, parent, repMembrIndx, repMembrSize, genMembrIndx, genMembrSize);
+  }
+}
+void getMembrCountOnly (uint       treeID,
+                        TerminalBase  *parent,
+                        uint      *repMembrIndx,
+                        uint       repMembrSize,
+                        uint      *genMembrIndx,
+                        uint       genMembrSize) {
+  if ( !(RF_opt & OPT_BOOT_TYP1) && (RF_opt & OPT_BOOT_TYP2) ) {
+    parent -> membrCount = genMembrSize;
+  }
+  else {
+    parent -> membrCount = repMembrSize;
+  }
+  if ((parent -> membrCount) == 0) {
+    RF_nativeError("\nRF-SRC:  *** ERROR *** ");
+    RF_nativeError("\nRF-SRC:  Zero node count encountered in (tree, leaf) = (%10d, %10d)  \n", treeID, parent -> nodeID);
+    RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
+    RF_nativeExit();
   }
 }

@@ -57,6 +57,10 @@ varpro <- function(f, data, nvar = 30,
   if (!(family == "regr" || family == "class" || family == "surv")) {
     stop("this function only works for regression, classification and survival")
   }
+  ## y label not allowed for x features
+  if (sum(colnames(x) == "y") > 0) {
+    stop("cannot use 'y' as an x variable name")
+  }
   ## convert factors using hot-encoding
   x <- get.hotencode(x, papply)
   xvar.names <- colnames(x)

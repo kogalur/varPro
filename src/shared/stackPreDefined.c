@@ -307,7 +307,7 @@ void stackIncomingArrays(char     mode,
   }
   if (quantileSize > 0) {
     for (uint i = 1; i <= quantileSize; i++) {
-      if ((EPSILON < quantile[i]) && (quantile[i] <= 1.0)) {
+      if ((0 < quantile[i]) && (quantile[i] <= 1.0)) {
       }
       else {
         RF_nativeError("\nRF-SRC:  *** ERROR *** ");
@@ -397,7 +397,9 @@ void stackPreDefinedCommonArrays(char          mode,
   *nodeCount = uivector(1, ntree);
   for (i = 1; i <= ntree; i++) {
     (*tTermList)[i] = NULL;
-    (*nodeCount)[i] = 0;    
+    (*nodeCount)[i] = 0;
+    (*leafLinkedObjHead)[i] = NULL;
+    (*leafLinkedObjHead)[i] = NULL;
   }
   *bootMembershipIndex = (uint **) new_vvector(1, ntree, NRUTIL_UPTR);
   if (RF_opt & OPT_BOOT_TYP2) {
@@ -592,6 +594,31 @@ void unstackPreDefinedRestoreArrays(uint  xSize,
     free_cvector(importanceFlag, 1, xSize);
   }
 }
+void stackPreDefinedPredictArrays(uint   ntree,
+                                  uint   observationSize,
+                                  uint  *identityMembershipIndexSize,
+                                  uint **identityMembershipIndex,
+                                  NodeBase      ****nodeMembership,
+                                  TerminalBase  ****tTermMembership) {
+  uint i;
+  *nodeMembership = (NodeBase ***)      new_vvector(1, RF_ntree, NRUTIL_NPTR2);
+  *tTermMembership = (TerminalBase ***) new_vvector(1, RF_ntree, NRUTIL_TPTR2);
+  *identityMembershipIndex = uivector(1, observationSize);
+  *identityMembershipIndexSize = observationSize;
+  for (i = 1; i <= *identityMembershipIndexSize; i++) {
+    (*identityMembershipIndex)[i] = i;
+  }
+}
+void unstackPreDefinedPredictArrays(uint   ntree,
+                                    uint   observationSize,
+                                    uint  identityMembershipIndexSize,
+                                    uint *identityMembershipIndex,
+                                    NodeBase      ***nodeMembership,
+                                    TerminalBase  ***tTermMembership) {
+  free_new_vvector(nodeMembership, 1, RF_ntree, NRUTIL_NPTR2);
+  free_new_vvector(tTermMembership, 1, RF_ntree, NRUTIL_TPTR2);
+  free_uivector(identityMembershipIndex, 1, identityMembershipIndexSize);
+}
 void checkInteraction(uint  xSize,
                       uint *intrPredictor,
                       uint  intrPredictorSize) {
@@ -646,7 +673,7 @@ void stackWeights(double *weight,
   i = 0;
   while (uniformFlag && (i < size)) {
     ++i;
-    if (fabs(weight[i] - meanWeight) > EPSILON) {
+    if (fabs(weight[i] - meanWeight) > 0) {
       uniformFlag = FALSE;
     }
   }
@@ -658,7 +685,7 @@ void stackWeights(double *weight,
     i = 0;
     while (integerFlag && (i < size)) {
       i++;
-      if (fabs(round(weight[i]) - weight[i]) > EPSILON) {
+      if (fabs(round(weight[i]) - weight[i]) > 0.0) {
         integerFlag = FALSE;
       }
     }

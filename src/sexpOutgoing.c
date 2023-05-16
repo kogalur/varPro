@@ -11,7 +11,7 @@
     
 
 #include "sexpOutgoing.h"
-char  *RF_sexpStringOutgoing[10] = {
+char  *VP_sexpStringOutgoing[10] = {
   "treeID",            
   "nodeID",            
   "xReleaseID",        

@@ -158,6 +158,18 @@ void stackPreDefinedRestoreArrays(uint   xSize,
                                   char **importanceFlag);
 void unstackPreDefinedRestoreArrays(uint  xSize,
                                     char *importanceFlag);
+void stackPreDefinedPredictArrays(uint   ntree,
+                                  uint   observationSize,
+                                  uint  *identityMembershipIndexSize,
+                                  uint **identityMembershipIndex,
+                                  NodeBase      ****nodeMembership,
+                                  TerminalBase  ****tTermMembership);
+void unstackPreDefinedPredictArrays(uint   ntree,
+                                    uint   observationSize,
+                                    uint  identityMembershipIndexSize,
+                                    uint *identityMembershipIndex,
+                                    NodeBase      ***nodeMembership,
+                                    TerminalBase  ***tTermMembership);
 void checkInteraction(uint  xSize,
                       uint *intrPredictor,
                       uint  intrPredictorSize);

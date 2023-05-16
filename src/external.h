@@ -2,6 +2,7 @@
 #ifndef RF_EXTERNAL_H
 #define RF_EXTERNAL_H
 
+#include "shared/globalCore.h"
 extern uint    *VP_treeID_;
 extern uint    *VP_nodeID_;
 extern uint    *VP_xReleaseID_;

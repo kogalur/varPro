@@ -14,7 +14,7 @@ void *stackAndProtect(struct auxiliaryDimensionConstants *dimConst,
                       uint   sexpIdentity,
                       ulong  size,
                       double value,
-                      char  *sexpString,
+                      char **sexpString,
                       void  *auxiliaryPtr,
                       uint   auxiliaryDimSize,
                       ...);

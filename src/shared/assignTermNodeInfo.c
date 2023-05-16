@@ -53,7 +53,7 @@ void assignTerminalNodeOutcomes(char           mode,
   }
   else {
     if (parent -> rfCount > 0) {
-      assignMultiClassProb(treeID, parent, rFactorSize, RF_TN_CLAS_ptr[treeID][parent -> nodeID]);
+      assignMultiClassProb(treeID, parent, RF_TN_CLAS_ptr[treeID][parent -> nodeID]);
     }
     if (parent -> rnfCount > 0) {
       assignMeanResponse(treeID, parent, RF_TN_REGR_ptr[treeID][parent -> nodeID]);

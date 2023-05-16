@@ -10,9 +10,11 @@ struct terminalBase {
   unsigned int sTimeSize;
   unsigned int   rnfCount;
   unsigned int   rfCount;
-  double        *meanResponse;
+  unsigned int  *rnfIndex;
   unsigned int  *rfSize;
-  unsigned int **multiClassProb;
+  unsigned int  *rfIndex;
+  double        *meanResponse;
+    unsigned int **multiClassProb;
   double        *maxClass;
   double *survival;
   double *nelsonAalen;

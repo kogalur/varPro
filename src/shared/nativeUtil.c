@@ -108,7 +108,7 @@ void *stackAndProtect(AuxiliaryDimensionConstants *dimConst,
                       uint   sexpIdentity,
                       ulong  size,
                       double value,
-                      char  *sexpString,
+                      char **sexpString,
                       void  *auxiliaryPtr,
                       uint   auxiliaryDimSize,
                       ...) {
@@ -121,7 +121,7 @@ void *stackAndProtect(AuxiliaryDimensionConstants *dimConst,
       if (TRUE) {
         RF_nativePrint("\nRF-SRC:  *** WARNING *** ");
         RF_nativePrint("\nRF-SRC:  S.E.X.P. vector element length exceeds 32-bits:  %20lu", size);
-        RF_nativePrint("\nRF-SRC:  S.E.X.P. ALLOC:  %s ", sexpString);
+        RF_nativePrint("\nRF-SRC:  S.E.X.P. ALLOC:  %s ", sexpString[sexpIdentity]);
         RF_nativePrint("\nRF-SRC:  Please Reduce Dimensionality If Possible.");
       }
     }
@@ -151,7 +151,7 @@ void *stackAndProtect(AuxiliaryDimensionConstants *dimConst,
     break;
   }
   SET_VECTOR_ELT(RF_sexpVector[RF_OUTP_ID], *sexpIndex, thisVector);
-  SET_STRING_ELT(RF_sexpVector[RF_STRG_ID], *sexpIndex, mkChar(sexpString));
+  SET_STRING_ELT(RF_sexpVector[RF_STRG_ID], *sexpIndex, mkChar(sexpString[sexpIdentity]));
   UNPROTECT(1);
   switch(sexpType) {
   case NATIVE_TYPE_NUMERIC:
@@ -176,7 +176,7 @@ void *stackAndProtect(AuxiliaryDimensionConstants *dimConst,
   allocateAuxiliaryInfo(dimConst,
                         (mode == RF_GROW) ? FALSE : TRUE,
                         sexpType,
-                        sexpString,
+                        sexpString[sexpIdentity],
                         RF_snpAuxiliaryInfoList,
                         *sexpIndex,
                         v,

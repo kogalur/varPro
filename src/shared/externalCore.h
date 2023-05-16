@@ -2,21 +2,35 @@
 #ifndef RF_EXTERNAL_CORE_H
 #define RF_EXTERNAL_CORE_H
 
-
-// *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
-#include           "globalCore.h"
-#include           "externalCore.h"
-// *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
-
-      
-    
-
+#include "globalCore.h"
 #include "snpAuxiliaryInfo.h"
 #include "leafLink.h"
 #include "factor.h"
 #include "terminalBase.h"
 #include "nodeBase.h"
- 
+/*
+extern JNIEnv    *RF_java_env;
+extern jobject    RF_java_obj;
+extern jclass     RF_java_cls;
+extern jclass     RF_java_except_cls;
+extern jclass     RF_java_hshmap_cls;
+extern jmethodID  RF_java_hshmap_constr;
+extern jmethodID  RF_java_hshmap_put;
+extern jobject    RF_java_hshmap_obj;
+extern jclass     RF_java_ens_cls;
+extern jmethodID  RF_java_ens_mid;
+extern jmethodID  RF_java_mid_log;
+extern jmethodID  RF_java_mid_logError;
+extern jmethodID  RF_java_mid_logExit;
+extern NAT1DInfo **RF_nat1DInfoList;
+extern NAT2DInfo **RF_nat2DInfoList;
+extern NativeEnsembleInfo **RF_nativeEnsembleInfoList;
+extern uint       RF_nat1DInfoListSize;
+extern uint       RF_nat2DInfoListSize;
+extern uint       RF_nativeEnsembleInfoListSize;
+extern jobject    RF_rLevelsJNIE;
+extern jobject    RF_xLevelsJNIE;
+*/
 
 extern SEXP RF_sexpVector[2];
 extern SEXP      RF_rLevelsSEXP;
@@ -165,6 +179,7 @@ extern uint    *RF_maxDepth;
 extern LeafLinkedObj ***RF_hTermMembership;
 extern uint    **RF_bootMembershipIndex;
 extern uint     *RF_identityMembershipIndex;
+extern uint     *RF_fidentityMembershipIndex;
 extern uint      RF_identityMembershipIndexSize;
 extern char    **RF_bootMembershipFlag;
 extern uint    **RF_bootMembershipCount;
@@ -174,6 +189,11 @@ extern uint    **RF_oobMembershipIndex;
 extern uint     *RF_getTree;
 extern uint     *RF_orderedTreeIndex;
 extern uint     *RF_serialTreeIndex;
+extern uint      RF_serialTreeID;
+extern uint      RF_serialBlockID;
+extern uint      RF_perfBlockCount;
+extern uint      RF_perfBlock;
+extern uint      RF_ensembleUpdateCount;
 extern uint     *RF_nodeCountSyth;
 extern uint     *RF_getTreeIndex;
 extern uint      RF_getTreeCount;
@@ -242,11 +262,42 @@ extern double  **RF_status;
 extern double  **RF_time;
 extern double  **RF_startTime;
 extern double ***RF_response;
+extern double ***RF_fresponse;
 extern char      RF_mStatusFlag;
 extern char      RF_mTimeFlag;
 extern char      RF_mResponseFlag;
 extern char      RF_mPredictorFlag;
 extern uint    **RF_startMasterTimeIndex;
 extern uint    **RF_masterTimeIndex;
+extern double   *RF_oobEnsembleCLS_;
+extern double   *RF_fullEnsembleCLS_;
+extern double ***RF_oobEnsembleCLSptr;
+extern double ***RF_fullEnsembleCLSptr;
+extern double ***RF_oobEnsembleCLSnum;
+extern double ***RF_fullEnsembleCLSnum;
+extern double   *RF_oobEnsembleRGR_;
+extern double   *RF_fullEnsembleRGR_;
+extern double  **RF_oobEnsembleRGRptr;
+extern double  **RF_fullEnsembleRGRptr;
+extern double  **RF_oobEnsembleRGRnum;
+extern double  **RF_fullEnsembleRGRnum;
+extern double   *RF_oobEnsembleDen;
+extern double   *RF_fullEnsembleDen;
+extern double   *RF_perfCLS_;
+extern double   *RF_perfRGR_;
+extern double  ***RF_perfCLSptr;
+extern double   **RF_perfRGRptr;
+extern uint     *RF_tLeafCount;
+extern int      *RF_seed;
+extern uint     *RF_optLoGrow_;
+extern uint      RF_optLoGrow;
+#ifdef _OPENMP
+extern omp_lock_t ***RF_lockCLSoens;
+extern omp_lock_t ***RF_lockCLSfens;
+extern omp_lock_t   *RF_lockDENoens;
+extern omp_lock_t   *RF_lockDENfens;
+extern omp_lock_t    RF_lockPerf;
+extern omp_lock_t    RF_lockEnsbUpdtCount;
+#endif
 
 #endif

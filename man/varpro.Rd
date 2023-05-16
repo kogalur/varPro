@@ -1,10 +1,10 @@
 \name{varpro}
 \alias{varpro}
 \alias{make.vt}
-\title{Variable Priority (VarPro) for Variable Selection in Rule-Based Models}
+\title{Model-Independent Variable Selection via the Rule-based Variable Priority (VarPro)}
 \description{
-  Variable Priority (VarPro) for Variable Selection in Rule-Based Models
-  for Regression, Classification and Survival.
+Model-Independent Variable Selection via the Rule-based Variable Priority (VarPro)
+for Regression, Classification and Survival.
 }
 
 \usage{
@@ -127,8 +127,8 @@ varpro(f, data, nvar = 30,
 }
 
 \references{
-  Lu M. and  Ishwaran H. (2022).  Variable Priority for Variable
-  Selection in Rule-Based Models.
+  Lu M. and Ishwaran H. (2022).  Model-Independent Variable Selection
+  via the Rule-based Variable Priority (VarPro).
 
   O'Brien R. and Ishwaran H. (2019).  A random forests quantile
   classifier for class imbalanced data. \emph{Pattern Recognition},
@@ -294,12 +294,6 @@ print(importance(o))
 ## ------------------------------------------------------------
 data(vdv, package = "randomForestSRC")
 print(importance(varpro(Surv(Time, Censoring)~., vdv, sparse = FALSE)))
-
-## ------------------------------------------------------------
-## high dimensional survival example with coxnet external estimator
-## ------------------------------------------------------------
-data(vdv, package = "randomForestSRC")
-print(importance(varpro(Surv(Time, Censoring)~., vdv, use.coxnet = TRUE)))
 
 ## ------------------------------------------------------------
 ## largish data (iowa housing data)

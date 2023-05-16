@@ -1,18 +1,32 @@
-
-// *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
-#include           "globalCore.h"
-#include           "externalCore.h"
-// *** THIS HEADER IS AUTO GENERATED. DO NOT EDIT IT ***
-
-      
-    
-
+#include "globalCore.h"
 #include "snpAuxiliaryInfo.h"
 #include "leafLink.h"
 #include "factor.h"
 #include "terminalBase.h"
 #include "nodeBase.h"
- 
+/*
+JNIEnv    *RF_java_env;
+jobject    RF_java_obj;
+jclass     RF_java_cls;
+jclass     RF_java_except_cls;
+jclass     RF_java_hshmap_cls;
+jmethodID  RF_java_hshmap_constr;
+jmethodID  RF_java_hshmap_put;
+jobject    RF_java_hshmap_obj;
+jclass     RF_java_ens_cls;
+jmethodID  RF_java_ens_mid;
+jmethodID  RF_java_mid_log;
+jmethodID  RF_java_mid_logError;
+jmethodID  RF_java_mid_logExit;
+NAT1DInfo **RF_nat1DInfoList;
+NAT2DInfo **RF_nat2DInfoList;
+NativeEnsembleInfo **RF_nativeEnsembleInfoList;
+uint       RF_nat1DInfoListSize;
+uint       RF_nat2DInfoListSize;
+uint       RF_nativeEnsembleInfoListSize;
+jobject    RF_rLevelsJNIE;
+jobject    RF_xLevelsJNIE;
+*/
 
 SEXP RF_sexpVector[2];
 SEXP      RF_rLevelsSEXP;
@@ -161,6 +175,7 @@ uint    *RF_maxDepth;
 LeafLinkedObj ***RF_hTermMembership;
 uint    **RF_bootMembershipIndex;
 uint     *RF_identityMembershipIndex;
+uint     *RF_fidentityMembershipIndex;
 uint      RF_identityMembershipIndexSize;
 char    **RF_bootMembershipFlag;
 uint    **RF_bootMembershipCount;
@@ -170,6 +185,11 @@ uint    **RF_oobMembershipIndex;
 uint     *RF_getTree;
 uint     *RF_orderedTreeIndex;
 uint     *RF_serialTreeIndex;
+uint      RF_serialTreeID;
+uint      RF_serialBlockID;
+uint      RF_perfBlockCount;
+uint      RF_perfBlock;
+uint      RF_ensembleUpdateCount;
 uint     *RF_nodeCountSyth;
 uint     *RF_getTreeIndex;
 uint      RF_getTreeCount;
@@ -238,9 +258,40 @@ double  **RF_status;
 double  **RF_time;
 double  **RF_startTime;
 double ***RF_response;
+double ***RF_fresponse;
 char      RF_mStatusFlag;
 char      RF_mTimeFlag;
 char      RF_mResponseFlag;
 char      RF_mPredictorFlag;
 uint    **RF_startMasterTimeIndex;
 uint    **RF_masterTimeIndex;
+double   *RF_oobEnsembleCLS_;
+double   *RF_fullEnsembleCLS_;
+double ***RF_oobEnsembleCLSptr;
+double ***RF_fullEnsembleCLSptr;
+double ***RF_oobEnsembleCLSnum;
+double ***RF_fullEnsembleCLSnum;
+double   *RF_oobEnsembleRGR_;
+double   *RF_fullEnsembleRGR_;
+double  **RF_oobEnsembleRGRptr;
+double  **RF_fullEnsembleRGRptr;
+double  **RF_oobEnsembleRGRnum;
+double  **RF_fullEnsembleRGRnum;
+double   *RF_oobEnsembleDen;
+double   *RF_fullEnsembleDen;
+double   *RF_perfCLS_;
+double   *RF_perfRGR_;
+double  ***RF_perfCLSptr;
+double   **RF_perfRGRptr;
+uint     *RF_tLeafCount;
+int      *RF_seed;
+uint     *RF_optLoGrow_;
+uint      RF_optLoGrow;
+#ifdef _OPENMP
+omp_lock_t ***RF_lockCLSoens;
+omp_lock_t ***RF_lockCLSfens;
+omp_lock_t   *RF_lockDENoens;
+omp_lock_t   *RF_lockDENfens;
+omp_lock_t    RF_lockPerf;
+omp_lock_t    RF_lockEnsbUpdtCount;
+#endif

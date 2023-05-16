@@ -69,10 +69,6 @@ void deinitNodeBase(NodeBase *parent) {
         free_uivector(parent -> permissibleIndx, 1, parent -> xSize);
       }
       else {
-        RF_nativeError("\nRF-SRC:  *** ERROR *** ");
-        RF_nativeError("\nRF-SRC:  parent -> permissibleIndx is NULL:  parent %20x of size %10d", parent, parent -> xSize);
-        RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
-        RF_nativeExit();
       }
     }
     parent -> permissible = NULL;

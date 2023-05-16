@@ -72,14 +72,17 @@ void restoreTree(char mode, uint treeID, NodeBase *parent) {
   else {
     if (RF_optHigh & OPT_MEMB_INCG) {
       RF_leafLinkedObjTail[treeID] = makeAndSpliceLeafLinkedObj(RF_leafLinkedObjTail[treeID]);
-      RF_leafLinkedObjTail[treeID] -> nodePtr = (NodeBase *) parent;
+      RF_leafLinkedObjTail[treeID] -> nodePtr = parent;
       RF_leafLinkedObjTail[treeID] -> termPtr = (TerminalBase *) makeTerminal();
       initTerminalBase(RF_leafLinkedObjTail[treeID] -> termPtr,
                        RF_eventTypeSize,
                        RF_masterTimeSize,
                        RF_sortedTimeInterestSize,
                        RF_rNonFactorCount,
-                       RF_rFactorCount);
+                       RF_rFactorCount,
+                       RF_rFactorSize,
+                       RF_rFactorIndex,
+                       RF_rNonFactorIndex);
       parent -> mate = RF_leafLinkedObjTail[treeID] -> termPtr;
       (RF_leafLinkedObjTail[treeID] -> termPtr) -> mate = parent;
       RF_leafLinkedObjTail[treeID] -> nodeID = (RF_leafLinkedObjTail[treeID] -> termPtr) -> nodeID = parent -> nodeID;

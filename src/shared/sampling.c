@@ -126,17 +126,18 @@ void initializeCDFNew(uint treeID, DistributionObj *obj) {
     obj -> cdfSize = 0;
     i = 0;
     for (k = 1; k <= obj -> permissibleSize; k++) {
+      kk = obj -> weightSorted[k];
       validElement = TRUE;
       if (obj -> permissible != NULL) {
-        if (obj -> permissible[k] == FALSE) {
+        if (obj -> permissible[kk] == FALSE) {
           validElement = FALSE;
         }
       }
       if (validElement) {
-        if (obj -> weight[k] > 0) {
-          (obj -> index)[++i] = k;
+        if (obj -> weight[kk] > 0) {
+          (obj -> index)[++i] = kk;
           (obj -> cdfSize) ++;
-          (obj -> cdf)[obj -> cdfSize] = obj -> weight[k];
+          (obj -> cdf)[obj -> cdfSize] = obj -> weight[kk];
         }
       }
     }
@@ -233,6 +234,7 @@ void updateCDFNew(uint    treeID, DistributionObj *obj) {
   uint stepIndex;
   uint currCov, nextCov;
   double oldStepValue, newStepValue;
+  char flag;
   uint   i, j, k;
   switch (obj -> weightType) {
   case RF_WGHT_UNIFORM:
@@ -290,9 +292,18 @@ void updateCDFNew(uint    treeID, DistributionObj *obj) {
     }
     oldStepValue = obj -> cdf[stepIndex];
     k = stepIndex;
-    while ((obj -> cdf)[k] == oldStepValue) {
-      (obj -> cdf)[k] = newStepValue;
-      k ++;
+    flag = TRUE;
+    while (flag) {
+      if ((obj -> cdf)[k] == oldStepValue) {
+        (obj -> cdf)[k] = newStepValue;
+        k ++;
+      }
+      else {
+        flag = FALSE;
+      }
+      if (k > obj -> cdfSize) {
+        flag = FALSE;
+      }
     }
     break;
   }

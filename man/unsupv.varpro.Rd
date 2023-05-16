@@ -77,8 +77,9 @@ unsupv.varpro(data,
 
 \references{
 
-  Lu M. and  Ishwaran H. (2022).  Variable Priority for Variable
-  Selection in Rule-Based Models.
+  Lu M. and Ishwaran H. (2022).  Model-Independent Variable Selection
+  via the Rule-based Variable Priority (VarPro).
+
 
 }
 

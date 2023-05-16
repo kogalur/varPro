@@ -4,7 +4,9 @@
 void calculateTerminalNodeOutcomes(char           mode,
                                    uint           treeID,
                                    TerminalBase  *parent,
+                                   uint           rfCount,
                                    uint          *rFactorSize,
+                                   uint          *rFactorIndex,
                                    uint          *genMembrIndx,
                                    uint           genMembrSize,
                                    uint          *gmbrIterator);
