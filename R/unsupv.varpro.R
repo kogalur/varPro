@@ -14,13 +14,15 @@ unsupv.varpro <- function(data,
   ##------------------------------------------------------------------
   # set method
   method <- match.arg(method, c("auto", "unsupv", "rnd"))
+  ## data must be a data frame
+  data <- data.frame(data)
   ##--------------------------------------------------------------
   ##
   ## define the entropy function (or obtain user specified one)
   ##
   ## can be a number or a list
   ## for numbers: this is the importance
-  ## for lists:   (a) entry 1 = importance: (b) entry 2 -> returned 
+  ## for lists: entry 1 = importance; entry 2 = entropy values
   ## 
   ##
   ##--------------------------------------------------------------
@@ -31,7 +33,7 @@ unsupv.varpro <- function(data,
   ## second entry = pc-simple results
   if (is.null(dots$entropy)) {
     entropy.function <- entropy.default
-    entropy.importance.function <- entropy.default.importance
+    get.entropy <- get.entropy.default
   }
   ## user specified entropy function
   else {
@@ -45,14 +47,13 @@ unsupv.varpro <- function(data,
   ## define the entropy function used for importance
   ##
   ##--------------------------------------------------------------
-  ## parameters used with default entropy function(s)
-  alpha <- switch(1+(is.null(dots$alpha)), dots$alpha, .025)
-  beta <- switch(1+(is.null(dots$beta)), dots$beta, FALSE)
-  nlegit <- switch(1+(is.null(dots$nlegit)), dots$nlegit, 25)
-  dots.entropy <- list()
-  dots.entropy$alpha <- alpha
-  dots.entropy$beta <- beta
-  dots.entropy$nlegit <- nlegit
+  enames <- names(formals(entropy.function))[-(1:2)]
+  enames <- setdiff(enames, "...")
+  dots.entropy <- dots[names(dots) %in% enames]
+  diffnames <- setdiff(enames, names(dots.entropy))
+  if (length(diffnames) > 0) {
+    dots.entropy <- append(dots.entropy, formals(entropy.function)[diffnames])
+  }
   user.provided.varpro.flag <- FALSE
   ## special feature allowing user to pass in an arbitrary varpro object
   ## the purpose of this is to allow access to the entropy function framework
@@ -131,7 +132,7 @@ unsupv.varpro <- function(data,
   ##------------------------------------------------------------------
   if (method == "auto" && !user.provided.varpro.flag) {
     ## call regr+
-    o <- do.call("rfsrc", c(list(formula = get.mv.formula(xvar.names),
+    o <- do.call("rfsrc", c(list(formula = get.mv.formula(paste0("y.", xvar.names)),
                    data = data.frame(y = data, data),
                    ntree = ntree,
                    nodesize = set.unsupervised.nodesize(nrow(data), ncol(data), nodesize),
@@ -192,34 +193,41 @@ unsupv.varpro <- function(data,
     ## extract importance
     imp <- unlist(lapply(impO, "[[", 1))
     results$imp[keep.rules] <- imp
-    ## extract attributes
-    entropy.imp <- lapply(impO, "[[", 2)
-    if (length(!sapply(entropy.imp, is.null)) == 0) {
-      entropy.imp <- NULL
+    ## extract entropy values
+    entropy.values <- lapply(impO, "[[", 2)
+    if (length(!sapply(entropy.values, is.null)) == 0) {
+      entropy.values <- NULL
     }
     else {
       xreleaseId <- unlist(lapply(impO, "[[", 3))
       xreleaseIdUnq <- sort(unique(xreleaseId))
-      entropy.imp <- lapply(xreleaseIdUnq, function(k) {
-        ii <- entropy.imp[xreleaseId == k]
+      entropy.values <- lapply(xreleaseIdUnq, function(k) {
+        ii <- entropy.values[xreleaseId == k]
         ii[!sapply(ii, is.null)]        
       })
-      names(entropy.imp) <- xvar.names[xreleaseIdUnq]
+      names(entropy.values) <- xvar.names[xreleaseIdUnq]
     }
   }
   else {
-    entropy.imp <- NULL
+    entropy.values <- NULL
   }
   ##------------------------------------------------------------------
   ##
   ##
-  ## for default entropy, package up pc-simple results 
+  ## gets default entropy values and packages them up nicely
   ##
   ##
   ##------------------------------------------------------------------
   if (!custom.entropy.flag) {
-    entropy.imp <- do.call("entropy.importance.function",
-                           c(list(entropy.imp, xvar.names), dots.entropy))
+    getnames <- names(formals(get.entropy))[-(1:2)]
+    getnames <- setdiff(getnames, "...")
+    dots.get <- dots[names(dots) %in% getnames]
+    diffnames <- setdiff(getnames, names(dots.get))
+    if (length(diffnames) > 0) {
+      dots.get <- append(dots.get, formals(get.entropy)[diffnames])
+    }
+    entropy.values <- do.call("get.entropy",
+                           c(list(entropy.values, xvar.names), dots.get))
   }
   ##------------------------------------------------------------------
   ##
@@ -229,6 +237,7 @@ unsupv.varpro <- function(data,
   ##
   ##------------------------------------------------------------------
   rO <- list()
+  rO$rf <- o
   rO$results <- results
   rO$x <- data
   rO$y <- NULL
@@ -237,9 +246,9 @@ unsupv.varpro <- function(data,
   rO$xvar.wt <- rep(1, length(xvar.names))
   rO$max.rules.tree <- max.rules.tree
   rO$max.tree <- max.tree
-  rO$entropy <- entropy.imp
+  rO$entropy <- entropy.values
   rO$family <- "unsupv"
-  class(rO) <- "varpro"
+  class(rO) <- "unsupv"
   rO
 }
 unsupv <- unsupv.varpro

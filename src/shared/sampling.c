@@ -31,7 +31,8 @@ DistributionObj *makeDistributionObjFull(void) {
   obj -> densitySwap      = NULL;
   obj -> index           = NULL;
   obj -> indexSize       = 0;
-  obj -> uIndexAllocSize = 0;
+  obj -> indexSizeAlloc  = 0;
+  obj -> deterministicFlag = FALSE;
   obj -> slot            = 0;
   return obj;
 }
@@ -45,16 +46,16 @@ void initializeCDFNew(uint treeID, DistributionObj *obj) {
   case RF_WGHT_UNIFORM:
     if (obj -> permissible != NULL) {
       if (obj -> augmentationSize != NULL) {
-        obj -> uIndexAllocSize = obj -> permissibleSize + 
+        obj -> indexSizeAlloc = obj -> permissibleSize + 
           obj -> augmentationSize[1] +
           obj -> augmentationSize[2] +
           (RF_xSize * (obj -> augmentationSize[2])) +
           ((obj -> augmentationSize[1]) * (obj -> augmentationSize[2]));
       }
       else {
-        obj -> uIndexAllocSize = obj -> permissibleSize;
+        obj -> indexSizeAlloc = obj -> permissibleSize;
       }
-      obj -> index = uivector(1, obj -> uIndexAllocSize);
+      obj -> index = uivector(1, obj -> indexSizeAlloc);
       obj -> indexSize = 0;
       for (k = 1; k <= obj -> permissibleSize; k++) {
         if (obj -> permissible[k]) {
@@ -84,7 +85,7 @@ void initializeCDFNew(uint treeID, DistributionObj *obj) {
     }
     else {
       obj -> index = uivector(1, obj -> permissibleSize);
-      obj -> indexSize = obj -> uIndexAllocSize = obj -> permissibleSize;
+      obj -> indexSize = obj -> indexSizeAlloc = obj -> permissibleSize;
       for (k=1; k <= obj -> permissibleSize; k++) {
         obj -> index[k] = obj -> permissibleIndex[k];
       }
@@ -312,7 +313,7 @@ void discardCDFNew(uint treeID, DistributionObj *obj) {
   uint k;
   switch (obj -> weightType) {
   case RF_WGHT_UNIFORM:
-    free_uivector(obj -> index, 1, obj -> uIndexAllocSize);
+    free_uivector(obj -> index, 1, obj -> indexSizeAlloc);
     break;
   case RF_WGHT_INTEGER:
     free_uivector(obj -> density, 1, obj -> densityAllocSize);

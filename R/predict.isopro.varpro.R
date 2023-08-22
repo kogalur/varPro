@@ -1,7 +1,7 @@
 predict.isopro.varpro <- function(object, newdata, quantiles = TRUE, ...) {
   ## must be an isopro object
   if (!inherits(object, "isopro", TRUE)) {
-    stop("object must be an isopro object")
+    stop("object must be an 'isopro' varpro object")
   }
   ## if test data missing revert to original data
   if (missing(newdata)) {

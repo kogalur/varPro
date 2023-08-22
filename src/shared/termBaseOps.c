@@ -191,16 +191,18 @@ void unstackMortality(TerminalBase *tTerm) {
     }
   }
 }
-void updateTerminalNodeOutcomes(char       mode,
-                                uint       treeID,
-                                TerminalBase  *parent,
-                                uint      *repMembrIndx,
-                                uint       repMembrSize,
-                                uint      *genMembrIndx,
-                                uint       genMembrSize) {
+void updateTerminalNodeOutcomes(uint treeID, TerminalBase  *parent) {
+  uint      *repMembrIndx;
+  uint       repMembrSize;
+  uint      *allMembrIndx;
+  uint       allMembrSize;
   uint i;
-  for (i = 1; i <= genMembrSize; i++) {
-    RF_tTermMembership[treeID][genMembrIndx[i]] = parent;
+  repMembrIndx = parent -> mate -> repMembrIndx;
+  repMembrSize = parent -> mate -> repMembrSize;
+  allMembrIndx = parent -> mate -> allMembrIndx;
+  allMembrSize = parent -> mate -> allMembrSize;
+  for (i = 1; i <= allMembrSize; i++) {
+    RF_tTermMembership[treeID][allMembrIndx[i]] = parent;
   }
   if ((RF_opt & OPT_PERF) ||
       (RF_opt & OPT_OENS) ||
@@ -213,7 +215,7 @@ void updateTerminalNodeOutcomes(char       mode,
     }
   }
   else {
-    getMembrCountOnly(treeID, parent, repMembrIndx, repMembrSize, genMembrIndx, genMembrSize);
+    getMembrCountOnly(treeID, parent, repMembrIndx, repMembrSize, allMembrIndx, allMembrSize);
   }
 }
 void getMembrCountOnly (uint       treeID,

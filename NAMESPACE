@@ -5,14 +5,14 @@ importFrom("gbm", "gbm", "predict.gbm", "gbm.perf")
 
 importFrom("BART", "wbart")
 
-importFrom("glmnet", "cv.glmnet")
+importFrom("glmnet", "glmnet", "cv.glmnet")
 
 importFrom("graphics", "barplot", "boxplot", "bxp", "lines", "rug", "axis", "legend", "arrows")
 
 importFrom("parallel", "mclapply", "detectCores")
 
 importFrom("randomForestSRC", "rfsrc", "predict.rfsrc",
-           "get.mv.formula", "get.auc", "get.pr.auc")
+           "get.mv.formula", "get.mv.predicted", "get.auc", "get.pr.auc")
 
 importFrom("stats", "as.formula", "coef", "median", "qnorm",
            "pnorm", "quantile", "runif", "var", "setNames",
@@ -37,6 +37,9 @@ export(cv.matrix.performance,
        isopro.varpro,
        predict.isopro,
        predict.isopro.varpro,
+       predict.unsupv,
+       predict.unsupv.varpro,
+       predict.varpro,
         
        unsupv.varpro,
        unsupv,
@@ -47,6 +50,8 @@ export(cv.matrix.performance,
  
 S3method(predict, isopro)
 S3method(predict, isopro.varpro)
-
+S3method(predict, unsupv)
+S3method(predict, unsupv.varpro)
+S3method(predict, varpro)
 
 

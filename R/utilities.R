@@ -193,12 +193,6 @@ get.varpro.hidden <- function(user.option, ntree) {
   else {
     use.lasso <- TRUE
   }
-  if (!is.null(user.option$sparse)) {
-    sparse <- user.option$sparse
-  }
-  else {
-    sparse <- TRUE
-  }
   if (!is.null(user.option$nfolds)) {
     nfolds <- user.option$nfolds
   }
@@ -219,7 +213,6 @@ get.varpro.hidden <- function(user.option, ntree) {
        split.weight.only = split.weight.only,
        split.weight.tolerance = split.weight.tolerance,
        use.lasso = use.lasso,
-       sparse = sparse,
        nfolds = nfolds)
 }
 ## list hidden variables
@@ -238,7 +231,6 @@ show.varpro.hidden <- function() {
     "split.weight.only",
     "split.weight.tolerance",
     "use.lasso",
-    "sparse",
     "nfolds")
 }
 ## extract varpro formal names and hidden options
@@ -258,7 +250,6 @@ get.varpro.names <- function (hidden = TRUE) {
                 "split.weight.only",
                 "split.weight.tolerance",
                 "use.lasso",
-                "sparse",
                 "nfolds")
   }
   vnames

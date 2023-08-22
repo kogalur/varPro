@@ -9,8 +9,6 @@
 
 #include "nrutil.h"
 #include "error.h"
-#include "nodeBase.h"
-#include "terminalBase.h"
 unsigned int upower (unsigned int x, unsigned int n) {
   unsigned int p;
   if ((x >= 2) & (n > (sizeof(unsigned int) * 8) - 1)) {
@@ -748,7 +746,6 @@ void free_new_vvector(void *v, unsigned long long nl, unsigned long long nh, enu
     break;
   }
 }
-#undef FREE_ARG
 void nrCopyMatrix(unsigned int **new, unsigned int **old, unsigned int nrow, unsigned int ncol) {
   unsigned int i,j;
   for (i = 1; i <= nrow; i++) {

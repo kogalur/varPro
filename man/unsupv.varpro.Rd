@@ -84,6 +84,7 @@ unsupv.varpro(data,
 }
 
 \seealso{
+  \command{\link{predict.unsupv}}
   \command{\link{varpro}}
 }
 

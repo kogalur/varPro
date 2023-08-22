@@ -13,7 +13,7 @@
   
   \item{object}{isopro object obtained from previous call.}
 
-  \item{newdata}{Test data.  If not provided the original training data
+  \item{newdata}{Test data. If not provided the training data
   is used.}
 
   \item{quantiles}{Return quantiles (default) or case depth values?}

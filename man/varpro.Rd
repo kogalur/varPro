@@ -9,7 +9,7 @@ for Regression, Classification and Survival.
 
 \usage{
 varpro(f, data, nvar = 30,
-       ntree = 500, split.weight = TRUE,
+       ntree = 500, split.weight = TRUE, sparse = TRUE,
        nodesize = NULL, max.rules.tree = 150, max.tree = min(150, ntree),
        parallel = TRUE, cores = get.number.cores(),
        papply = mclapply, verbose = FALSE, seed = NULL, ...)
@@ -28,6 +28,8 @@ varpro(f, data, nvar = 30,
   \item{split.weight}{Use guided feature selection?  Features are
   selected with probability according to split weight values, the latter
   being acquired in a preliminary lasso+tree step.}
+
+  \item{sparse}{Use sparse guided feature selection?}
 
   \item{nodesize}{Nodesize of trees. If not specified, value is set
   using an internal function optimized for sample size and dimension.}
@@ -64,7 +66,7 @@ varpro(f, data, nvar = 30,
   permutation variable importance (VIMP) and knockoffs have been
   extensively studied, their empirical results can be compromised in
   certain scenarios because both VIMP and knockoffs depend on the
-  quality of the generated artificial covari- ates for their success. To
+  quality of the generated artificial covariates for their success. To
   address this practical problem, we propose a new framework of variable
   priority (VarPro), which instead of generating artificial covariates,
   creates release rules to examine the affect on the response for each
@@ -73,35 +75,33 @@ varpro(f, data, nvar = 30,
   variable. Similar to VIMP and knockoffs, VarPro allows the conditional
   distribution of the response variable to be arbitrary and unknown.
 
-  The VarPro method implemented here is described as follows.  A
-  collection of \code{ntree} trees are grown with guided feature
-  selection where variables are selected according to a split-weight
-  obtained in a pre-processing step using lasso+trees.  A random subset
-  of \code{max.tree} trees are selected from the \code{ntree} trees and
-  a random subset of branches, \code{max.rules.tree}, are chosen from
-  each tree.  These rules are used for forming the VarPro estimator of
-  importance.  Applies to regression, multiclass and survival data.  
+  The VarPro algorithm is described as follows.  A collection
+  of \code{ntree} trees are grown with guided feature selection where
+  variables are selected according to a split-weight obtained in a
+  pre-processing step using lasso+trees.  A random subset of
+  \code{max.tree} trees are selected from the \code{ntree} trees and a
+  random subset of branches, \code{max.rules.tree}, are chosen from each
+  tree.  These rules are used for forming the VarPro estimator of
+  importance.  Applies to regression, multiclass and survival data.
   
-  Regarding the guided feature selection: this is generally a very
-  useful techinque as it supervises the rules obtained from the trees.
-  For this reason it is recommended to keep the \code{split.weight}
-  option on and this is especially true for high-dimensional, or even
-  moderately high-dimensional, problems.  If this option is turned off,
-  then \code{nodesize} should be increased to improve precision of the
+  Guided feature selection supervises the rules harvested from the trees
+  to favor potentially strong features.  Therefore option
+  \code{split.weight} should generally be left on (this is especially
+  true for high-dimensional problems).  If the option is turned off,
+  consider increasing \code{nodesize} to improve precision of the
   estimators.
 
-  Note also that in order to use lasso in the feature selection, all
-  factors are converted using one-hot-encoding.  Thus all features are
-  real valued after the conversion.
+  In order to use lasso for guided feature selection, factors are
+  converted using one-hot-encoding.  Therefore all variables are
+  converted to real values.
 
-  Selection of variables is based on a preset cutoff value set using
-  the \code{importance} function.  However, there is also a cross-validation
-  (CV) method to automate this.  See \command{cv.varpro}.
+  Selection of variables is based on a preset cutoff value set using the
+  \code{importance} function.  There is a cross-validation (CV) method
+  to automate this.  See \command{cv.varpro}.
   
-  For very large data sets, computational speeds can be improved by
-  using smaller values of \code{ntree} and larger values of
-  \code{nodesize}.  There are other options available as well.
-  See examples below for illustrations.
+  Run times can be improved by using smaller values of \code{ntree} and
+  larger values of \code{nodesize}.  Other options are also available.
+  See the examples below.
 
   For class imbalanced settings (two class problems where relative
   frequency of labels is skewed towards one class) the code
@@ -139,6 +139,7 @@ varpro(f, data, nvar = 30,
   \command{\link{glioma}}
   \command{\link{cv.varpro}}  
   \command{\link{importance.varpro}}
+  \command{\link{predict.varpro}}  
   \command{\link{isopro.varpro}}
   \command{\link{unsupv.varpro}}
   

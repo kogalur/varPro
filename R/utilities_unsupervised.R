@@ -1,7 +1,7 @@
 ####################################################################
 ##
 ##
-## entropy functions
+## default entropy functions
 ##
 ##
 ####################################################################
@@ -21,7 +21,7 @@ entropy.default <- function(xC, xO, alpha = .025, beta = FALSE, ...) {
   list(imp = imp,
        pcselreturn = if (!is.null(o)) switch(1+(beta), o$partial, o$beta) else NULL)
 }
-entropy.default.importance <- function(entropy.imp, xvar.names, nlegit = 25, ...) {
+get.entropy.default <- function(entropy.imp, xvar.names, nlegit = 25, ...) {
   do.call(rbind, lapply(entropy.imp, function(oo) {
     pv <- unlist(oo)
     if (length(pv) > 0) {
@@ -37,6 +37,13 @@ entropy.default.importance <- function(entropy.imp, xvar.names, nlegit = 25, ...
     }
   }))
 }
+####################################################################
+##
+##
+## example of a custom entropy functions (to be deprecated)
+##
+##
+####################################################################
 entropy.custom <- function(xC, xO, alpha = .025, ...) {
   imp <- entropy.ssq(xC, xO)
   x <- data.matrix(rbind(xO, xC))
@@ -44,8 +51,10 @@ entropy.custom <- function(xC, xO, alpha = .025, ...) {
                           alpha = alpha))}, error = function(ex){NULL})
   list(imp = imp, select = if (!is.null(o)) o$vars else NULL)
 }
-entropy.custom.importance <- function(entropy.imp, xvar.names, sort = FALSE, ...) {
-  entropy.imp <- do.call(rbind, lapply(entropy.imp, function(oo) {
+get.entropy.custom <- function(o, sort = FALSE, ...) {
+  entropy.values <- o$entropy
+  xvar.names <- o$xvar.names
+  entropy.values <- do.call(rbind, lapply(entropy.values, function(oo) {
       sv <- unlist(oo)
       if (length(sv) > 0) {
         frq <- rep(0, length(xvar.names))
@@ -58,12 +67,97 @@ entropy.custom.importance <- function(entropy.imp, xvar.names, sort = FALSE, ...
       }
   }))
   if (sort) {
-    entropy.imp[order(rowSums(entropy.imp),decreasing=T), order(colSums(entropy.imp),decreasing=T)]
+    entropy.values[order(rowSums(entropy.values),decreasing=T), order(colSums(entropy.values),decreasing=T)]
   }
   else {
-    entropy.imp
+    entropy.values
   }
 }
+####################################################################
+##
+##
+## entropy functions ... work in progress
+##
+##
+####################################################################
+entropy.lm <- function(xC, xO, alpha = .05, tol = 1e-6, ...) {
+  imp <- entropy.ssq(xC, xO)
+  x <- data.matrix(rbind(xO, xC))
+  cluster <- c(rep(0, nrow(xO)), rep(1, nrow(xC))) 
+  xi <- scale(data.frame(cbind(x, cluster * x[, -1])))
+  colnames(xi) <- c(colnames(x), paste0(colnames(x)[-1], ".interaction"))
+  xi <- xi[, attr(xi,"scaled:scale") !=0, drop = FALSE]
+  if (ncol(xi) == 0) {
+    return(list(imp = imp, z = NULL))
+  }
+  o <- tryCatch({suppressWarnings(lm(paste(colnames(x)[1], "~."), data.frame(cluster=cluster, xi)))}, 
+               error=function(ex){NULL})
+  z <- rep(NA, ncol(xi))
+  names(z) <- colnames(xi)
+  if (!is.null(o) && summary(o)$r.sq < (1-tol)) {
+    beta <- suppressWarnings(summary(o)$coef[, 3])
+    beta <- beta[intersect(names(beta), colnames(xi))]
+    if (length(beta) > 0) {
+      z[names(beta)] <- abs(beta)
+      z[z==0] <- NA
+    }
+  }
+  z <- z[grepl(".interaction", names(z))]
+  names(z) <- gsub(".interaction", "", names(z))
+  zcut <- qnorm(alpha/2, lower.tail=F)
+  list(imp = imp, z = if (length(z) > 0) z * (z > zcut) else NULL)
+}
+entropy.lasso <- function(xC, xO, K = 10, probs = .95, ...) {
+  imp <- entropy.ssq(xC, xO)
+  x <- data.matrix(rbind(xO, xC)[, colnames(xO)[-1], drop = FALSE])
+  cluster <- c(rep(0, nrow(xO)), rep(1, nrow(xC))) 
+  xi <- scale(cbind(cluster, x, cluster * x), center = FALSE)
+  colnames(xi) <- c("cluster", colnames(x), paste0(colnames(x), ".interaction"))
+  xi <- xi[, attr(xi,"scaled:scale") !=0, drop = FALSE]
+  if (ncol(xi) == 0) {
+    return(list(imp = imp, z = NULL))
+  }
+  if (K > 2) {
+    o <- tryCatch({suppressWarnings(cv.glmnet(xi, rbind(xO, xC)[, colnames(xO)[1]],
+                         nfolds=K, parallel=FALSE))}, error=function(ex){NULL})
+  }
+  else {
+    o <- tryCatch({suppressWarnings(glmnet(xi, rbind(xO, xC)[, colnames(xO)[1]]))},
+                   error=function(ex){NULL})
+  }
+  z <- rep(0, ncol(xi) - 1)
+  names(z) <- colnames(xi)[-1]
+  if (!is.null(o)) {
+    beta <- coef(o, s = if (K>2) o$lambda.1se else quantile(o$lambda, probs = probs))
+    beta <- beta[intersect(rownames(beta), colnames(xi)[-1]),, drop = FALSE]
+    if (nrow(beta) > 0) {
+      z[rownames(beta)] <- abs(as.numeric(beta))
+    }
+  }
+  z <- z[grepl(".interaction", names(z))]
+  names(z) <- gsub(".interaction", "", names(z))
+  list(imp = imp, z = if (length(z) > 0) z else NULL)
+}
+get.entropy.function <- function(o, nlegit = 25, ...) {
+  entropy.values <- o$entropy
+  xvar.names <- o$xvar.names
+  do.call(rbind, lapply(entropy.values, function(oo) {
+    z <- unlist(oo)
+    if (length(z) > 0) {
+      mn <- rep(0, length(xvar.names))
+      names(mn) <- xvar.names
+      if (length(na.omit(as.numeric(z))) >= nlegit) {
+        mn[sort(unique(names(z)))] <- tapply(as.numeric(z), names(z), mean, na.rm = TRUE)
+      }
+      mn
+    }
+    else {
+      NULL
+    }
+  }))
+}
+get.entropy.lm <- get.entropy.function
+get.entropy.lasso <- get.entropy.function
 ####################################################################
 ##
 ##

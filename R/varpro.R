@@ -1,26 +1,26 @@
-################################################################
+############################################################################
 ###
-###  variable priority (varPro) for regression, classification and survival
+### variable priority (varPro) for regression, classification and survival
 ###
-### ---------------------------------------------------------------
-###  Written by:
+### ------------------------------------------------------------------------
+### Written by:
 ###
-###  Hemant Ishwaran                     hemant.ishwaran@gmail.com
-###  Division of Biostatistics           
-###  Clinical Research Building
-###  1120 NW 14th Street
-###  University of Miami, Miami FL 33136
+### Hemant Ishwaran                     hemant.ishwaran@gmail.com
+### Division of Biostatistics           
+### Clinical Research Building
+### 1120 NW 14th Street
+### University of Miami, Miami FL 33136
 ###
-###  https:
-###  -------------------------------------------------------------
+### https:
+### ------------------------------------------------------------------------
 ###
-###  THIS PROGRAM SHOULD NOT BE COPIED, USED, MODIFIED, OR 
-###  DISSEMINATED IN ANY WAY WITHOUT SPECIFIC WRITTEN PERMISSION 
-###  FROM THE AUTHOR.
+### THIS PROGRAM SHOULD NOT BE COPIED, USED, MODIFIED, OR 
+### DISSEMINATED IN ANY WAY WITHOUT SPECIFIC WRITTEN PERMISSION 
+### FROM THE AUTHOR.
 ###
-####################################################################
+############################################################################
 varpro <- function(f, data, nvar = 30,
-                   ntree = 500, split.weight = TRUE,
+                   ntree = 500, split.weight = TRUE, sparse = TRUE,
                    nodesize = NULL,
                    max.rules.tree = 150, max.tree = min(150, ntree),
                    parallel = TRUE, cores = get.number.cores(),
@@ -96,7 +96,6 @@ varpro <- function(f, data, nvar = 30,
   split.weight.only <- hidden$split.weight.only
   split.weight.tolerance <- hidden$split.weight.tolerance
   use.lasso <- hidden$use.lasso
-  sparse <- hidden$sparse
   nfolds <- hidden$nfolds
   ## set dimensions
   n <- nrow(x)
@@ -501,6 +500,9 @@ varpro <- function(f, data, nvar = 30,
                                   max.tree = max.tree)$strengthArray
   ## process the strength array
   var.strength <- get.varpro.strengthArray(var.strength, family, y)
+  if (verbose) {
+    cat("done!\n")
+  }
   ## ------------------------------------------------------------------------
   ##
   ##

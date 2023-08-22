@@ -10,7 +10,7 @@
 #include "splitInfo.h"
 #include "nrutil.h"
 SplitInfo *makeSplitInfo(uint size) {
-  SplitInfo *info = (SplitInfo*) gblock((size_t) sizeof(SplitInfo));
+  SplitInfo *info = (SplitInfo *) gblock((size_t) sizeof(SplitInfo));
   initSplitInfo(info, size);
   return info;
 }

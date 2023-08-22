@@ -10,7 +10,7 @@ cv.varpro(f, data, nvar = 30,
        ntree = 150,
        zcut = seq(0.1, 2, length = 50),
        nblocks = 10,
-       split.weight = TRUE, nodesize = NULL, 
+       split.weight = TRUE, sparse = TRUE, nodesize = NULL, 
        max.rules.tree = 150, max.tree = min(150, ntree), 
        papply = mclapply, verbose = FALSE, seed = NULL,
        fast = FALSE, crps = FALSE, ...)
@@ -34,6 +34,8 @@ cv.varpro(f, data, nvar = 30,
   \item{split.weight}{Use guided feature selection?  Features are
   selected with probability according to split weight values, the latter
   being acquired in a preliminary lasso+tree step.}
+
+  \item{sparse}{Use sparse guided feature selection?}
 
   \item{nodesize}{Nodesize of trees. If not specified, value is set
   using an internal function optimized for sample size and dimension.}

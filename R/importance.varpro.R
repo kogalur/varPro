@@ -18,11 +18,11 @@ importance.varpro <- function(o, cutoff = 2, trim = 0.1,
 {
   ## ------------------------------------------------------------------------
   ##
-  ## incoming object must be a varpro object
+  ## coherence of incoming object 
   ##
   ## ------------------------------------------------------------------------
-  if (!inherits(o, "varpro", TRUE)) {
-    stop("this function only works for varpro objects")
+  if (!(inherits(o, "varpro", TRUE) || inherits(o, "unsupv", TRUE))) {
+    stop("this function only works for varpro, unsupv objects")
   }
   ## ------------------------------------------------------------------------
   ##
@@ -121,9 +121,7 @@ importance.varpro.workhorse <- function(o, cutoff, trim, plot.it, conf, sort, yl
   ## optional variable weight equal to number of times variable splits
   ## this can be used as additional weight to define the final importance
   ## - the default = 1 i.e. no weighting
-  ## - weighting can lead to biased results
-  ## ++ can bias for continuous variables
-  ## ++ can bias for the split weight value
+  ## - weighting can lead to biased results (legacy)
   ##
   ## ------------------------------------------------------------------------
   if (wt.flag) {

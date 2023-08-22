@@ -30,13 +30,7 @@ void stackCIF(TerminalBase *tTerm);
 void unstackCIF(TerminalBase *tTerm);
 void stackMortality(TerminalBase *tTerm);
 void unstackMortality(TerminalBase *tTerm);
-void updateTerminalNodeOutcomes(char       mode,
-                                uint       treeID,
-                                TerminalBase  *parent,
-                                uint      *repMembrIndx,
-                                uint       repMembrSize,
-                                uint      *genMembrIndx,
-                                uint       genMembrSize);
+void updateTerminalNodeOutcomes(uint treeID, TerminalBase  *parent);
 void getMembrCountOnly (uint       treeID,
                         TerminalBase  *parent,
                         uint      *repMembrIndx,

@@ -18,7 +18,8 @@ struct distributionObj {
   uint  **densitySwap;
   uint *index;
   uint  indexSize;
-  uint  uIndexAllocSize;
+  uint  indexSizeAlloc;
+  char deterministicFlag;
   uint  slot;
 };
 DistributionObj *makeDistributionObjRaw(void);
