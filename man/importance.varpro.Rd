@@ -1,6 +1,7 @@
 \name{importance.varpro}
 \alias{importance.varpro}
 \alias{importance}
+\alias{get.vimp}
 \alias{get.orgvimp}
 \alias{get.topvars}
 \title{Calculate VarPro Importance}

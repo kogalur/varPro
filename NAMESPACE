@@ -28,6 +28,7 @@ export(cv.matrix.performance,
        cv.varpro,
        cv.unsupv,
        cv.unsupv.varpro,
+       get.vimp,
        get.orgvimp,
        get.topvars,
        get.iso.performance,
@@ -40,18 +41,30 @@ export(cv.matrix.performance,
        predict.unsupv,
        predict.unsupv.varpro,
        predict.varpro,
-        
+       partialpro,
+       partialpro.varpro,
+       plot.partialpro,
+       plot.partialpro.varpro,
+       gbm.learner,
+       rf.learner,
+       bart.learner,
        unsupv.varpro,
        unsupv,
        varpro,
        varpro.news,
        varpro.strength)
 
- 
+
+S3method(plot, partialpro)
+S3method(plot, partialpro.varpro)
+
+
 S3method(predict, isopro)
 S3method(predict, isopro.varpro)
 S3method(predict, unsupv)
 S3method(predict, unsupv.varpro)
 S3method(predict, varpro)
+
+S3method(print, cv.varpro)
 
 

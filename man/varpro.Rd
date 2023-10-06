@@ -157,6 +157,7 @@ o <- varpro(Species ~ ., iris)
 ## call the importance function and print the results
 print(importance(o))
 
+
 ## ------------------------------------------------------------
 ## regression example: boston housing
 ## ------------------------------------------------------------
@@ -167,11 +168,13 @@ data(BostonHousing, package = "mlbench")
 ## call varpro
 o <- varpro(medv~., BostonHousing)
 
-## extract importance values
+## extract and print importance values
 imp <- importance(o)
-
-## print importance values
 print(imp)
+
+## another way to extract and print importance values
+print(get.vimp(o))
+print(get.vimp(o, pretty = FALSE))
 
 ## plot importance values
 importance(o, plot.it = TRUE)
@@ -181,6 +184,9 @@ importance(o, plot.it = TRUE)
 ## regression example: boston housing illustrating hot-encoding
 ## ------------------------------------------------------------
 
+## load the data
+data(BostonHousing, package = "mlbench")
+
 ## convert some of the features to factors
 Boston <- BostonHousing
 Boston$zn <- factor(Boston$zn)
@@ -189,13 +195,15 @@ Boston$lstat <- factor(round(0.2 * Boston$lstat))
 Boston$nox <- factor(round(20 * Boston$nox))
 Boston$rm <- factor(round(Boston$rm))
 
-
 ## call varpro and print the importance
 print(importance(o <- varpro(medv~., Boston)))
 
 ## convenient function to map importance values back to
 ## original features
-print(get.orgvimp(Boston, o))
+print(get.orgvimp(o))
+
+## same as above ... but for all variables
+print(get.orgvimp(o, pretty = FALSE))
 
 ## ------------------------------------------------------------
 ## regression example: friedman 1
@@ -336,6 +344,46 @@ print(system.time(o <- varpro(y~., d, ntree = 100, nodesize = 200,
            maxit = 100)))
 print(importance(o))
 
+
+## ------------------------------------------------------------
+## custom split weights (hidden option)
+## ------------------------------------------------------------
+
+## load the data
+data(BostonHousing, package = "mlbench")
+
+## make some features into factors
+Boston <- BostonHousing
+Boston$zn <- factor(Boston$zn)
+Boston$chas <- factor(Boston$chas)
+Boston$lstat <- factor(round(0.2 * Boston$lstat))
+Boston$nox <- factor(round(20 * Boston$nox))
+Boston$rm <- factor(round(Boston$rm))
+
+## get default custom split weights - a named real vector
+swt <- varPro:::get.splitweight.custom(medv~.,Boston)
+
+## define custom splits weight
+swt <- swt[grepl("crim", names(swt)) |
+           grepl("zn", names(swt)) |
+           grepl("nox", names(swt)) |
+           grepl("rm", names(swt)) |
+           grepl("lstat", names(swt))]
+           
+swt[grepl("nox", names(swt))] <- 4
+swt[grepl("lstat", names(swt))] <- 4
+
+swt <- c(swt, strange=99999)
+
+cat("custom split-weight\n")
+print(swt)
+  
+## call varpro with the custom split weights
+o <- varpro(medv~.,Boston,split.weight.custom=swt,verbose=T,sparse=F)
+cat("varpro result\n")
+print(importance(o))
+print(get.vimp(o, pretty=FALSE))
+print(get.orgvimp(o, pretty=FALSE))
 
 
 }

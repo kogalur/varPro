@@ -44,12 +44,13 @@ varpro <- function(f, data, nvar = 30,
   seed <- get.seed(seed)
   ## run a stumpy tree as a quick way to extract  x, y and determine family
   ## this also cleans up missing data 
-  stump <- rfsrc(f, data, mtry = 1, splitrule="random", nodedepth=0, perf.type = "none", save.memory = TRUE, ntree=1)
+  stump <- get.stump(f, data)
   yvar.names <- stump$yvar.names
   y <- stump$yvar
   y.org <- data.frame(y)
   colnames(y.org) <- stump$yvar.names
   x <- stump$xvar
+  xvar.org.names <- colnames(x)
   family <- stump$family
   rm(stump)
   gc()
@@ -118,6 +119,27 @@ varpro <- function(f, data, nvar = 30,
   }
   ## set use.vimp: optimized for n and p
   use.vimp <- set.use.vimp(n, p, dots$use.vimp)
+  ## user can pass in a custom split weight vector
+  split.weight.custom <- FALSE
+  if (!is.null(dots$split.weight.custom)) {
+    xvar.wt <- rep(0, length(xvar.names))
+    names(xvar.wt) <- xvar.names
+    if (length(intersect(xvar.names, names(dots$split.weight.custom))) == 0) {
+      stop("custom split weight set incorrectly: no variable names match the original data\n")
+    }
+    swt <- abs(dots$split.weight.custom)[intersect(xvar.names, names(dots$split.weight.custom))]
+    xvar.wt[names(swt)] <- swt 
+    pt <- xvar.wt > 0
+    if (sparse) {
+      xvar.wt[pt] <- (xvar.wt[pt]) ^ dimension.index(1)
+    }
+    xvar.wt <- xvar.wt / max(xvar.wt, na.rm = TRUE)
+    if (verbose) {
+      cat("user has provided there own xvar.wt vector, split-weight step will be skipped\n")
+    }
+    split.weight <- split.weight.only <- FALSE
+    split.weight.custom <- TRUE
+  }
   ## ------------------------------------------------------------------------
   ##
   ##
@@ -159,6 +181,9 @@ varpro <- function(f, data, nvar = 30,
         colnames(y) <- yvar.names <- paste0("y.", 1:ncol(y))
         f <- randomForestSRC::get.mv.formula(yvar.names)
       }
+    if (verbose) {
+      cat("external estimation completed\n")
+    }  
     }
     ## external estimation is over-riden
     ## therefore we use coxnet downstream in split weight calculation
@@ -221,6 +246,7 @@ varpro <- function(f, data, nvar = 30,
     }
     ## initialize xvar.wt
     xvar.wt <- rep(0, p)
+    names(xvar.wt) <- xvar.names
     ##---------------------------------------------------------
     ##
     ## lasso split weight calculation
@@ -242,7 +268,8 @@ varpro <- function(f, data, nvar = 30,
               {suppressWarnings(cv.glmnet(scale(data.matrix(x)), y, nfolds = nfolds, parallel = parallel, maxit = maxit))},
           error=function(ex){NULL})
         if (!is.null(o.glmnet)) {
-          xvar.wt <-  abs(as.numeric(coef(o.glmnet)[-1]))
+          beta <- coef(o.glmnet)[-1,]
+          xvar.wt[names(beta)] <- abs(beta)
         }
       }
       ## mv-regression
@@ -251,8 +278,8 @@ varpro <- function(f, data, nvar = 30,
                {suppressWarnings(cv.glmnet(scale(data.matrix(x)), y,
                     nfolds = nfolds, parallel = parallel, maxit = maxit, family = "mgaussian"))}, error=function(ex){NULL})
         if (!is.null(o.glmnet)) {
-          beta <- do.call(cbind, lapply(coef(o.glmnet), function(o) {as.numeric(o)[-1]}))
-          xvar.wt <- rowMeans(abs(beta), na.rm = TRUE)
+          beta <- do.call(cbind, lapply(coef(o.glmnet), function(o) {o[-1,]}))
+          xvar.wt[rownames(beta)] <- rowMeans(abs(beta), na.rm = TRUE)
         }
       }
       ## classification
@@ -263,7 +290,8 @@ varpro <- function(f, data, nvar = 30,
                {suppressWarnings(cv.glmnet(scale(data.matrix(x)), y,
                     nfolds = nfolds, parallel = parallel, maxit = maxit, family = "binomial"))}, error=function(ex){NULL})
           if (!is.null(o.glmnet)) {
-            xvar.wt <-  abs(as.numeric(coef(o.glmnet)[-1]))
+            beta <- coef(o.glmnet)[-1,]
+            xvar.wt[names(beta)] <- abs(beta)
           }
         }
         ## multiclass
@@ -272,8 +300,8 @@ varpro <- function(f, data, nvar = 30,
                {suppressWarnings(cv.glmnet(scale(data.matrix(x)), y,
                     nfolds = nfolds, parallel = parallel, maxit = maxit, family = "multinomial"))}, error=function(ex){NULL})
           if (!is.null(o.glmnet)) {
-            beta <- do.call(cbind, lapply(coef(o.glmnet), function(o) {as.numeric(o)[-1]}))
-            xvar.wt <- rowMeans(abs(beta), na.rm = TRUE)
+            beta <- do.call(cbind, lapply(coef(o.glmnet), function(o) {o[-1,]}))
+            xvar.wt[rownames(beta)] <- rowMeans(abs(beta), na.rm = TRUE)
           }
         }
       }
@@ -283,8 +311,8 @@ varpro <- function(f, data, nvar = 30,
                {suppressWarnings(cv.glmnet(scale(data.matrix(x)), y,
                     nfolds = nfolds, parallel = parallel, maxit = maxit, family = "cox"))}, error=function(ex){NULL})
         if (!is.null(o.glmnet)) {
-          beta <- as.numeric(coef(o.glmnet, s=o.glmnet$lambda.min))
-          xvar.wt <-  abs(beta)
+          beta <- coef(o.glmnet, s=o.glmnet$lambda.min)[,]
+          xvar.wt[names(beta)] <-  abs(beta)
           ## map y to external continuous estimator and treat the problem as regression
           family <- "regr"
           yvar.names <- "y"
@@ -392,7 +420,7 @@ varpro <- function(f, data, nvar = 30,
                          mtry = Inf,
                          nsplit = 100,
                          var.used = "all.trees",
-                         perf.type = "none")$var.used
+                         perf.type = "none")$var.used[xvar.names]
       ## update the weights
       pt <- xvar.used >= set.xvar.cut(xvar.used, n)
       if (sum(pt) > 0) {
@@ -412,18 +440,19 @@ varpro <- function(f, data, nvar = 30,
     }
     ##---------------------------------------------------------
     ##
-    ## final processing
+    ## final steps
     ##
     ##---------------------------------------------------------
     ## in case there was a total failure ...
     if (all(xvar.wt == 0)) {
       xvar.wt <- rep(1, p)
+      names(xvar.wt) <- xvar.names
     }
     ## if the user only wants the xvar weights
     if (split.weight.only) {
       ## tolerance: keep weights from becoming too small
       xvar.wt <- tolerance(xvar.wt, split.weight.tolerance)
-      names(xvar.wt) <- xvar.names
+      #names(xvar.wt) <- xvar.names
       return(list(
         xvar.wt = xvar.wt,
         xvar.names = xvar.names,
@@ -433,6 +462,13 @@ varpro <- function(f, data, nvar = 30,
         y.org = y.org,
         family = family))
     }
+  }###########split weight calculations end here
+  ## ------------------------------------------------------------------------
+  ##
+  ## final split weight processing
+  ##
+  ## ------------------------------------------------------------------------
+  if (split.weight || split.weight.only || split.weight.custom) {
     ## final assignment
     if (sum(xvar.wt > 0) > nvar) {
       pt <- order(xvar.wt, decreasing = TRUE)
@@ -444,14 +480,16 @@ varpro <- function(f, data, nvar = 30,
     xvar.wt <- tolerance(xvar.wt, split.weight.tolerance)
     ## verbose
     if (verbose) {
-      cat("split weight calculation completed\n")
+       if (!split.weight.custom) {
+         cat("split weight calculation completed\n")
+       }
       print(data.frame(xvar = xvar.names, weights = xvar.wt))
     }
     ## update the data
     data <- data.frame(y = y, x[, xvar.names, drop = FALSE])
     colnames(data)[1:length(yvar.names)] <- yvar.names
     p <- length(xvar.names)
-  }###########split weight calculations end here
+  }
   ## ------------------------------------------------------------------------
   ##
   ##
@@ -462,7 +500,7 @@ varpro <- function(f, data, nvar = 30,
   if (verbose) {
     cat("model based rule generation ...\n")
   }  
-  if (split.weight) {
+  if (split.weight || split.weight.custom) {
     object <- rfsrc(f, data,
                     splitrule = if (imbalanced.flag) "auc" else NULL,
                     xvar.wt = xvar.wt,
@@ -512,10 +550,11 @@ varpro <- function(f, data, nvar = 30,
   ## ------------------------------------------------------------------------
   rO <- list(
     rf = object,
-    xvar.wt = (if (split.weight) xvar.wt else NULL),
+    xvar.wt = if (split.weight || split.weight.custom) xvar.wt else NULL,
     max.rules.tree = max.rules.tree,
     max.tree = max.tree,
     results = var.strength,
+    xvar.org.names = xvar.org.names,
     xvar.names = xvar.names,
     yvar.names = yvar.names,
     x = x,

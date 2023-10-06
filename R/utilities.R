@@ -112,6 +112,12 @@ get.varpro.hidden <- function(user.option, ntree) {
       }
     }
   }
+  if (!is.null(user.option$ntree.external)) {
+    ntree.external <- user.option$ntree.external
+  }
+  else {
+    ntree.external <- ntree
+  }
   if (!is.null(user.option$ntime.external)) {
     ntime.external <- user.option$ntime.external
   }
@@ -201,7 +207,7 @@ get.varpro.hidden <- function(user.option, ntree) {
   }
   list(sampsize = sampsize,
        nsplit = nsplit,
-       ntree.external = ntree,
+       ntree.external = ntree.external,
        ntime.external = ntime.external,
        ntree.reduce = ntree.reduce,
        dimension.index = dimension.index,

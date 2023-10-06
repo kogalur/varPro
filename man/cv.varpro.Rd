@@ -81,13 +81,19 @@ cv.varpro(f, data, nvar = 30,
   see O'Brien and Ishwaran, 2019) under the gmean (geometric mean)
   performance metric.
 
+
 }
 
 \value{
 
   Output containing importance values for the optimized cutoff value.
   A conservative and liberal list of variables is also returned.
-  
+
+  Note that importance values are returned in terms of the original features
+  and not their hot-encodings.  For importance in terms of
+  hot-encodings, use the built-in wrapper \command{get.vimp} (see
+  example below).
+
 }
 
 \author{
@@ -126,6 +132,31 @@ print(o)
 
 data(BostonHousing, package = "mlbench")
 print(cv.varpro(medv~., BostonHousing))
+
+## ------------------------------------------------------------
+## boston housing - original/hot-encoded vimp
+## ------------------------------------------------------------
+
+## load the data
+data(BostonHousing, package = "mlbench")
+
+## convert some of the features to factors
+Boston <- BostonHousing
+Boston$zn <- factor(Boston$zn)
+Boston$chas <- factor(Boston$chas)
+Boston$lstat <- factor(round(0.2 * Boston$lstat))
+Boston$nox <- factor(round(20 * Boston$nox))
+Boston$rm <- factor(round(Boston$rm))
+
+## make cv call
+o <-cv.varpro(medv~., Boston)
+print(o)
+
+## importance original variables (default)
+print(get.orgvimp(o, pretty = FALSE))
+
+## importance for hot-encoded variables
+print(get.vimp(o, pretty = FALSE))
 
 ## ------------------------------------------------------------
 ## iris

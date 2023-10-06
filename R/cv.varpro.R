@@ -14,13 +14,7 @@ cv.varpro <- function(f, data, nvar = 30,
   ## re-define the original data in case there are missing values
   ##
   ##--------------------------------------------------------------
-  stump <- rfsrc(f, data,
-                 mtry = 1,
-                 nodedepth = 0,
-                 perf.type = "none",
-                 save.memory = TRUE,
-                 ntree = 1,
-                 splitrule = "random")
+  stump <- get.stump(f, data)
   n <- stump$n
   p <- length(stump$xvar.names)
   yvar.names <- stump$yvar.names
@@ -114,7 +108,7 @@ cv.varpro <- function(f, data, nvar = 30,
   ## map importance values which are hot-encoded back to original data 
   ##
   ##--------------------------------------------------------------
-  vorg <- get.orgvimp(data, o, papply = papply)
+  vorg <- get.orgvimp(o, papply = papply)
   xvar.names <- vorg$variable
   imp <- vorg$z
   imp[is.na(imp)] <- 0
@@ -259,11 +253,25 @@ cv.varpro <- function(f, data, nvar = 30,
     }
     v1sd.liberal <- vorg[imp >= zcut.liberal,, drop = FALSE]
   }
-  list(imp = vmin,
-       imp.conserve = v1sd.conserve,
-       imp.liberal = v1sd.liberal,
-       err = err,
-       zcut = zcut.min,
-       zcut.conserve = zcut.1sd,
-       zcut.liberal = zcut.liberal)
+  rO <- list(imp = vmin,
+             imp.conserve = v1sd.conserve,
+             imp.liberal = v1sd.liberal,
+             err = err,
+             zcut = zcut.min,
+             zcut.conserve = zcut.1sd,
+             zcut.liberal = zcut.liberal)
+  class(rO) <- "cv.varpro"
+  ## append some useful information as attributes
+  attr(rO, "imp.org") <- importance(o)
+  attr(rO, "xvar.names") <- o$xvar.names
+  attr(rO, "xvar.org.names") <- o$xvar.org.names
+  attr(rO, "family") <- o$family
+  return(rO)
 }
+## custom print object for cv to make attributes invisible
+print.cv.varpro <- function(x, ...) {
+  attr(x, "class") <- attr(x, "imp.org") <- attr(x, "xvar.names") <-
+    attr(x, "xvar.org.names") <- attr(x, "family") <- NULL
+  print(x)
+}
+print.cv <- print.cv.varpro
