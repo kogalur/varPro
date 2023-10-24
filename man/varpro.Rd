@@ -198,8 +198,10 @@ Boston$rm <- factor(round(Boston$rm))
 ## call varpro and print the importance
 print(importance(o <- varpro(medv~., Boston)))
 
-## convenient function to map importance values back to
-## original features
+## get top variables
+get.topvars(o)
+
+## map importance values back to original features
 print(get.orgvimp(o))
 
 ## same as above ... but for all variables

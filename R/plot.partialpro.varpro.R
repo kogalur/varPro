@@ -293,7 +293,7 @@ plot.partialpro.varpro <- function(x, xvar.names, nvar,
         if (cflag) {
           nullO <- lapply(1:length(plotO), function(j) {
             oo <- plotO[[j]]
-            lines(oo$x, oo$y, lwd = 1.5, col = j)
+            lines(oo$x, oo$y, col = j, lwd = if (is.null(dots$lwd)) 1.5 else dots$lwd)
             if (se) {
               lines(oo$x, oo$y + 2 * oo$y.se, lty = 3, col = j)
               lines(oo$x, oo$y - 2 * oo$y.se, lty = 3, col = j)
@@ -301,7 +301,7 @@ plot.partialpro.varpro <- function(x, xvar.names, nvar,
           })
         }
         else {
-          lines(plotO[[1]]$x, plotO[[1]]$y, lwd = 1.5, col = 1)
+          lines(plotO[[1]]$x, plotO[[1]]$y, col = 1, lwd = if (is.null(dots$lwd)) 1.5 else dots$lwd)
           if (se) {
             lines(plotO[[1]]$x, plotO[[1]]$y + 2 * plotO[[1]]$y.se, lty = 3, col = 2)
             lines(plotO[[1]]$x, plotO[[1]]$y - 2 * plotO[[1]]$y.se, lty = 3, col = 2)

@@ -112,6 +112,34 @@ print(importance(o))
 \donttest{
 
 ## ------------------------------------------------------------
+## boston housing: illustrates hot-encoding
+## ------------------------------------------------------------
+
+## load the data
+data(BostonHousing, package = "mlbench")
+
+## convert some of the features to factors
+Boston <- BostonHousing
+Boston$zn <- factor(Boston$zn)
+Boston$chas <- factor(Boston$chas)
+Boston$lstat <- factor(round(0.2 * Boston$lstat))
+Boston$nox <- factor(round(20 * Boston$nox))
+Boston$rm <- factor(round(Boston$rm))
+
+## call unsupervised varpro and print importance
+print(importance(o <- unsupv(Boston)))
+
+## get top variables
+get.topvars(o)
+
+## map importance values back to original features
+print(get.orgvimp(o))
+
+## same as above ... but for all variables
+print(get.orgvimp(o, pretty = FALSE))
+
+
+## ------------------------------------------------------------
 ## latent variable simulation
 ## ------------------------------------------------------------
 

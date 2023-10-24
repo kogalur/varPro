@@ -16,6 +16,10 @@ unsupv.varpro <- function(data,
   method <- match.arg(method, c("auto", "unsupv", "rnd"))
   ## data must be a data frame
   data <- data.frame(data)
+  ## droplevels
+  data <- droplevels(data)
+  ## initialize the seed
+  seed <- get.seed(seed)
   ##--------------------------------------------------------------
   ##
   ## define the entropy function (or obtain user specified one)
@@ -82,10 +86,12 @@ unsupv.varpro <- function(data,
   ##
   ##------------------------------------------------------------------
   ## remove any column with less than two unique values
-  void.var <- sapply(data, function(x){length(unique(x, na.rm = TRUE)) < 2})
-  if (sum(void.var) > 0) {
-    data[, which(void.var)] <- NULL
-  }
+  #void.var <- sapply(data, function(x){length(unique(x, na.rm = TRUE)) < 2})
+  #if (sum(void.var) > 0) {
+  #  data[, which(void.var)] <- NULL
+  #}
+  ## save the original names
+  xvar.org.names <- colnames(data)
   ## hot encode the data
   data <- get.hotencode(data, papply)
   ## assign the xvar names
@@ -240,9 +246,10 @@ unsupv.varpro <- function(data,
   rO$rf <- o
   rO$results <- results
   rO$x <- data
+  rO$xvar.names <- xvar.names
+  rO$xvar.org.names <- xvar.org.names
   rO$y <- NULL
   rO$y.org <- NULL
-  rO$xvar.names <- xvar.names
   rO$xvar.wt <- rep(1, length(xvar.names))
   rO$max.rules.tree <- max.rules.tree
   rO$max.tree <- max.tree
