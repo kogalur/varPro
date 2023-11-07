@@ -16,7 +16,8 @@
   
   \item{x}{partialpro object obtained from previous call to \code{partialpro}.}
 
-  \item{xvar.names}{Names of the x-variables to be plotted (uses all by default).}
+  \item{xvar.names}{Names of the x-variables to be plotted (uses all by
+    default). Can also be integer values.}
 
   \item{nvar}{Number of variables to be plotted. Default is all.}
   

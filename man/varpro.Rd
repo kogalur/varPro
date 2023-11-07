@@ -308,15 +308,16 @@ print(importance(varpro(Surv(Time, Censoring)~., vdv, sparse = FALSE)))
 
 ## ------------------------------------------------------------
 ## largish data (iowa housing data)
-## to speed up calculations: use fewer trees and bigger nodesize
+## to speed up calculations convert data to all real
 ## ------------------------------------------------------------
 
 ## first we roughly impute the data
 data(housing, package = "randomForestSRC")
-housing2 <- randomForestSRC:::get.na.roughfix(housing)
+dta <- randomForestSRC:::get.na.roughfix(housing)
+dta <- data.frame(data.matrix(dta))
 
 ## varpro call
-o <- varpro(SalePrice~., housing2, ntree = 100, nodesize = 50)
+o <- varpro(SalePrice~., dta)
 print(importance(o))
 
 ## ------------------------------------------------------------

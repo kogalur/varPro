@@ -58,9 +58,12 @@ varpro <- function(f, data, nvar = 30,
   if (!(family == "regr" || family == "class" || family == "surv")) {
     stop("this function only works for regression, classification and survival")
   }
-  ## y label not allowed for x features
-  if (sum(colnames(x) == "y") > 0) {
-    stop("cannot use 'y' as an x variable name")
+  ## check if "y" is used as a name for one of the x features
+  if (any(colnames(x) == "y")) {
+    yfkname <- "y123XYZ9999abc"
+  }
+  else {
+    yfkname <- "y"
   }
   ## convert factors using hot-encoding
   x <- get.hotencode(x, papply)
@@ -73,7 +76,7 @@ varpro <- function(f, data, nvar = 30,
   ##
   ## ------------------------------------------------------------------------
   data <- data.frame(y, x)
-  colnames(data)[1:length(yvar.names)] <- yvar.names
+  colnames(data) <- c(yvar.names, xvar.names)
   ## ------------------------------------------------------------------------
   ##
   ##
@@ -172,13 +175,13 @@ varpro <- function(f, data, nvar = 30,
       ## we now have regression
       if (!is.matrix(y)) {
         family <- "regr"
-        yvar.names <- "y"
-        f <- as.formula(y ~ .)
+        yvar.names <- yfkname
+        f <- as.formula(paste0(yfkname, "~."))
       }
       ## rmst is a vector --> we now have multivariate regression
       if (is.matrix(y)) {
         family <- "regr+"
-        colnames(y) <- yvar.names <- paste0("y.", 1:ncol(y))
+        colnames(y) <- yvar.names <- paste0(yfkname, ".", 1:ncol(y))
         f <- randomForestSRC::get.mv.formula(yvar.names)
       }
     if (verbose) {
@@ -221,12 +224,12 @@ varpro <- function(f, data, nvar = 30,
   ## ------------------------------------------------------------------------
   ##
   ##
-  ## final assembly of the data
+  ## final assembly of the data (does not apply to coxnet)
   ##
   ##
   ## ------------------------------------------------------------------------
   data <- data.frame(y, x)
-  colnames(data)[1:length(yvar.names)] <- yvar.names
+  colnames(data) <- c(yvar.names, xvar.names)
   ## ------------------------------------------------------------------------
   ##
   ##
@@ -305,7 +308,7 @@ varpro <- function(f, data, nvar = 30,
           }
         }
       }
-      ## survival: external rsf estimation was over-ridden we now apply coxnet
+      ## survival: external rsf estimation was over-ridden ---> now we apply coxnet
       else if (family == "surv") {
         o.glmnet <- tryCatch(
                {suppressWarnings(cv.glmnet(scale(data.matrix(x)), y,
@@ -315,10 +318,11 @@ varpro <- function(f, data, nvar = 30,
           xvar.wt[names(beta)] <-  abs(beta)
           ## map y to external continuous estimator and treat the problem as regression
           family <- "regr"
-          yvar.names <- "y"
-          f <- as.formula(y ~ .)
+          yvar.names <- yfkname
+          f <- as.formula(paste0(yfkname, "~."))
           y <- c(scale(data.matrix(x)) %*% beta)
-          data <- data.frame(y = y, x)
+          data <- data.frame(y, x)
+          colnames(data) <- c(yvar.names, xvar.names)
         }
         else {
           stop("survival family external estimation cannot be implemented due to 'coxnet' failing")
@@ -359,7 +363,7 @@ varpro <- function(f, data, nvar = 30,
       if (sum(xvar.wt != 0) > 0) {
         ## regression
         if (family == "regr") {
-          vmp <- rfsrc(y~., data.frame(y = y, x[, xvar.names, drop = FALSE]),
+          vmp <- rfsrc(f, data[, c(yvar.names, xvar.names)],
                        ntree = ntree,
                        nodesize = nodesize.reduce,
                        importance = "permute",
@@ -367,7 +371,7 @@ varpro <- function(f, data, nvar = 30,
         }
         ## mv-regression
         else if (family == "regr+") {
-          vmp <- rowMeans(randomForestSRC::get.mv.vimp(rfsrc(f, data.frame(y, x[, xvar.names, drop = FALSE]),
+          vmp <- rowMeans(randomForestSRC::get.mv.vimp(rfsrc(f, data[, c(yvar.names, xvar.names)],
                 ntree = ntree,
                 nodesize = nodesize.reduce,
                 importance = "permute",
@@ -376,7 +380,7 @@ varpro <- function(f, data, nvar = 30,
         ## classification
         ## for class imbalanced scenarios switch to rfq/gmean
         else {
-          vmp <- rfsrc(y~., data.frame(y = y , x[, xvar.names, drop = FALSE]),
+          vmp <- rfsrc(f, data[, c(yvar.names, xvar.names)],
                        rfq = if (imbalanced.flag) TRUE else NULL,
                        perf.type = if (imbalanced.flag) "gmean" else NULL,
                        splitrule = if (imbalanced.flag) "auc" else NULL,
@@ -486,8 +490,7 @@ varpro <- function(f, data, nvar = 30,
       print(data.frame(xvar = xvar.names, weights = xvar.wt))
     }
     ## update the data
-    data <- data.frame(y = y, x[, xvar.names, drop = FALSE])
-    colnames(data)[1:length(yvar.names)] <- yvar.names
+    data <- data[, c(yvar.names, xvar.names)]
     p <- length(xvar.names)
   }
   ## ------------------------------------------------------------------------

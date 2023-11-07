@@ -7,7 +7,9 @@ importFrom("BART", "wbart")
 
 importFrom("glmnet", "glmnet", "cv.glmnet")
 
-importFrom("graphics", "barplot", "boxplot", "bxp", "lines", "rug", "axis", "legend", "arrows")
+importFrom("graphics", "barplot", "boxplot", "bxp", "lines", "rug", "axis", "legend", "arrows", "mtext")
+
+importFrom("grDevices", "hcl.colors")
 
 importFrom("parallel", "mclapply", "detectCores")
 
@@ -19,11 +21,17 @@ importFrom("stats", "as.formula", "coef", "median", "qnorm",
            "na.omit", "sd", "model.matrix", "prcomp",
            "loess", "loess.control", "lowess",
            "lm", "supsmu", "predict.lm",
-           "rnorm", "ecdf", "qt")
+           "rnorm", "ecdf", "qt", "glm")
 
 importFrom("utils", "combn", "capture.output")
 
-export(cv.matrix.performance,
+importFrom("umap", "umap")
+
+export(
+
+        
+  
+       cv.matrix.performance,
        cv.matrix,
        cv.varpro,
        cv.unsupv,
@@ -43,6 +51,9 @@ export(cv.matrix.performance,
        predict.varpro,
        partialpro,
        partialpro.varpro,
+
+        
+
        plot.partialpro,
        plot.partialpro.varpro,
        gbm.learner,
@@ -54,6 +65,7 @@ export(cv.matrix.performance,
        varpro.news,
        varpro.strength)
 
+ 
 
 S3method(plot, partialpro)
 S3method(plot, partialpro.varpro)

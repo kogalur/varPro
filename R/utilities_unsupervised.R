@@ -6,14 +6,26 @@
 ##
 ####################################################################
 entropy.ssq <- function(xC, xO) {
-  mean(abs(apply(xC, 2, sd, na.rm = TRUE) - apply(xO, 2, sd, na.rm = TRUE)))
-}
-entropy.ssq <- function(xC, xO) {
   wss <- mean(apply(rbind(xO, xC), 2, sd, na.rm = TRUE))
   bss <- mean(apply(xC, 2, sd, na.rm = TRUE)) + mean(apply(xO, 2, sd, na.rm = TRUE))
   0.5 * bss / wss
 }
 entropy.default <- function(xC, xO, alpha = .025, beta = FALSE, ...) {
+  imp <- entropy.ssq(xC, xO)
+  dots <- list(...)
+  list(imp = imp, membership = list(comp = dots$compMembership, oob = dots$oobMembership))
+}
+get.entropy.default <- function(entropy.values, xvar.names, ...) {
+  entropy.values
+}
+####################################################################
+##
+##
+## example of a custom entropy functions
+##
+##
+####################################################################
+entropy.custom <- function(xC, xO, alpha = .025, beta = FALSE, ...) {
   imp <- entropy.ssq(xC, xO)
   x <- data.matrix(rbind(xO, xC))
   o <- tryCatch({suppressWarnings(pcsel(x[, 1], x[, -1, drop = FALSE],
@@ -21,7 +33,7 @@ entropy.default <- function(xC, xO, alpha = .025, beta = FALSE, ...) {
   list(imp = imp,
        pcselreturn = if (!is.null(o)) switch(1+(beta), o$partial, o$beta) else NULL)
 }
-get.entropy.default <- function(entropy.imp, xvar.names, nlegit = 25, ...) {
+get.entropy.custom <- function(entropy.imp, xvar.names, nlegit = 25, ...) {
   do.call(rbind, lapply(entropy.imp, function(oo) {
     pv <- unlist(oo)
     if (length(pv) > 0) {
@@ -40,124 +52,104 @@ get.entropy.default <- function(entropy.imp, xvar.names, nlegit = 25, ...) {
 ####################################################################
 ##
 ##
-## example of a custom entropy functions (to be deprecated)
+## classification analysis for rule region versus complementary region
 ##
 ##
 ####################################################################
-entropy.custom <- function(xC, xO, alpha = .025, ...) {
-  imp <- entropy.ssq(xC, xO)
-  x <- data.matrix(rbind(xO, xC))
-  o <- tryCatch({suppressWarnings(pcsel(x[, 1], x[, -1, drop = FALSE],
-                          alpha = alpha))}, error = function(ex){NULL})
-  list(imp = imp, select = if (!is.null(o)) o$vars else NULL)
-}
-get.entropy.custom <- function(o, sort = FALSE, ...) {
-  entropy.values <- o$entropy
-  xvar.names <- o$xvar.names
-  entropy.values <- do.call(rbind, lapply(entropy.values, function(oo) {
-      sv <- unlist(oo)
-      if (length(sv) > 0) {
-        frq <- rep(0, length(xvar.names))
-        names(frq) <- xvar.names
-        frq[sort(unique(sv))] <- tapply(sv, sv, length)
-        frq
+get.beta.entropy <- function(o,
+                             papply=mclapply,
+                             lasso=TRUE,
+                             nfolds=10,
+                             maxit=2500,
+                             thresh=1e-3,
+                             glm.thresh=10) {
+  ## input value must be an unusupervised varpro object
+  if (!inherits(o, "unsupv", TRUE)) {
+    stop("this wrapper only applies to unsupervised varpro")
+  }
+  ## get topvars, filter x
+  vmp <- get.vimp(o, pretty=FALSE)
+  vmp <- vmp[vmp>0]
+  if (length(vmp)==0) {
+    return(NULL)
+  }
+  xvars <- names(vmp)
+  x <- o$x[, xvars, drop=FALSE]
+  ## parse the membership values to obtain beta for each variable
+  beta <- lapply(xvars, function(releaseX) {
+    if (sum(xvars != releaseX) > 0) {
+      keepX <- xvars[xvars != releaseX]
+      bO <- do.call(rbind, papply(o$entropy[[releaseX]], function(rule) {
+        get.beta.workhorse(releaseX, rule, x,
+          lasso=lasso, nfolds=nfolds, maxit=maxit, thresh=thresh, glm.thresh=glm.thresh)
+      }))
+      if (!is.null(bO)) {
+        colMeans(bO, na.rm = TRUE)
       }
       else {
-        NULL
+        bO
       }
-  }))
-  if (sort) {
-    entropy.values[order(rowSums(entropy.values),decreasing=T), order(colSums(entropy.values),decreasing=T)]
-  }
-  else {
-    entropy.values
-  }
-}
-####################################################################
-##
-##
-## entropy functions ... work in progress
-##
-##
-####################################################################
-entropy.lm <- function(xC, xO, alpha = .05, tol = 1e-6, ...) {
-  imp <- entropy.ssq(xC, xO)
-  x <- data.matrix(rbind(xO, xC))
-  cluster <- c(rep(0, nrow(xO)), rep(1, nrow(xC))) 
-  xi <- scale(data.frame(cbind(x, cluster * x[, -1])))
-  colnames(xi) <- c(colnames(x), paste0(colnames(x)[-1], ".interaction"))
-  xi <- xi[, attr(xi,"scaled:scale") !=0, drop = FALSE]
-  if (ncol(xi) == 0) {
-    return(list(imp = imp, z = NULL))
-  }
-  o <- tryCatch({suppressWarnings(lm(paste(colnames(x)[1], "~."), data.frame(cluster=cluster, xi)))}, 
-               error=function(ex){NULL})
-  z <- rep(NA, ncol(xi))
-  names(z) <- colnames(xi)
-  if (!is.null(o) && summary(o)$r.sq < (1-tol)) {
-    beta <- suppressWarnings(summary(o)$coef[, 3])
-    beta <- beta[intersect(names(beta), colnames(xi))]
-    if (length(beta) > 0) {
-      z[names(beta)] <- abs(beta)
-      z[z==0] <- NA
-    }
-  }
-  z <- z[grepl(".interaction", names(z))]
-  names(z) <- gsub(".interaction", "", names(z))
-  zcut <- qnorm(alpha/2, lower.tail=F)
-  list(imp = imp, z = if (length(z) > 0) z * (z > zcut) else NULL)
-}
-entropy.lasso <- function(xC, xO, K = 10, probs = .95, ...) {
-  imp <- entropy.ssq(xC, xO)
-  x <- data.matrix(rbind(xO, xC)[, colnames(xO)[-1], drop = FALSE])
-  cluster <- c(rep(0, nrow(xO)), rep(1, nrow(xC))) 
-  xi <- scale(cbind(cluster, x, cluster * x), center = FALSE)
-  colnames(xi) <- c("cluster", colnames(x), paste0(colnames(x), ".interaction"))
-  xi <- xi[, attr(xi,"scaled:scale") !=0, drop = FALSE]
-  if (ncol(xi) == 0) {
-    return(list(imp = imp, z = NULL))
-  }
-  if (K > 2) {
-    o <- tryCatch({suppressWarnings(cv.glmnet(xi, rbind(xO, xC)[, colnames(xO)[1]],
-                         nfolds=K, parallel=FALSE))}, error=function(ex){NULL})
-  }
-  else {
-    o <- tryCatch({suppressWarnings(glmnet(xi, rbind(xO, xC)[, colnames(xO)[1]]))},
-                   error=function(ex){NULL})
-  }
-  z <- rep(0, ncol(xi) - 1)
-  names(z) <- colnames(xi)[-1]
-  if (!is.null(o)) {
-    beta <- coef(o, s = if (K>2) o$lambda.1se else quantile(o$lambda, probs = probs))
-    beta <- beta[intersect(rownames(beta), colnames(xi)[-1]),, drop = FALSE]
-    if (nrow(beta) > 0) {
-      z[rownames(beta)] <- abs(as.numeric(beta))
-    }
-  }
-  z <- z[grepl(".interaction", names(z))]
-  names(z) <- gsub(".interaction", "", names(z))
-  list(imp = imp, z = if (length(z) > 0) z else NULL)
-}
-get.entropy.function <- function(o, nlegit = 25, ...) {
-  entropy.values <- o$entropy
-  xvar.names <- o$xvar.names
-  do.call(rbind, lapply(entropy.values, function(oo) {
-    z <- unlist(oo)
-    if (length(z) > 0) {
-      mn <- rep(0, length(xvar.names))
-      names(mn) <- xvar.names
-      if (length(na.omit(as.numeric(z))) >= nlegit) {
-        mn[sort(unique(names(z)))] <- tapply(as.numeric(z), names(z), mean, na.rm = TRUE)
-      }
-      mn
     }
     else {
       NULL
     }
-  }))
+  })
+  names(beta) <- xvars
+  do.call(rbind, beta)
+}      
+get.beta.workhorse <- function(releaseX,
+                               rule,
+                               xorg,
+                               parallel=FALSE,
+                               lasso=TRUE,
+                               nfolds=10,
+                               maxit=2500,
+                               thresh=1e-3,
+                               glm.thresh=10) {
+  ## build the x data
+  xC <- xorg[rule[[1]],]
+  xO <- xorg[rule[[2]],]
+  x <- rbind(xC, xO)
+  nC <- nrow(xC)
+  nO <- nrow(xO)
+  x <- x[, colnames(x)!=releaseX]
+  x <- scale(x, center=FALSE)
+  ## define the classifier outcome
+  class <- factor(c(rep(0, nC), rep(1, nO)))
+  ##
+  xnms <- colnames(xorg)
+  p <- length(xnms)
+  ## failure returns NULL
+  beta <- NULL
+  ## glmnet - maybe slower but reliable
+  if (lasso) {
+    o.glmnet <- tryCatch(
+                  {suppressWarnings(cv.glmnet(as.matrix(x), class, family="binomial",
+                         nfolds=nfolds, parallel=parallel, maxit=maxit, thresh=thresh))},
+                         error=function(ex){NULL})
+    if (!is.null(o.glmnet)) {
+      bhat <- abs(coef(o.glmnet)[-1,1])
+      beta <- rep(0, p)
+      names(beta) <- xnms
+      beta[names(bhat)] <- bhat
+    }
+  }
+  ## glm - could be faster but very unreliable
+  else {
+    o.glm <- tryCatch(
+              {suppressWarnings(glm(class~., data.frame(class=class, x), family="binomial"))},
+      error=function(ex){NULL})
+    if (!is.null(o.glm)) {
+      if (max(abs(summary(o.glm)$coef[-1,1]), na.rm=TRUE) < glm.thresh) {
+        bhat <- abs(summary(o.glm)$coef[-1,3])
+        beta <- rep(NA, p)
+        names(beta) <- xnms
+        beta[names(bhat)] <- bhat
+      }
+    }
+  }
+  beta
 }
-get.entropy.lm <- get.entropy.function
-get.entropy.lasso <- get.entropy.function
 ####################################################################
 ##
 ##

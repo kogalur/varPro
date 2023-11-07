@@ -102,8 +102,9 @@ partialpro.varpro <- function(object,
   ntree <- hidden$ntree
   nodesize <- hidden$nodesize
   mse.tolerance <- hidden$mse.tolerance
-  ## set formula
-  f <- "y~1+x"
+  ## set formula (do not use "y" for the yvar name)
+  yfkname <- "y123XYZ9999abc"
+  f <- paste0(yfkname, "~1+x")
   if (df > 1) {
     f <- paste0(f, paste(sapply(2:df, function(k) {paste0("+I(x^", k, ")")}), collapse = ""))
   }
@@ -204,20 +205,22 @@ partialpro.varpro <- function(object,
           ##----------------------------------
           if (cut.flag && sum(train[goodvt]) > (nmin / 2)) {
             o.lm.cut <- tryCatch({suppressWarnings(lm(f,
-                        data.frame(y = yi[train[goodvt]], x = xi[train[goodvt]])))}, error = function(ex) {NULL})
+               setNames(data.frame(yi[train[goodvt]], xi[train[goodvt]]), c(yfkname, "x"))))},
+                      error = function(ex) {NULL})
             o.lm.nocut <- tryCatch({suppressWarnings(lm(f,
-                        data.frame(y = yalli[train], x = xvirtual[train])))}, error = function(ex) {NULL})
+               setNames(data.frame(yalli[train], xvirtual[train]), c(yfkname, "x"))))},
+                      error = function(ex) {NULL})
             ## switch to no cut based on out-of-sample mse performance
             if (!is.null(o.lm.cut) && !is.null(o.lm.nocut)) {
               ytest.cut <- predict.lm(o.lm.cut, data.frame(x = xvirtual[!train]))
               ytest.nocut <- predict.lm(o.lm.nocut, data.frame(x = xvirtual[!train]))
               ytest <- yalli[!train]
               if (mymse(ytest, ytest.nocut) < (mymse(ytest, ytest.cut) - mse.tolerance)) {
-                o.lm <- lm(f, data.frame(y = yalli, x = xvirtual))
+                o.lm <- lm(f, setNames(data.frame(yalli, xvirtual), c(yfkname, "x")))
                 yhat.nonpar <- o.lm$fitted
               }
               else {
-                o.lm <- lm(f, data.frame(y = yi, x = xi))
+                o.lm <- lm(f, setNames(data.frame(yi, xi), c(yfkname, "x")))
                 yhat.nonpar <- predict.lm(o.lm, data.frame(x = xvirtual))
               }
             }
@@ -227,7 +230,8 @@ partialpro.varpro <- function(object,
           }
           ## cut.flag is off or not enough data for out-of-sample performace
           else {
-            o.lm <- tryCatch({suppressWarnings(lm(f, data.frame(y = yi, x = xi)))}, error = function(ex) {NULL})
+            o.lm <- tryCatch({suppressWarnings(lm(f, setNames(data.frame(yi, xi), c(yfkname, "x"))))},
+                  error = function(ex) {NULL})
             if (!is.null(o.lm)) {
               yhat.nonpar <- predict.lm(o.lm, data.frame(x = xvirtual)) 
             }

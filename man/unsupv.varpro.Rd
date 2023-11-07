@@ -24,10 +24,8 @@ unsupv.varpro(data,
 
   \item{data}{Data frame containing the usupervised data.}
 
-  \item{method}{Type of forest used.  Choices are "auto" (the default
-   method called auto-encoder, a type of multivariate forest), "unsupv"
-   (unsupervised analysis, the default), and "rnd" (pure random
-   forests).}
+  \item{method}{Type of forest used.  Choices are "auto" (auto-encoder),
+   "unsupv" (unsupervised analysis), and "rnd" (pure random forests).}
  
   \item{ntree}{Number of trees to grow.}
 

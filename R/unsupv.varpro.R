@@ -199,7 +199,7 @@ unsupv.varpro <- function(data,
     ## extract importance
     imp <- unlist(lapply(impO, "[[", 1))
     results$imp[keep.rules] <- imp
-    ## extract entropy values
+    ## extract entropy values -- this allows for customization via the second slot
     entropy.values <- lapply(impO, "[[", 2)
     if (length(!sapply(entropy.values, is.null)) == 0) {
       entropy.values <- NULL
@@ -214,6 +214,7 @@ unsupv.varpro <- function(data,
       names(entropy.values) <- xvar.names[xreleaseIdUnq]
     }
   }
+  ## no viable rules
   else {
     entropy.values <- NULL
   }

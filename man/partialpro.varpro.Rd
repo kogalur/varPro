@@ -221,7 +221,7 @@ plot((oo.iris.3 <- partialpro(o.iris, target=3, nvar=2)),ylab=yl[3])
 ## quickly impute the data; log transform the outcome
 data(housing, package = "randomForestSRC")
 housing <- impute(SalePrice~., housing, splitrule="random", nimpute=1)
-dta <- housing
+dta <- data.frame(data.matrix(housing))
 dta$y <- log(housing$SalePrice)
 dta$SalePrice <- NULL
 
