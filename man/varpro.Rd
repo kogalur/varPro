@@ -8,8 +8,8 @@ for Regression, Classification and Survival.
 }
 
 \usage{
-varpro(f, data, nvar = 30,
-       ntree = 500, split.weight = TRUE, sparse = TRUE,
+varpro(f, data, nvar = 30, ntree = 500,
+       split.weight = TRUE, split.weight.method = NULL, sparse = TRUE,
        nodesize = NULL, max.rules.tree = 150, max.tree = min(150, ntree),
        parallel = TRUE, cores = get.number.cores(),
        papply = mclapply, verbose = FALSE, seed = NULL, ...)
@@ -25,11 +25,16 @@ varpro(f, data, nvar = 30,
 
   \item{ntree}{Number of trees to grow.}
   
-  \item{split.weight}{Use guided feature selection?  Features are
-  selected with probability according to split weight values, the latter
-  being acquired in a preliminary lasso+tree step.}
+  \item{split.weight}{Use guided tree-splitting?  Features selected to
+  split a tree node are selected with probability according to a
+  split-weight value, the latter by default being acquired in a
+  preliminary lasso+tree step.}
 
-  \item{sparse}{Use sparse guided feature selection?}
+  \item{split.weight.method}{Optional character string (or vector)
+  specifying the method used to generate the split-weights.  If not
+  specified, defaults to a lasso+tree step.  See details below.}
+
+  \item{sparse}{Use sparse split-weights?}
 
   \item{nodesize}{Nodesize of trees. If not specified, value is set
   using an internal function optimized for sample size and dimension.}
@@ -75,26 +80,41 @@ varpro(f, data, nvar = 30,
   variable. Similar to VIMP and knockoffs, VarPro allows the conditional
   distribution of the response variable to be arbitrary and unknown.
 
-  The VarPro algorithm is described as follows.  A collection
-  of \code{ntree} trees are grown with guided feature selection where
-  variables are selected according to a split-weight obtained in a
-  pre-processing step using lasso+trees.  A random subset of
-  \code{max.tree} trees are selected from the \code{ntree} trees and a
-  random subset of branches, \code{max.rules.tree}, are chosen from each
-  tree.  These rules are used for forming the VarPro estimator of
-  importance.  Applies to regression, multiclass and survival data.
-  
-  Guided feature selection supervises the rules harvested from the trees
-  to favor potentially strong features.  Therefore option
+  The VarPro algorithm is described as follows.  A collection of
+  \code{ntree} trees are grown with guided tree-splitting where
+  variables selected to split a node are chosen with probability
+  according to a split-weight obtained in a pre-processing step.  A
+  random subset of \code{max.tree} trees are selected from the
+  \code{ntree} trees and a random subset of branches,
+  \code{max.rules.tree}, are chosen from each tree.  These rules are
+  used for forming the VarPro estimator of importance.  Applies to
+  regression, multiclass and survival data.
+
+  Guided tree-splitting encourages the rules harvested from a tree to
+  favor potentially strong features.  Therefore option
   \code{split.weight} should generally be left on (this is especially
   true for high-dimensional problems).  If the option is turned off,
   consider increasing \code{nodesize} to improve precision of the
   estimators.
 
-  In order to use lasso for guided feature selection, factors are
-  converted using one-hot-encoding.  Therefore all variables are
-  converted to real values.
+  By default, split-weights are obtained by using a combination of lasso
+  and trees.  The split-weight of a variable is defined as the
+  absolute value of the standardized beta coefficient from fitting a
+  lasso combined with the split frequency of the variable from a forest
+  of shallow trees.  If the sample size is moderate and dimension is
+  moderate then this latter step is replaced with the absolute value of
+  the permutation importance of the variable.  Note that in order to use
+  lasso for guided feature selection, factors are converted using
+  one-hot-encoding.  Therefore all variables are converted to real
+  values.
 
+  For greater customization of how split-weights are determined, use
+  option \command{split.weight.method} which is set by choosing any
+  values from the strings "lasso", "tree", "vimp".  Thus "lasso" uses
+  lasso only for determining the split-weight, whereas "lasso tree" or
+  "lasso vimp" uses lasso in combination with shallow trees or lasso in
+  combination with permutation importance.  See the examples below.
+  
   Selection of variables is based on a preset cutoff value set using the
   \code{importance} function.  There is a cross-validation (CV) method
   to automate this.  See \command{cv.varpro}.
@@ -215,8 +235,7 @@ o <- varpro(y~., data.frame(mlbench::mlbench.friedman1(1000)))
 print(importance(o))
 
 ## ------------------------------------------------------------
-## example without guided feature selection
-## (i.e. split.weight=FALSE and rules are not supervised)
+## example without guided tree-splitting
 ## ------------------------------------------------------------
 
 o <- varpro(y~., data.frame(mlbench::mlbench.friedman2(1000)),
@@ -270,7 +289,7 @@ o <- varpro(Surv(days, status)~., pbc)
 print(importance(o))
 
 ## ------------------------------------------------------------
-## pbc survival with rmst (restrcited mean survival time)
+## pbc survival with rmst (restricted mean survival time)
 ## functional of interest is RMST at 500 days
 ## ------------------------------------------------------------
 data(pbc, package = "randomForestSRC")
@@ -304,7 +323,23 @@ print(importance(o))
 ## high dimensional survival example without sparse option
 ## ------------------------------------------------------------
 data(vdv, package = "randomForestSRC")
-print(importance(varpro(Surv(Time, Censoring)~., vdv, sparse = FALSE)))
+o <- varpro(Surv(Time, Censoring)~., vdv, sparse = FALSE)
+print(importance(o))
+
+## ----------------------------------------------------------------------
+## high dimensional survival example using different split-weight methods
+## ----------------------------------------------------------------------
+data(vdv, package = "randomForestSRC")
+f <- as.formula(Surv(Time, Censoring)~.)
+
+## lasso only
+print(importance(varpro(f, vdv, split.weight.method = "lasso")))
+
+## lasso and vimp
+print(importance(varpro(f, vdv, split.weight.method = "lasso vimp")))
+
+## lasso, vimp and shallow trees
+print(importance(varpro(f, vdv, split.weight.method = "lasso vimp tree")))
 
 ## ------------------------------------------------------------
 ## largish data (iowa housing data)
@@ -337,19 +372,10 @@ print(system.time(o <- varpro(y~., d, ntree = 100, nodesize = 200,
            sampsize = 100)))
 print(importance(o))
 
-## use large nodesize, turn lasso off
-print(system.time(o <- varpro(y~., d, ntree = 100, nodesize = 200,
-           use.lasso = FALSE)))
-print(importance(o))
-
-## use large nodesize, reduce lasso iterations
-print(system.time(o <- varpro(y~., d, ntree = 100, nodesize = 200,
-           maxit = 100)))
-print(importance(o))
 
 
 ## ------------------------------------------------------------
-## custom split weights (hidden option)
+## custom split-weights (hidden option)
 ## ------------------------------------------------------------
 
 ## load the data
@@ -363,7 +389,7 @@ Boston$lstat <- factor(round(0.2 * Boston$lstat))
 Boston$nox <- factor(round(20 * Boston$nox))
 Boston$rm <- factor(round(Boston$rm))
 
-## get default custom split weights - a named real vector
+## get default custom split-weights: a named real vector
 swt <- varPro:::get.splitweight.custom(medv~.,Boston)
 
 ## define custom splits weight
@@ -381,7 +407,7 @@ swt <- c(swt, strange=99999)
 cat("custom split-weight\n")
 print(swt)
   
-## call varpro with the custom split weights
+## call varpro with the custom split-weights
 o <- varpro(medv~.,Boston,split.weight.custom=swt,verbose=T,sparse=F)
 cat("varpro result\n")
 print(importance(o))

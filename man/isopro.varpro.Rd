@@ -49,39 +49,38 @@ isopro.varpro(object,
   detecting anomalous data.  In the original method, random trees are
   constructed using pure random splitting with each tree constructed
   from a subsample of the data.  Typically the subsample size is much
-  smaller than 0.632, the rate used with random forests.  The key idea
+  smaller than 0.632, the rate used with random forests.  The idea
   is that under random splitting, and because of extreme subsampling,
   rare or anomalous data will tend to split early and become isolated
   very quickly.  Because of this, the depth of an observation, defined
   as the number of splits needed to be become a terminal node, can be
-  used to find anomalous observations:  anomalous values are
-  those having relatively small depth values.
+  used to find anomalous observations:  anomalous data points are
+  those with relatively small depth values.
 
-  There are several ways to run the function.  The default is to provide
-  a formula and a data set via options \code{formula} and \code{data}.
-  In the case of unsupervised analysis (which is the usual application
-  of isolation forest), the user only needs to pass in a data set using
+  There are several ways to run the code.  The default is to provide a
+  formula and a data set via options \code{formula} and \code{data}.  In
+  the case of unsupervised analysis (which is the usual application of
+  isolation forest), the user only needs to pass in a data set using
   \code{data}.  In this setting, the option \code{method} is applicable
   (see above).  In the case where both a formula and data set is
   provided, then a supervised analysis is run.  The option \code{method}
-  is no longer applicable in this case.  This is a less conventional way
-  to proceed.
+  is no longer applicable in this case.  This is the less conventional
+  approach.
 
-  Another way (also unconventional) is to pass a VarPro object obtained
-  from a previous call (typically this being an unsupervised analysis
-  using \code{unsupv}, but this is not the only choice).  Then
-  unsupervised isolation forests is applied to the dimension reduced x
-  matrix from the VarPro call.  Thus, this results in an analysis
-  similar to using only the option \code{data}.  However, the difference
-  and advantage with this approach is that dimension reduction is being
-  achieved via VarPro.
+  Another approach (also unconventional) is to pass a VarPro object
+  obtained from a previous call (typically this being an unsupervised
+  analysis using \code{unsupv}, but this is not the only choice).
+  Unsupervised isolation forests is then applied to the dimension
+  reduced x matrix from the VarPro call.  Therefore this results in an
+  analysis similar to using only the option \code{data}, however the
+  difference and advantage is that dimension reduction is achieved via
+  VarPro.
 
   Users should experiment with the type of isolation forest method used.
-  This is because while isolation forest has general good performance,
-  empirical studies have suggested its performance can be improved in
-  certain types of data sets.  See the examples below which illustrate
-  that the pure random splitting "rnd" method may not always be the
-  best.
+  This is because while the original isolation forest performs well,
+  there are many examples where it can be improved upon.  See the
+  examples below which illustrate that the pure random splitting "rnd"
+  method may not always be the best.
 
   Computationally "rnd" is the fastest method followed by "unsupv".  The
   slowest is "auto" which should be used in low-dimensional problems.
@@ -200,7 +199,7 @@ twodimsim <- function(n=1000) {
     y =  1
   )
   x <- data.frame(rbind(cluster1, cluster2, outlier))
-  is.outlier <- c(rep(FALSE, 3 * n), TRUE)
+  is.outlier <- c(rep(FALSE, 2 * n), TRUE)
   list(x=x, is.outlier=is.outlier)
 }
 

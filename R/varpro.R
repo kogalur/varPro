@@ -19,10 +19,9 @@
 ### FROM THE AUTHOR.
 ###
 ############################################################################
-varpro <- function(f, data, nvar = 30,
-                   ntree = 500, split.weight = TRUE, sparse = TRUE,
-                   nodesize = NULL,
-                   max.rules.tree = 150, max.tree = min(150, ntree),
+varpro <- function(f, data, nvar = 30, ntree = 500,
+                   split.weight = TRUE, split.weight.method = NULL, sparse = TRUE,
+                   nodesize = NULL, max.rules.tree = 150, max.tree = min(150, ntree),
                    parallel = TRUE, cores = get.number.cores(),
                    papply = mclapply, verbose = FALSE, seed = NULL,
                    ...)
@@ -99,7 +98,6 @@ varpro <- function(f, data, nvar = 30,
   maxit <- hidden$maxit
   split.weight.only <- hidden$split.weight.only
   split.weight.tolerance <- hidden$split.weight.tolerance
-  use.lasso <- hidden$use.lasso
   nfolds <- hidden$nfolds
   ## set dimensions
   n <- nrow(x)
@@ -120,8 +118,6 @@ varpro <- function(f, data, nvar = 30,
       nodesize.external <- set.nodesize(dots$sampsize, p, dots$nodesize.external)
     }
   }
-  ## set use.vimp: optimized for n and p
-  use.vimp <- set.use.vimp(n, p, dots$use.vimp)
   ## user can pass in a custom split weight vector
   split.weight.custom <- FALSE
   if (!is.null(dots$split.weight.custom)) {
@@ -138,7 +134,7 @@ varpro <- function(f, data, nvar = 30,
     }
     xvar.wt <- xvar.wt / max(xvar.wt, na.rm = TRUE)
     if (verbose) {
-      cat("user has provided there own xvar.wt vector, split-weight step will be skipped\n")
+      cat("user has provided there own split-weight, vector, split-weight step will be skipped\n")
     }
     split.weight <- split.weight.only <- FALSE
     split.weight.custom <- TRUE
@@ -233,6 +229,26 @@ varpro <- function(f, data, nvar = 30,
   ## ------------------------------------------------------------------------
   ##
   ##
+  ## determine method used to generate split-weight calculation
+  ## defaults to lasso+tree/vimp but user options can over-ride this
+  ##
+  ##
+  ## ------------------------------------------------------------------------
+  ## custom user setting
+  if ((split.weight || split.weight.only) && !is.null(split.weight.method) && !use.coxnet) {
+    use.lasso <- any(grepl("lasso", split.weight.method))
+    use.tree <- any(grepl("tree", split.weight.method))
+    use.vimp <- any(grepl("vimp", split.weight.method))
+  }
+  ## default setting
+  else {
+    use.lasso <- hidden$use.lasso | use.coxnet
+    use.vimp <- set.use.vimp(n, p, dots$use.vimp)
+    use.tree <- !use.vimp
+  }
+  ## ------------------------------------------------------------------------
+  ##
+  ##
   ## split-weight calculation: used for guiding rule generation
   ##
   ## first try lasso, followed by shallow forest
@@ -258,10 +274,6 @@ varpro <- function(f, data, nvar = 30,
     ## exception made for coxnet
     ##
     ##---------------------------------------------------------
-    ## uncomment if factors not allowed
-    #if (sum(anyF) > 0) {
-    #  use.lasso <- FALSE
-    #}
     if (use.lasso) {
       ## register DoMC and set the number of cores
       parallel <- myDoRegister(cores, parallel)
@@ -351,11 +363,10 @@ varpro <- function(f, data, nvar = 30,
           xvar.wt[pt] <- (xvar.wt[pt] / max(xvar.wt[pt], na.rm = TRUE)) ^ dimension.index(1)
         }
       }
-    }
+    }##end lasso split-weight calculation
     ##---------------------------------------------------------
     ##
-    ## add vimp to lasso split-weight calculation
-    ## REQUIRES lasso to be unsuccessful & not big p not big n
+    ## add vimp to split weight calculation
     ## sampsize is not deployed since this can non-intuitively slow calculations
     ##
     ##---------------------------------------------------------
@@ -409,13 +420,13 @@ varpro <- function(f, data, nvar = 30,
       else {
         use.vimp <- FALSE
       }
-    }
+    }##end vimp split-weight calculation
     ##---------------------------------------------------------
     ##
-    ## otherwise add relative frequency from shallow forest to lasso
+    ## add split relative frequency from shallow forest to split weights
     ##
     ##---------------------------------------------------------
-    if (!use.vimp) {
+    if (use.tree) {
       ## fast filtering based on number of splits
       xvar.used <- rfsrc(f, data,
                          splitrule = if (imbalanced.flag) "auc" else NULL,
@@ -441,7 +452,7 @@ varpro <- function(f, data, nvar = 30,
         pt <- which.max(xvar.used)
         xvar.wt[pt] <- 1
       }
-    }
+    }##end shallow forest split-weight calculation
     ##---------------------------------------------------------
     ##
     ## final steps
@@ -456,9 +467,9 @@ varpro <- function(f, data, nvar = 30,
     if (split.weight.only) {
       ## tolerance: keep weights from becoming too small
       xvar.wt <- tolerance(xvar.wt, split.weight.tolerance)
-      #names(xvar.wt) <- xvar.names
       return(list(
-        xvar.wt = xvar.wt,
+        split.weight = xvar.wt,
+        xvar.org.names = xvar.org.names,
         xvar.names = xvar.names,
         yvar.names = yvar.names,
         x = x,
@@ -553,7 +564,7 @@ varpro <- function(f, data, nvar = 30,
   ## ------------------------------------------------------------------------
   rO <- list(
     rf = object,
-    xvar.wt = if (split.weight || split.weight.custom) xvar.wt else NULL,
+    split.weight = if (split.weight || split.weight.custom) xvar.wt else NULL,
     max.rules.tree = max.rules.tree,
     max.tree = max.tree,
     results = var.strength,

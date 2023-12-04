@@ -1,7 +1,14 @@
-get.splitweight.custom <- function(f, data) {
+get.splitweight.custom <- function(f, data, namedvec = NULL) {
   x <- get.hotencode(get.stump(f, data)$xvar)
   swt <- rep(1, ncol(x))
   names(swt) <- colnames(x)
+  if (!is.null(namedvec) && !is.null(names(namedvec))) {
+    common <- intersect(names(namedvec), names(swt))
+    print(common)
+    if (length(common) > 0) {
+      swt[common] <- namedvec[common]
+    }
+  }
   swt
 }
 get.orgvimp <- function(o, papply = mclapply, pretty = TRUE) {

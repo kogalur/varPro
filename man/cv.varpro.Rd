@@ -6,12 +6,10 @@
 }
 
 \usage{
-cv.varpro(f, data, nvar = 30,
-       ntree = 150,
-       zcut = seq(0.1, 2, length = 50),
-       nblocks = 10,
-       split.weight = TRUE, sparse = TRUE, nodesize = NULL, 
-       max.rules.tree = 150, max.tree = min(150, ntree), 
+cv.varpro(f, data, nvar = 30, ntree = 150,
+       zcut = seq(0.1, 2, length = 50), nblocks = 10,
+       split.weight = TRUE, split.weight.method = NULL, sparse = TRUE,
+       nodesize = NULL, max.rules.tree = 150, max.tree = min(150, ntree), 
        papply = mclapply, verbose = FALSE, seed = NULL,
        fast = FALSE, crps = FALSE, ...)
 }
@@ -29,13 +27,18 @@ cv.varpro(f, data, nvar = 30,
   \item{zcut}{Grid of positive pre-specified cutoff values.}
 
   \item{nblocks}{This is like the number of folds used in M-fold
-  validation.}
-  
-  \item{split.weight}{Use guided feature selection?  Features are
-  selected with probability according to split weight values, the latter
-  being acquired in a preliminary lasso+tree step.}
+    validation.}
 
-  \item{sparse}{Use sparse guided feature selection?}
+  \item{split.weight}{Use guided tree-splitting?  Features selected to
+  split a tree node are selected with probability according to a
+  split-weight value, the latter by default being acquired in a
+  preliminary lasso+tree step.}
+
+  \item{split.weight.method}{Optional character string (or vector)
+  specifying the method used to generate the split-weights.  If not
+  specified, defaults to a lasso+tree step.}
+  
+  \item{sparse}{Use sparse split-weights?}
 
   \item{nodesize}{Nodesize of trees. If not specified, value is set
   using an internal function optimized for sample size and dimension.}

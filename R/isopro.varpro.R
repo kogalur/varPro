@@ -34,8 +34,7 @@ isopro.varpro <- function(object,
   }
   ## obtain family and other details for supervised problems
   if (method == "supv") {
-    o.stump <- rfsrc(formula, data, ntree=1, nodedepth=1,
-                     splitrule="random", nodesize=nrow(data), perf.type="none")
+    o.stump <- get.stump(formula, data)
     family <- o.stump$family
     yvar.names <- o.stump$yvar.names
   }

@@ -1,8 +1,6 @@
-cv.varpro <- function(f, data, nvar = 30,
-                      ntree = 150,
-                      zcut = seq(0.1, 2, length = 50),
-                      nblocks = 10,
-                      split.weight = TRUE, sparse = TRUE,
+cv.varpro <- function(f, data, nvar = 30, ntree = 150,
+                      zcut = seq(0.1, 2, length = 50), nblocks = 10,
+                      split.weight = TRUE, split.weight.method = NULL, sparse = TRUE,
                       nodesize = NULL, max.rules.tree = 150, max.tree = min(150, ntree),
                       papply = mclapply, verbose = FALSE, seed = NULL,
                       fast = FALSE, crps = FALSE,
@@ -98,8 +96,8 @@ cv.varpro <- function(f, data, nvar = 30,
   ## varpro call
   ##
   ##--------------------------------------------------------------
-  o <- do.call("varpro", c(list(f = f, data = data, nvar = nvar,
-                  ntree = ntree, split.weight = split.weight, sparse = sparse,
+  o <- do.call("varpro", c(list(f = f, data = data, nvar = nvar, ntree = ntree,
+                  split.weight = split.weight, split.weight.method = split.weight.method, sparse = sparse,
                   nodesize = nodesize, max.rules.tree = max.rules.tree, max.tree = max.tree,
 		  papply = papply, verbose = verbose, seed = seed), dots))
   ##--------------------------------------------------------------

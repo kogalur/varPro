@@ -151,7 +151,7 @@ unsupv.varpro <- function(data,
   ##
   ##
   ##------------------------------------------------------------------
-  ## switch for varpro strength depends on whether o is a forest or not
+  ## switch for varpro strength depends on whether object is a forest 
   oo <- get.varpro.strength(o, membership = TRUE, max.rules.tree = max.rules.tree, max.tree = max.tree)
   ## identify useful rules and variables at play
   keep.rules <- which(oo$strengthArray$oobCT > 0 & oo$strengthArray$compCT > 0)

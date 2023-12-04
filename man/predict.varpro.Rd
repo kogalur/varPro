@@ -22,9 +22,8 @@
 
   
   The VarPro method uses the rules obtained from a random forest
-  constructed by guided feature selection where variables are selected
-  according to a split-weight obtained in a pre-processing step using
-  lasso+trees.
+  constructed by guided tree-splitting where variables are selected
+  according to a split-weight obtained in a pre-processing step.
 
   This function returns the predicted values for this random forest on
   the provided test data, \code{newdata} (if not provided, predicted

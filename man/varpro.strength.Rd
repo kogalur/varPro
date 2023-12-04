@@ -28,7 +28,7 @@ varpro.strength(object,
 
   \item{max.tree}{Maximum number of trees used for extracting rules.}
 
-  \item{stat}{Determines which statistic is output. Either importabce,
+  \item{stat}{Determines which statistic is output. Either importance,
     complement mean, or oob mean.}
 
   \item{membership}{Return OOB and complementary OOB membership indices
@@ -52,8 +52,6 @@ varpro.strength(object,
 ## regression example: boston housing
 ## ------------------------------------------------------------
 
-if (library("randomForestSRC", logical.return = TRUE)) {
-
 ## load the data
 data(BostonHousing, package = "mlbench")
 
@@ -62,7 +60,6 @@ o <- rfsrc(medv~., BostonHousing, ntree=100)
 ## call varpro.strength
 varpro.strength(object = o, max.rules.tree = 10, max.tree = 15)
 
-}
 }
 }
 \keyword{varpro.strength}
