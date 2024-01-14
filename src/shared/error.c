@@ -8,8 +8,10 @@
     
 
 #include "error.h"
+const char vomit[] = "\nRF-SRC:  The application will now exit.\n";
 void exit2R(void) {
-  error("\nRF-SRC:  The application will now exit.\n");
+  Rprintf("%s", vomit);
+  error(NULL);
 }
 void printR(char *format, ...) {
   char *buffer;
@@ -18,6 +20,6 @@ void printR(char *format, ...) {
   va_start(aptr, format);
   vsnprintf(buffer, sizeof(char) * 1023, format, aptr);
   va_end(aptr);
-  Rprintf(buffer);
+  Rprintf("%s", buffer);
   free((char *) buffer);
 }

@@ -1,9 +1,11 @@
 #ifndef RF_STACK_OUTPUT_H
 #define RF_STACK_OUTPUT_H
+char getStrengthTreeCount(char       mode,
+                          uint       ntree,
+                          uint       maxTree,
+                          uint      *tLeafCount,
+                          uint      *strengthTreeCount);
 void stackStrengthObjectsPtrOnly(char       mode,
-                                 uint       ntree,
-                                 uint       maxTree,
-                                 uint      *tLeafCount,
                                  uint      *strengthTreeCount,
                                  uint     **strengthTreeID,
                                  uint     **branchCount,

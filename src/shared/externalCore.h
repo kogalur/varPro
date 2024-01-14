@@ -245,7 +245,7 @@ extern uint  **RF_BOOT_CT_ptr;
 extern uint   **RF_mwcpCT;
 extern double   *RF_spltST_;
 extern uint     *RF_dpthST_;
-extern ulong     RF_totalTerminalCount;
+extern ulong     RF_totalTermCount;
 extern uint     *RF_restoreTreeID;
 extern ulong     RF_totalNodeCount_;
 extern uint     *RF_tLeafCount_;

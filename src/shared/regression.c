@@ -67,7 +67,7 @@ void updateEnsembleMean(char mode, uint treeID) {
         oobFlag = TRUE;
       }
     }
-    if (RF_opt & OPT_FENS) {
+    if (RF_opt & OPT_IENS) {
       fullFlag = TRUE;
     }
     termMembershipPtr = RF_tTermMembership;
@@ -94,7 +94,7 @@ void updateEnsembleMean(char mode, uint treeID) {
         break;
       default:
         membershipSize  = RF_observationSize;
-        membershipIndex = RF_identityMembershipIndex;
+        membershipIndex = RF_ibgMembershipIndex[treeID];
         break;
       }
 #ifdef _OPENMP

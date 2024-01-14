@@ -206,6 +206,7 @@ void updateTerminalNodeOutcomes(uint treeID, TerminalBase  *parent) {
   }
   if ((RF_opt & OPT_PERF) ||
       (RF_opt & OPT_OENS) ||
+      (RF_opt & OPT_IENS) ||
       (RF_opt & OPT_FENS)) {
     if (RF_rFactorCount > 0) {
       calculateMultiClassProb(treeID, parent, repMembrIndx, repMembrSize, NULL);

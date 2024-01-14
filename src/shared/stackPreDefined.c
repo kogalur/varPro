@@ -13,112 +13,7 @@
 #include "leafLink.h"
 #include "nrutil.h"
 #include "error.h"
-void stackIncomingResponseArrays(char     mode,
-                                 uint     ySize,
-                                 char    *rType,
-                                 uint    *subjIn,
-                                 uint     frSize,
-                                 uint     observationSize,
-                                 uint     fobservationSize,
-                                 double **responseIn,
-                                 double **fresponseIn,
-                                 uint   **yIndex,
-                                 uint   **yIndexZero,
-                                 uint    *timeIndex,
-                                 uint    *startTimeIndex,
-                                 uint    *statusIndex,
-                                 double **masterTime,
-                                 uint    *masterTimeSize,
-                                 uint    *sortedTimeInterestSize,
-                                 uint   **startMasterTimeIndexIn,
-                                 uint   **masterTimeIndexIn,
-                                 uint    *ptnCount,
-                                 uint    *ySizeProxy,
-                                 uint    *yIndexZeroSize) {
-  uint i, j;
-  *startTimeIndex = *timeIndex = *statusIndex = 0;
-  *masterTime = NULL;
-  *masterTimeSize = 0;
-  *sortedTimeInterestSize = 0;
-  *startMasterTimeIndexIn = *masterTimeIndexIn = NULL;
-  if (ySize > 0) {
-    *yIndex = uivector(1, ySize);
-    *yIndexZero = uivector(1, ySize);
-    j = 0;
-    for (i = 1; i <= ySize; i++) {
-      if ((rType[i] != 'B') &&
-          (rType[i] != 'R') &&
-          (rType[i] != 'I') &&
-          (rType[i] != 'C') &&
-          (rType[i] != 't') &&
-          (rType[i] != 'T') &&
-          (rType[i] != 'S')) {
-        RF_nativeError("\nRF-SRC:  *** ERROR *** ");
-        RF_nativeError("\nRF-SRC:  Invalid type:  [%10d] = %2c", i, rType[i]);
-        RF_nativeError("\nRF-SRC:  Variables must be [B], [R], [I], [C], [t], [T], [S].");
-        RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
-        RF_nativeExit();
-      }
-      (*yIndex)[i] = (*yIndexZero)[i] = 0;
-      if (rType[i] == 'T') {
-        *timeIndex = i;
-      }
-      if (rType[i] == 't') {
-        *startTimeIndex = i;
-      }
-      else if (rType[i] == 'S') {
-        *statusIndex = i;
-      }
-      else {
-        (*yIndex)[++j] = i;
-      }
-    }
-    if (mode == RF_PRED) {
-      if (frSize > 0) {
-        if (ySize != frSize) {
-          RF_nativeError("\nRF-SRC:  *** ERROR *** ");
-          RF_nativeError("\nRF-SRC:  train and test outcome/response matrices must be of the same dimension.  ");
-          RF_nativeError("\nRF-SRC:  train vs test:  %10d vs %10d  ", ySize, frSize);
-          RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
-          RF_nativeExit();
-        }
-      }
-      else {
-        if ((RF_opt & OPT_PERF) | (RF_opt & OPT_VIMP)) {
-          RF_nativeError("\nRF-SRC:  *** ERROR *** ");
-          RF_nativeError("\nRF-SRC:  test outcome/response matrix must be present when PERF or VIMP is requested.  ");
-          RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
-          RF_nativeExit();
-        }
-      }
-    }
-    if ((*timeIndex > 0) && (*statusIndex > 0)) {
-      *ptnCount = 0;
-    }
-    *ySizeProxy = ySize - ((*startTimeIndex == 0) ? 0:1) - ((*timeIndex == 0) ? 0:1) - ((*statusIndex == 0) ? 0:1);
-    *yIndexZeroSize = 0;
-  }
-  else {
-    *ySizeProxy = 0;
-    *yIndexZeroSize = 0;
-  }
-  if (RF_opt & OPT_ANON) {
-    if (mode != RF_PRED) {
-      RF_opt = RF_opt & (~OPT_PERF);
-      RF_opt = RF_opt & (~OPT_VIMP);
-    }
-  }
-}
-void unstackIncomingResponseArrays(char  mode,
-                                   uint  ySize,
-                                   uint *yIndex,
-                                   uint *yIndexZero) {
-  if (ySize > 0) {
-    free_uivector(yIndex, 1, ySize);
-    free_uivector(yIndexZero, 1, ySize);
-  }
-}
-void stackIncomingArrays(char     mode,
+char stackIncomingArrays(char     mode,
                          uint     ntree,
                          uint     timeInterestSize,
                          uint     ytry,
@@ -159,6 +54,8 @@ void stackIncomingArrays(char     mode,
                          uint    *ySizeProxy,
                          uint    *yIndexZeroSize) {
   uint i;
+  char result;
+  result = TRUE;
   stackIncomingResponseArrays(mode,
                               ySize,
                               rType,
@@ -186,32 +83,32 @@ void stackIncomingArrays(char     mode,
       RF_nativeError("\nRF-SRC:  *** ERROR *** ");
       RF_nativeError("\nRF-SRC:  Parameter verification failed.");
       RF_nativeError("\nRF-SRC:  Minimum node size must be greater than zero:  %10d \n", nodeSize);
-      RF_nativeExit();
+      result = FALSE;
     }
     if (bootstrapSize < 1) {
       RF_nativeError("\nRF-SRC:  *** ERROR *** ");
       RF_nativeError("\nRF-SRC:  Parameter verification failed.");
       RF_nativeError("\nRF-SRC:  Bootstrap size must be greater than zero:  %12d \n", bootstrapSize);
-      RF_nativeExit();
+      result = FALSE;
     }
     if ( splitRule > MAXM_SPLIT) {
       RF_nativeError("\nRF-SRC:  *** ERROR *** ");
       RF_nativeError("\nRF-SRC:  Parameter verification failed.");
       RF_nativeError("\nRF-SRC:  Invalid split rule:  %10d \n", splitRule);
-      RF_nativeExit();
+      result = FALSE;
     }
     if (splitRule == USPV_SPLIT) {
       if (xSize < 2) {
         RF_nativeError("\nRF-SRC:  *** ERROR *** ");
         RF_nativeError("\nRF-SRC:  Parameter verification failed.");
         RF_nativeError("\nRF-SRC:  Number of covariates must be greater than or equal to two (2) with specified split rule:  %10d \n", xSize);
-        RF_nativeExit();
+        result = FALSE;
       }
       if ( ((int) (xSize - ytry) < 1) || (mtry > xSize) ) {
         RF_nativeError("\nRF-SRC:  *** ERROR *** ");
         RF_nativeError("\nRF-SRC:  Parameter verification failed.");
         RF_nativeError("\nRF-SRC:  ytry and mtry must be within range:  %10d %10d \n", ytry,  mtry);
-        RF_nativeExit();
+        result = FALSE;
       }
     }
     else {
@@ -219,14 +116,14 @@ void stackIncomingArrays(char     mode,
         RF_nativeError("\nRF-SRC:  *** ERROR *** ");
         RF_nativeError("\nRF-SRC:  Parameter verification failed.");
         RF_nativeError("\nRF-SRC:  Number of response variables must be greater than zero:  %10d \n", ySize);
-        RF_nativeExit();
+        result = FALSE;
       }
       if ( ((mtry < 1) || (mtry > xSize)) ) {
         RF_nativeError("\nRF-SRC:  *** ERROR *** ");
         RF_nativeError("\nRF-SRC:  Parameter verification failed.");
         RF_nativeError("\nRF-SRC:  Number of random covariate parameters must be greater");
         RF_nativeError("\nRF-SRC:  than zero and less than or equal to the total number of covariates:  %10d \n", mtry);
-        RF_nativeExit();
+        result = FALSE;
       }
     }
     if (splitRule != USPV_SPLIT) {
@@ -236,14 +133,13 @@ void stackIncomingArrays(char     mode,
         if (*ySizeProxy == 0) {
           RF_nativeError("\nRF-SRC:  *** ERROR *** ");
           RF_nativeError("\nRF-SRC:  No non-[S] and non-[C] responses found.");
-          RF_nativeError("\nRF-SRC:  The application will now exit.\n");
-          RF_nativeExit();
+          result = FALSE;
         }
         if (ytry > *ySizeProxy) {
           RF_nativeError("\nRF-SRC:  *** ERROR *** ");
           RF_nativeError("\nRF-SRC:  Parameter verification failed.");
           RF_nativeError("\nRF-SRC:  ytry must be within range:  %10d \n", ytry);
-          RF_nativeExit();
+          result = FALSE;
         }
       }
     }
@@ -253,7 +149,7 @@ void stackIncomingArrays(char     mode,
           RF_nativeError("\nRF-SRC:  *** ERROR *** ");
           RF_nativeError("\nRF-SRC:  Parameter verification failed.");
           RF_nativeError("\nRF-SRC:  Split statistical weight elements must be greater than or equal to zero:  %12.4f \n", xWeightStat[i]);
-          RF_nativeExit();
+          result = FALSE;
         }
       }
     }
@@ -264,7 +160,7 @@ void stackIncomingArrays(char     mode,
             RF_nativeError("\nRF-SRC:  *** ERROR *** ");
             RF_nativeError("\nRF-SRC:  Parameter verification failed.");
             RF_nativeError("\nRF-SRC:  Y-weight elements must be greater than or equal to zero:  %12.4f \n", yWeight[i]);
-            RF_nativeExit();
+            result = FALSE;
           }
         }
       }
@@ -275,7 +171,7 @@ void stackIncomingArrays(char     mode,
           RF_nativeError("\nRF-SRC:  *** ERROR *** ");
           RF_nativeError("\nRF-SRC:  Parameter verification failed.");
           RF_nativeError("\nRF-SRC:  X-weight elements must be greater than or equal to zero:  %12.4f \n", xWeight[i]);
-          RF_nativeExit();
+          result = FALSE;
         }
       }
     }
@@ -286,7 +182,7 @@ void stackIncomingArrays(char     mode,
         else {
           RF_nativeError("\nRF-SRC:  *** ERROR *** ");
           RF_nativeError("\nRF-SRC:  Quantile regression split rules require the presence of a probability vector.");
-          RF_nativeExit();
+          result = FALSE;
         }
       }
       if  (splitRule == MAHALANOBIS) {
@@ -302,7 +198,7 @@ void stackIncomingArrays(char     mode,
       RF_nativeError("\nRF-SRC:  *** ERROR *** ");
       RF_nativeError("\nRF-SRC:  Data set contains mixed outcomes with no comatible split rule.");
       RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
-      RF_nativeExit();
+      result = FALSE;
     }
   }
   if (quantileSize > 0) {
@@ -313,7 +209,7 @@ void stackIncomingArrays(char     mode,
         RF_nativeError("\nRF-SRC:  *** ERROR *** ");
         RF_nativeError("\nRF-SRC:  Parameter verification failed.");
         RF_nativeError("\nRF-SRC:  Quantile value is out of range (0, 1):  %.10e ", quantile[i]);
-        RF_nativeExit();
+        result = FALSE;
       }
     }
   }
@@ -325,10 +221,10 @@ void stackIncomingArrays(char     mode,
       RF_nativeError("\nRF-SRC:  *** ERROR *** ");
       RF_nativeError("\nRF-SRC:  Invalid type:  [%10d] = %2c", i, xType[i]);
       RF_nativeError("\nRF-SRC:  Variables must be [B], [R], [I] or [C].");
-      RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
-      RF_nativeExit();
+      result = FALSE;
     }
   }
+  return result;
 }
 void unstackIncomingArrays(char    mode,
                            uint    ySize,
@@ -339,7 +235,120 @@ void unstackIncomingArrays(char    mode,
                                 yIndex,
                                 yIndexZero);
 }
-void stackPreDefinedCommonArrays(char          mode,
+char stackIncomingResponseArrays(char     mode,
+                                 uint     ySize,
+                                 char    *rType,
+                                 uint    *subjIn,
+                                 uint     frSize,
+                                 uint     observationSize,
+                                 uint     fobservationSize,
+                                 double **responseIn,
+                                 double **fresponseIn,
+                                 uint   **yIndex,
+                                 uint   **yIndexZero,
+                                 uint    *timeIndex,
+                                 uint    *startTimeIndex,
+                                 uint    *statusIndex,
+                                 double **masterTime,
+                                 uint    *masterTimeSize,
+                                 uint    *sortedTimeInterestSize,
+                                 uint   **startMasterTimeIndexIn,
+                                 uint   **masterTimeIndexIn,
+                                 uint    *ptnCount,
+                                 uint    *ySizeProxy,
+                                 uint    *yIndexZeroSize) {
+  uint i, j;
+  char result;
+  result = TRUE;
+  *startTimeIndex = *timeIndex = *statusIndex = 0;
+  *masterTime = NULL;
+  *masterTimeSize = 0;
+  *sortedTimeInterestSize = 0;
+  *startMasterTimeIndexIn = *masterTimeIndexIn = NULL;
+  *yIndex = *yIndexZero = NULL;
+  *ySizeProxy = *yIndexZeroSize = 0;
+  if (ySize > 0) {
+    *yIndex = uivector(1, ySize);
+    *yIndexZero = uivector(1, ySize);
+    j = 0;
+    for (i = 1; i <= ySize; i++) {
+      if ((rType[i] != 'B') &&
+          (rType[i] != 'R') &&
+          (rType[i] != 'I') &&
+          (rType[i] != 'C') &&
+          (rType[i] != 't') &&
+          (rType[i] != 'T') &&
+          (rType[i] != 'S')) {
+        RF_nativeError("\nRF-SRC:  *** ERROR *** ");
+        RF_nativeError("\nRF-SRC:  Invalid type:  [%10d] = %2c", i, rType[i]);
+        RF_nativeError("\nRF-SRC:  Variables must be [B], [R], [I], [C], [t], [T], [S].");
+        result = FALSE;
+      }
+      if (result) {
+        (*yIndex)[i] = (*yIndexZero)[i] = 0;
+        if (rType[i] == 'T') {
+          *timeIndex = i;
+        }
+        if (rType[i] == 't') {
+          *startTimeIndex = i;
+        }
+        else if (rType[i] == 'S') {
+          *statusIndex = i;
+        }
+        else {
+          (*yIndex)[++j] = i;
+        }
+      }
+    }
+    if (mode == RF_PRED) {
+      if (frSize > 0) {
+        if (ySize != frSize) {
+          RF_nativeError("\nRF-SRC:  *** ERROR *** ");
+          RF_nativeError("\nRF-SRC:  train and test outcome/response matrices must be of the same dimension.  ");
+          RF_nativeError("\nRF-SRC:  train vs test:  %10d vs %10d  ", ySize, frSize);
+          result = FALSE;
+        }
+      }
+      else {
+        if ((RF_opt & OPT_PERF) | (RF_opt & OPT_VIMP)) {
+          RF_nativeError("\nRF-SRC:  *** ERROR *** ");
+          RF_nativeError("\nRF-SRC:  test outcome/response matrix must be present when PERF or VIMP is requested.  ");
+          result = FALSE;
+        }
+      }
+    }
+    if ((*timeIndex > 0) && (*statusIndex > 0)) {
+      *ptnCount = 0;
+    }
+    *ySizeProxy = ySize - ((*startTimeIndex == 0) ? 0:1) - ((*timeIndex == 0) ? 0:1) - ((*statusIndex == 0) ? 0:1);
+    *yIndexZeroSize = 0;
+  }
+  else {
+    *ySizeProxy = 0;
+    *yIndexZeroSize = 0;
+  }
+  if (RF_opt & OPT_ANON) {
+    if (mode != RF_PRED) {
+      RF_opt = RF_opt & (~OPT_PERF);
+      RF_opt = RF_opt & (~OPT_VIMP);
+    }
+  }
+  return result;
+}
+void unstackIncomingResponseArrays(char  mode,
+                                   uint  ySize,
+                                   uint *yIndex,
+                                   uint *yIndexZero) {
+  if (ySize > 0) {
+    if (yIndex != NULL) {
+      free_uivector(yIndex, 1, ySize);
+    }
+    if (yIndexZero != NULL) {
+      free_uivector(yIndexZero, 1, ySize);
+    }
+  }
+}
+char stackPreDefinedCommonArrays(char          mode,
                                  uint          ntree,
                                  double       *subjWeight,
                                  uint          timeIndex,
@@ -384,8 +393,10 @@ void stackPreDefinedCommonArrays(char          mode,
                                  uint         *subjWeightDensitySize,
                                  uint         *identityMembershipIndexSize,
                                  uint        **identityMembershipIndex) {
-  uint i, j, k;
   uint maxCaseCount, maxIdentityCount;
+  uint i, j, k;
+  char result;
+  result = TRUE;
   *nodeMembership = (NodeBase ***)     new_vvector(1, ntree, NRUTIL_NPTR2);
   *tTermMembership = (TerminalBase ***) new_vvector(1, ntree, NRUTIL_TPTR2);
   if ((startTimeIndex > 0) && (timeIndex > 0) && (statusIndex > 0)) {
@@ -402,20 +413,6 @@ void stackPreDefinedCommonArrays(char          mode,
     (*leafLinkedObjHead)[i] = NULL;
   }
   *bootMembershipIndex = (uint **) new_vvector(1, ntree, NRUTIL_UPTR);
-  if (RF_opt & OPT_BOOT_TYP2) {
-    for (i = 1; i <= ntree; i++) {
-      k = 0;
-      for (j = 1; j <= subjSize; j++) {
-        k += bootstrapIn[i][j];
-      }
-      if(k != bootstrapSize) {
-        RF_nativeError("\nRF-SRC:  *** ERROR *** ");
-        RF_nativeError("\nRF-SRC:  Parameter verification failed.");
-        RF_nativeError("\nRF-SRC:  Bootstrap size implied by samp matrix inconsistent:  %12d found vs. %12d specified \n", k, bootstrapSize);
-        RF_nativeExit();
-      }
-    }
-  }
   *bootMembershipFlag = (char **) new_vvector(1, ntree, NRUTIL_CPTR);
   *bootMembershipCount = (uint **) new_vvector(1, ntree, NRUTIL_UPTR);
   *oobMembershipFlag = (char **) new_vvector(1, ntree, NRUTIL_CPTR);
@@ -446,6 +443,7 @@ void stackPreDefinedCommonArrays(char          mode,
         RF_nativeError("\nRF-SRC:  *** ERROR *** ");
         RF_nativeError("\nRF-SRC:  Parameter verification failed.");
         RF_nativeError("\nRF-SRC:  Subject-weight elements must be greater than or equal to zero:  %12.4f \n", subjWeight[i]);
+        RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
         RF_nativeExit();
       }
     }
@@ -493,6 +491,21 @@ void stackPreDefinedCommonArrays(char          mode,
   for (i = 1; i <= *identityMembershipIndexSize; i++) {
     (*identityMembershipIndex)[i] = i;
   }
+  if (RF_opt & OPT_BOOT_TYP2) {
+    for (i = 1; i <= ntree; i++) {
+      k = 0;
+      for (j = 1; j <= subjSize; j++) {
+        k += bootstrapIn[i][j];
+      }
+      if(k != bootstrapSize) {
+        RF_nativeError("\nRF-SRC:  *** ERROR *** ");
+        RF_nativeError("\nRF-SRC:  Parameter verification failed.");
+        RF_nativeError("\nRF-SRC:  Bootstrap size implied by samp matrix inconsistent:  %12d found vs. %12d specified \n", k, bootstrapSize);
+        result = FALSE;
+      }
+    }
+  }
+  return result;
 }
 void unstackPreDefinedCommonArrays(char             mode,
                                    uint             ntree,
@@ -570,26 +583,30 @@ void unstackPreDefinedCommonArrays(char             mode,
   free_uivector(getTreeIndex, 1, ntree);
   free_uivector(identityMembershipIndex, 1, identityMembershipIndexSize);
 }
-void stackPreDefinedRestoreArrays(uint   xSize,
+char stackPreDefinedRestoreArrays(uint   xSize,
                                   uint  *intrPredictor,
                                   uint   intrPredictorSize,
                                   char **importanceFlag) {
   uint i;
+  char result;
+  result = TRUE;
   if (RF_opt & OPT_VIMP) {
-    checkInteraction(xSize,
-                     intrPredictor,
-                     intrPredictorSize);
     *importanceFlag = cvector(1, xSize);
-    for (i = 1; i <= xSize; i++) {
-      (*importanceFlag)[i] = FALSE;
-    }
-    for (i = 1; i <= intrPredictorSize; i++) {
-      (*importanceFlag)[intrPredictor[i]] = TRUE;
+    result = checkInteraction(xSize,
+                              intrPredictor,
+                              intrPredictorSize);
+    if (result) {
+      for (i = 1; i <= xSize; i++) {
+        (*importanceFlag)[i] = FALSE;
+      }
+      for (i = 1; i <= intrPredictorSize; i++) {
+        (*importanceFlag)[intrPredictor[i]] = TRUE;
+      }
     }
   }
+  return result;
 }
-void unstackPreDefinedRestoreArrays(uint  xSize,
-                                    char *importanceFlag) {
+void unstackPreDefinedRestoreArrays(uint  xSize, char *importanceFlag) {
   if (RF_opt & OPT_VIMP) {
     free_cvector(importanceFlag, 1, xSize);
   }
@@ -619,44 +636,51 @@ void unstackPreDefinedPredictArrays(uint   ntree,
   free_new_vvector(tTermMembership, 1, RF_ntree, NRUTIL_TPTR2);
   free_uivector(identityMembershipIndex, 1, identityMembershipIndexSize);
 }
-void checkInteraction(uint  xSize,
+char checkInteraction(uint  xSize,
                       uint *intrPredictor,
                       uint  intrPredictorSize) {
   uint leadingIndex, i;
+  char result;
+  result = TRUE;
   if((intrPredictorSize <= 0) || (intrPredictorSize > xSize)) {
     RF_nativeError("\nRF-SRC:  *** ERROR *** ");
     RF_nativeError("\nRF-SRC:  Parameter verification failed.");
     RF_nativeError("\nRF-SRC:  Number of predictors to be perturbed must be greater than zero and less than or equal to %10d:  %10d \n", xSize, intrPredictorSize);
-    RF_nativeExit();
+    result = FALSE;
   }
-  uint *intrPredictorCopy = uivector(1, intrPredictorSize);
-  for (i=1; i <= intrPredictorSize; i++) {
-    intrPredictorCopy[i] = intrPredictor[i];
-  }
-  hpsortui(intrPredictorCopy, intrPredictorSize);
-  leadingIndex = 1;
-  for (i=2; i <= intrPredictorSize; i++) {
-    if (intrPredictorCopy[i] > intrPredictorCopy[leadingIndex]) {
-      leadingIndex++;
+  if (result) {
+    uint *intrPredictorCopy = uivector(1, intrPredictorSize);
+    for (i=1; i <= intrPredictorSize; i++) {
+      intrPredictorCopy[i] = intrPredictor[i];
     }
-  }
-  if (intrPredictorSize != leadingIndex) {
-    RF_nativeError("\nRF-SRC:  *** ERROR *** ");
-    RF_nativeError("\nRF-SRC:  Parameter verification failed.");
-    RF_nativeError("\nRF-SRC:  Interaction terms are not unique.");
-    RF_nativeError("\nRF-SRC:  Only %10d of %10d are unique.", leadingIndex, intrPredictorSize);
-    RF_nativeExit();
-  }
-  free_uivector(intrPredictorCopy, 1, intrPredictorSize);
-  for (i=1; i <= intrPredictorSize; i++) {
-    if (intrPredictor[i] > xSize) {
+    hpsortui(intrPredictorCopy, intrPredictorSize);
+    leadingIndex = 1;
+    for (i=2; i <= intrPredictorSize; i++) {
+      if (intrPredictorCopy[i] > intrPredictorCopy[leadingIndex]) {
+        leadingIndex++;
+      }
+    }
+    free_uivector(intrPredictorCopy, 1, intrPredictorSize);
+    if (intrPredictorSize != leadingIndex) {
       RF_nativeError("\nRF-SRC:  *** ERROR *** ");
       RF_nativeError("\nRF-SRC:  Parameter verification failed.");
-      RF_nativeError("\nRF-SRC:  Interaction terms are not coherent.");
-      RF_nativeError("\nRF-SRC:  Predictor encountered is %10d, maximum allowable is %10d.", intrPredictor[i], xSize);
-      RF_nativeExit();
+      RF_nativeError("\nRF-SRC:  Interaction terms are not unique.");
+      RF_nativeError("\nRF-SRC:  Only %10d of %10d are unique.", leadingIndex, intrPredictorSize);
+      result = FALSE;
+    }
+    if (result) {
+      for (i = 1; i <= intrPredictorSize; i++) {
+        if (intrPredictor[i] > xSize) {
+          RF_nativeError("\nRF-SRC:  *** ERROR *** ");
+          RF_nativeError("\nRF-SRC:  Parameter verification failed.");
+          RF_nativeError("\nRF-SRC:  Interaction terms are not coherent.");
+          RF_nativeError("\nRF-SRC:  Predictor encountered is %10d, maximum allowable is %10d.", intrPredictor[i], xSize);
+          result = FALSE;
+        }
+      }
     }
   }
+  return result;
 }
 void stackWeights(double *weight,
                   uint    size,
@@ -737,7 +761,7 @@ double getMeanValue(double *value, uint size) {
   result = result / size;
   return result;
 }
-void stackAndInitializeTimeAndSubjectArrays(char     mode,
+char stackAndInitializeTimeAndSubjectArrays(char     mode,
                                             uint     startTimeIndex,
                                             uint     observationSize,
                                             double **responseIn,
@@ -760,6 +784,9 @@ void stackAndInitializeTimeAndSubjectArrays(char     mode,
   uint i, j;
   uint leadingIndex;
   uint adjObsSize;
+  char result;
+  result = TRUE;
+  *subjList = NULL;
   if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
     if (!(RF_opt & OPT_ANON)) {
       if (startTimeIndex == 0) {
@@ -837,18 +864,20 @@ void stackAndInitializeTimeAndSubjectArrays(char     mode,
         if (*subjCount != subjSize) {
           RF_nativeError("\nRF-SRC: *** ERROR *** ");
           RF_nativeError("\nRF-SRC: Subject count found in cases inconsistent with incoming subject size:  %10d vs %10d", *subjCount, subjSize);
-          RF_nativeExit();
+          result = FALSE;
         }
-        *subjList = (uint **) new_vvector(1, *subjCount, NRUTIL_UPTR);
-        uint *tempSubjIter = uivector(1, *subjCount);
-        for (i = 1; i <= *subjCount; i++) {
-          (*subjList)[i] = uivector(1, (*subjSlotCount)[i]);
-          tempSubjIter[i] = 0;
+        else {
+          *subjList = (uint **) new_vvector(1, *subjCount, NRUTIL_UPTR);
+          uint *tempSubjIter = uivector(1, *subjCount);
+          for (i = 1; i <= *subjCount; i++) {
+            (*subjList)[i] = uivector(1, (*subjSlotCount)[i]);
+            tempSubjIter[i] = 0;
+          }
+          for (i = 1; i <= observationSize; i++) {
+            (*subjList)[(*caseMap)[i]][++tempSubjIter[(*caseMap)[i]]] = i;
+          }
+          free_uivector(tempSubjIter, 1, *subjCount);
         }
-        for (i = 1; i <= observationSize; i++) {
-          (*subjList)[(*caseMap)[i]][++tempSubjIter[(*caseMap)[i]]] = i;
-        }
-        free_uivector(tempSubjIter, 1, *subjCount);
         free_uivector(sortedIdx, 1, observationSize);
         free_dvector(copySubjIn, 1, observationSize);
       }
@@ -893,6 +922,7 @@ void stackAndInitializeTimeAndSubjectArrays(char     mode,
       }
     }  
   }
+  return result;
 }
 void unstackTimeAndSubjectArrays(char     mode,
                                  uint     startTimeIndex,
@@ -923,11 +953,13 @@ void unstackTimeAndSubjectArrays(char     mode,
     if (startTimeIndex > 0) {
       free_uivector(subjSlot, 1, observationSize);
       free_uivector(caseMap, 1, observationSize);
-      for (i = 1; i <= subjCount; i++) {
-        free_uivector(subjList[i], 1, subjSlotCount[i]);
+      if (subjList != NULL) {
+        for (i = 1; i <= subjCount; i++) {
+          free_uivector(subjList[i], 1, subjSlotCount[i]);
+        }
+        free_uivector(subjSlotCount, 1, observationSize);
+        free_new_vvector(subjList, 1, subjCount, NRUTIL_UPTR);
       }
-      free_uivector(subjSlotCount, 1, observationSize);
-      free_new_vvector(subjList, 1, subjCount, NRUTIL_UPTR);
     }
     if (!(RF_opt & OPT_IMPU_ONLY)) {
       if (startTimeIndex > 0) {    
@@ -1021,6 +1053,7 @@ void stackFactorArrays(char    mode,
         if ((rTarget[i] < 1) || (rTarget[i] > ySize)) {
           RF_nativeError("\nRF-SRC:  *** ERROR *** ");
           RF_nativeError("\nRF-SRC:  Target response is out of range for [C+], [R+], [M+]:  %10d %10d ", i, rTarget[i]);
+          RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
           RF_nativeExit();
         }
         if ((rType[rTarget[i]] == 'B') ||
@@ -1243,6 +1276,7 @@ char stackCompetingArrays(char     mode,
         RF_nativeError("\nRF-SRC:  Parameter verification failed.");
         RF_nativeError("\nRF-SRC:  Competing Risk analysis has been requested.");
         RF_nativeError("\nRF-SRC:  The train data set does not contain competing risks.");
+        RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
         RF_nativeExit();
       }
     }
@@ -1266,13 +1300,14 @@ char stackCompetingArrays(char     mode,
   if (eventTypeSize == 0) {
     if ((RF_opt & OPT_OUTC_TYPE) && !(RF_opt & OPT_PERF) && !(RF_opt & OPT_VIMP)) {
       RF_opt                  = RF_opt & (~OPT_OENS);
-      RF_opt                  = RF_opt & (~OPT_FENS);
+      RF_opt                  = RF_opt & (~OPT_IENS);
     }
     else {
       RF_nativeError("\nRF-SRC:  *** ERROR *** ");
       RF_nativeError("\nRF-SRC:  Parameter verification failed.");
       RF_nativeError("\nRF-SRC:  Performance or vimp has been requested.");
       RF_nativeError("\nRF-SRC:  The train or pseudo-train data set does not contain any events.");
+      RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
       RF_nativeExit();
     }
   }
@@ -1300,12 +1335,14 @@ char stackCompetingArrays(char     mode,
         RF_nativeError("\nRF-SRC:  *** ERROR *** ");
         RF_nativeError("\nRF-SRC:  Split rule specified is for Competing Risk scenarios only.");
         RF_nativeError("\nRF-SRC:  The data set does not contain multiple events.");
+        RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
         RF_nativeExit();
       }
       if(crWeightSize != eventTypeSize) {
         RF_nativeError("\nRF-SRC:  *** ERROR *** ");
         RF_nativeError("\nRF-SRC:  Parameter verification failed.");
         RF_nativeError("\nRF-SRC:  Competing risk weight vector must be of size equal to number of event types:  %12d != %12d \n", crWeightSize, eventTypeSize);
+        RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
         RF_nativeExit();
       }
       i = 0;
@@ -1314,6 +1351,7 @@ char stackCompetingArrays(char     mode,
           RF_nativeError("\nRF-SRC:  *** ERROR *** ");
           RF_nativeError("\nRF-SRC:  Parameter verification failed.");
           RF_nativeError("\nRF-SRC:  Competing risk weight elements must be greater than or equal to zero:  %12.4f \n", crWeight[j]);
+          RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
           RF_nativeExit();
         }
         else {
@@ -1326,6 +1364,7 @@ char stackCompetingArrays(char     mode,
         RF_nativeError("\nRF-SRC:  *** ERROR *** ");
         RF_nativeError("\nRF-SRC:  Parameter verification failed.");
         RF_nativeError("\nRF-SRC:  Competing risk weight elements are all zero. \n");
+        RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
         RF_nativeExit();
       }
     }
@@ -1336,6 +1375,7 @@ char stackCompetingArrays(char     mode,
         RF_nativeError("\nRF-SRC:  *** ERROR *** ");
         RF_nativeError("\nRF-SRC:  CR analysis has been specified in !GROW mode.");
         RF_nativeError("\nRF-SRC:  However, the GROW data set does not contain multiple events.");
+        RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
         RF_nativeExit();
       }
     }
@@ -1627,6 +1667,7 @@ void getEventInfo(char     mode,
         RF_nativeError("\nRF-SRC:  Parameter verification failed.");
         RF_nativeError("\nRF-SRC:  Performance or vimp has been requested.");
         RF_nativeError("\nRF-SRC:  The test or pseudo-train data set does not contain any events.");
+        RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
         RF_nativeExit();
       }
     }

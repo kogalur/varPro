@@ -44,6 +44,8 @@ get.orgvimp <- function(o, papply = mclapply, pretty = TRUE) {
   if (o$family == "class") {
     vmp <- vmp$unconditional
   }
+  ## pull original xvar names 
+  xvar.org.names <- o$xvar.org.names
   ## we are finished if the data was not hotencoded
   if (!attr(o$x, "hotencode")) {
     vars <- rownames(vmp)
@@ -51,9 +53,6 @@ get.orgvimp <- function(o, papply = mclapply, pretty = TRUE) {
   }
   ## data was hotencoded, so we need to map names appropriately
   else {
-    ## pull xvar names (original and hot-encoded)
-    xvar.org.names <- o$xvar.org.names
-    xvar.names <- o$xvarnames
     ## we only need the rownames for vimp from the varpro object hereafter
     o <- rownames(vmp)
     ## match original variable names to varpro names which uses hot encode data

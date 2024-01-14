@@ -146,6 +146,7 @@ typedef unsigned long ulong;
 #define RF_CPU_TIME      103  
 #define RF_SEXP_CNT      104  
 #define OPT_FENS      0x00000001 
+#define OPT_IENS      0x00000001 
 #define OPT_OENS      0x00000002 
 #define OPT_PERF      0x00000004 
 #define OPT_PERF_CALB 0x00000008 

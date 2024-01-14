@@ -241,7 +241,7 @@ uint  **RF_BOOT_CT_ptr;
 uint   **RF_mwcpCT;
 double   *RF_spltST_;
 uint     *RF_dpthST_;
-ulong     RF_totalTerminalCount;
+ulong     RF_totalTermCount;
 uint     *RF_restoreTreeID;
 ulong     RF_totalNodeCount_;
 uint     *RF_tLeafCount_;

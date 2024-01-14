@@ -30,7 +30,7 @@ void stackLocksOpenMP(char mode) {
       if (RF_opt & OPT_OENS) {
         oobFlag = TRUE;
       }
-      if (RF_opt & OPT_FENS) {
+      if (RF_opt & OPT_IENS) {
         fullFlag = TRUE;
       }
       break;
@@ -74,7 +74,7 @@ void stackLocksOpenMP(char mode) {
       if (RF_opt & OPT_OENS) {
         oobFlag = TRUE;
       }
-      if (RF_opt & OPT_FENS) {
+      if (RF_opt & OPT_IENS) {
         fullFlag = TRUE;
       }
       break;
@@ -128,7 +128,7 @@ void unstackLocksOpenMP(char mode) {
       if (RF_opt & OPT_OENS) {
         oobFlag = TRUE;
       }
-      if (RF_opt & OPT_FENS) {
+      if (RF_opt & OPT_IENS) {
         fullFlag = TRUE;
       }
       break;
@@ -172,7 +172,7 @@ void unstackLocksOpenMP(char mode) {
       if (RF_opt & OPT_OENS) {
         oobFlag = TRUE;
       }
-      if (RF_opt & OPT_FENS) {
+      if (RF_opt & OPT_IENS) {
         fullFlag = TRUE;
       }
       break;
@@ -226,7 +226,7 @@ void stackLocksPosix(char mode) {
       if (RF_opt & OPT_OENS) {
         oobFlag = TRUE;
       }
-      if (RF_opt & OPT_FENS) {
+      if (RF_opt & OPT_IENS) {
         fullFlag = TRUE;
       }
       break;
@@ -271,7 +271,7 @@ void stackLocksPosix(char mode) {
       if (RF_opt & OPT_OENS) {
         oobFlag = TRUE;
       }
-      if (RF_opt & OPT_FENS) {
+      if (RF_opt & OPT_IENS) {
         fullFlag = TRUE;
       }
       break;
@@ -412,7 +412,7 @@ void unstackLocksPosix(char mode) {
       if (RF_opt & OPT_OENS) {
         oobFlag = TRUE;
       }
-      if (RF_opt & OPT_FENS) {
+      if (RF_opt & OPT_IENS) {
         fullFlag = TRUE;
       }
       break;
@@ -455,7 +455,7 @@ void unstackLocksPosix(char mode) {
         if (RF_opt & OPT_OENS) {
           oobFlag = TRUE;
         }
-        if (RF_opt & OPT_FENS) {
+        if (RF_opt & OPT_IENS) {
           fullFlag = TRUE;
         }
         break;
@@ -500,7 +500,7 @@ void unstackLocksPosix(char mode) {
         if (RF_opt & OPT_OENS) {
           oobFlag = TRUE;
         }
-        if (RF_opt & OPT_FENS) {
+        if (RF_opt & OPT_IENS) {
           fullFlag = TRUE;
         }
         break;

@@ -58,6 +58,7 @@ SEXP varProStrength(SEXP traceFlag,
                     SEXP getTree,
                     SEXP numThreads) {
   char mode;
+  char result;
   clock_t cpuTimeStart = clock();
   setUserTraceFlag(INTEGER(traceFlag)[0]);
   setNativeGlobalEnv(&RF_nativeIndex, &RF_stackCount);
@@ -236,7 +237,7 @@ SEXP varProStrength(SEXP traceFlag,
   else {
     RF_mwcpPT_[1] = NULL;
   }
-  varProMain(mode, seedValue);
+  result = varProMain(mode, seedValue);
   unstackForestObjectsAuxOnly(mode,
                               RF_ntree,
                               RF_restoreTreeID,
@@ -259,8 +260,13 @@ SEXP varProStrength(SEXP traceFlag,
     RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
     RF_nativeExit();
   }
-  VP_cpuTime_[1] = (double) (clock() - cpuTimeStart) / CLOCKS_PER_SEC;
-  R_ReleaseObject(RF_sexpVector[RF_OUTP_ID]);
-  R_ReleaseObject(RF_sexpVector[RF_STRG_ID]);
-  return RF_sexpVector[RF_OUTP_ID];
+  if (result) {
+    VP_cpuTime_[1] = (double) (clock() - cpuTimeStart) / CLOCKS_PER_SEC;
+    R_ReleaseObject(RF_sexpVector[RF_OUTP_ID]);
+    R_ReleaseObject(RF_sexpVector[RF_STRG_ID]);
+    return RF_sexpVector[RF_OUTP_ID];
+  }
+  else {
+    return NULL;
+  }
 }

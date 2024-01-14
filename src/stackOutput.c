@@ -14,10 +14,32 @@
 #include "terminal.h"
 #include "shared/nrutil.h"
 #include "shared/error.h"
+char getStrengthTreeCount(char       mode,
+                          uint       ntree,
+                          uint       maxTree,
+                          uint      *tLeafCount,
+                          uint      *strengthTreeCount) {
+  uint i;
+  uint nonRejectedTrees;
+  uint rejectedTrees;
+  char result;
+  result = TRUE;
+  rejectedTrees = 0;
+  for(i = 1; i <= ntree; i++) {
+    if(tLeafCount[i] <= 1) {
+      rejectedTrees++;
+    }
+  }
+  nonRejectedTrees = ntree - rejectedTrees;
+  *strengthTreeCount = (maxTree > nonRejectedTrees) ? nonRejectedTrees : maxTree;
+  if(*strengthTreeCount == 0) {
+    RF_nativeError("\nVARPRO:  *** ERROR *** ");
+    RF_nativeError("\nVARPRO:  Insufficient trees for analysis. All trees are stumped.");
+    result = FALSE;
+  }
+  return result;
+}
 void stackStrengthObjectsPtrOnly(char       mode,
-                                 uint       ntree,
-                                 uint       maxTree,
-                                 uint      *tLeafCount,
                                  uint      *strengthTreeCount,
                                  uint     **strengthTreeID,
                                  uint     **branchCount,
@@ -31,22 +53,6 @@ void stackStrengthObjectsPtrOnly(char       mode,
                                  uint    ***proxyIndv,
                                  uint    ***proxyIndvDepth) {
   uint i;
-  uint nonRejectedTrees;
-  uint rejectedTrees;
-  rejectedTrees = 0;
-  for(i = 1; i <= ntree; i++) {
-    if(tLeafCount[i] <= 1) {
-      rejectedTrees++;
-    }
-  }
-  nonRejectedTrees = ntree - rejectedTrees;
-  *strengthTreeCount = (maxTree > nonRejectedTrees) ? nonRejectedTrees : maxTree;
-  if(*strengthTreeCount == 0) {
-    RF_nativeError("\nVARPRO:  *** ERROR *** ");
-    RF_nativeError("\nVARPRO:  Insufficient trees for analysis. All trees are stumped.");
-    RF_nativeError("\nVARPRO:  The application will now exit.\n");    
-    RF_nativeExit();
-  }
   *strengthTreeID = uivector(1, *strengthTreeCount);
   *branchCount = uivector(1, *strengthTreeCount);
   *branchID  = (uint **)  new_vvector(1, *strengthTreeCount, NRUTIL_UPTR);

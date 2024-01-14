@@ -184,6 +184,7 @@ void allocateAuxiliaryInfo(AuxiliaryDimensionConstants *dimConst,
     else {
       RF_nativeError("\nRF-SRC:  *** ERROR *** ");
       RF_nativeError("\nRF-SRC:  Invalid ( > 4 ) dimension in stackAndProtect() auxiliary arrays:  %10d", dimSize);
+      RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
       RF_nativeExit();
     }
     break;
@@ -238,6 +239,7 @@ void allocateAuxiliaryInfo(AuxiliaryDimensionConstants *dimConst,
     else {
       RF_nativeError("\nRF-SRC:  *** ERROR *** ");
       RF_nativeError("\nRF-SRC:  Invalid ( > 4 ) dimension in stackAndProtect() auxiliary arrays:  %10d", dimSize);
+      RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
       RF_nativeExit();
     }
     break;

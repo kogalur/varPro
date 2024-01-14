@@ -26,33 +26,35 @@
 #include "nodeOps.h"
 #include "termOps.h"
 #include "sexpOutgoing.h"
-void varProMain(char mode, int seedValue) {
+char varProMain(char mode, int seedValue) {
   uint b, j, k;
   uint seedValueLC;
+  char result;
+  result = TRUE;
   seedValueLC    = 0; 
   if (seedValue >= 0) {
     RF_nativeError("\nRF-SRC:  *** ERROR *** ");
     RF_nativeError("\nRF-SRC:  Parameter verification failed.");
     RF_nativeError("\nRF-SRC:  Random seed must be less than zero.  \n");
-    RF_nativeExit();
+    result = FALSE;
   }
   if (RF_ntree < 1) {
     RF_nativeError("\nRF-SRC:  *** ERROR *** ");
     RF_nativeError("\nRF-SRC:  Parameter verification failed.");
     RF_nativeError("\nRF-SRC:  Number of bootstrap iterations must be greater than zero:  %10d \n", RF_ntree);
-    RF_nativeExit();
+    result = FALSE;
   }
   if (RF_observationSize < 1) {
     RF_nativeError("\nRF-SRC:  *** ERROR *** ");
     RF_nativeError("\nRF-SRC:  Parameter verification failed.");
     RF_nativeError("\nRF-SRC:  Number of individuals must be greater than one:  %10d \n", RF_observationSize);
-    RF_nativeExit();
+    result = FALSE;
   }
   if (RF_xSize < 1) {
     RF_nativeError("\nRF-SRC:  *** ERROR *** ");
     RF_nativeError("\nRF-SRC:  Parameter verification failed.");
     RF_nativeError("\nRF-SRC:  Number of parameters must be greater than zero:  %10d \n", RF_xSize);
-    RF_nativeExit();
+    result = FALSE;
   }
 #ifdef _OPENMP
   if (RF_numThreads < 0) {
@@ -62,837 +64,851 @@ void varProMain(char mode, int seedValue) {
     RF_nativeError("\nRF-SRC:  *** ERROR *** ");
     RF_nativeError("\nRF-SRC:  Parameter verification failed.");
     RF_nativeError("\nRF-SRC:  Number of threads must not be zero:  %10d \n", RF_numThreads);
-    RF_nativeExit();
+    result = FALSE;
   }
   else {
     RF_numThreads = (RF_numThreads < omp_get_max_threads()) ? (RF_numThreads) : (omp_get_max_threads());
   }
 #endif
-  ran1A = &randomChainParallel;
-  ran1B = &randomChainParallel2;
-  ran1D = &randomChainParallel3;
-  randomSetChain     = &randomSetChainParallel;
-  randomSetChain2    = &randomSetChainParallel2;
-  randomSetChain3    = &randomSetChainParallel3;
-  randomGetChain     = &randomGetChainParallel;
-  randomGetChain2    = &randomGetChainParallel2;
-  randomGetChain3    = &randomGetChainParallel3;
-  stackRandom(RF_ntree);
-  for (b = 1; b <= RF_ntree; b++) {
-    randomSetChain(b , RF_seed_[b]);
-  }
-  seedValueLC = abs(seedValue);
-  lcgenerator(&seedValueLC, TRUE);
-  for (b = 1; b <= RF_ntree; b++) {
-    lcgenerator(&seedValueLC, FALSE);
-    lcgenerator(&seedValueLC, FALSE);
-    while(seedValueLC == 0) {
-      lcgenerator(&seedValueLC, FALSE);
-    }
-    randomSetChain2(b, -seedValueLC);
-  }
-  for (b = 1; b <= RF_ntree; b++) {
-    lcgenerator(&seedValueLC, FALSE);
-    lcgenerator(&seedValueLC, FALSE);
-    while(seedValueLC == 0) {
-      lcgenerator(&seedValueLC, FALSE);
-    }
-    randomSetChain3(b, -seedValueLC);
-  }
-  stackIncomingArrays(mode,
-                      RF_ntree,
-                      RF_timeInterestSize,
-                      RF_ytry,
-                      RF_mtry,
-                      RF_xWeight,
-                      RF_yWeight,
-                      RF_subjSize,
-                      RF_subjWeight,
-                      RF_xWeightStat,
-                      RF_nodeSize,
-                      RF_bootstrapSize,
-                      RF_splitRule,
-                      RF_quantileSize,
-                      RF_quantile,
-                      RF_ySize,
-                      RF_rType,
-                      RF_frSize,
-                      RF_subjIn,
-                      RF_observationSize,
-                      RF_responseIn,
-                      RF_fresponseIn,
-                      RF_xSize,
-                      RF_xType,
-                      RF_fobservationSize,
-                      RF_observationIn,
-                      RF_fobservationIn,
-                      &RF_yIndex,
-                      &RF_yIndexZero,
-                      &RF_timeIndex,
-                      &RF_startTimeIndex,
-                      &RF_statusIndex,
-                      &RF_masterTime,
-                      &RF_masterTimeSize,
-                      &RF_sortedTimeInterestSize,
-                      &RF_startMasterTimeIndexIn,
-                      &RF_masterTimeIndexIn,
-                      &RF_ptnCount,
-                      &RF_ySizeProxy,
-                      &RF_yIndexZeroSize);
-  stackPreDefinedCommonArrays(mode,
-                              RF_ntree,
-                              RF_subjWeight,
-                              RF_timeIndex,
-                              RF_startTimeIndex,
-                              RF_statusIndex,
-                              RF_bootstrapSize,
-                              RF_bootstrapIn,
-                              RF_subjSize,
-                              RF_ptnCount,
-                              RF_getTree,
-                              RF_observationSize,
-                              RF_subjCount,
-                              RF_subjSlotCount,
-                              &RF_nodeMembership,
-                              &RF_tTermMembership,
-                              &RF_pNodeMembership,
-                              &RF_pTermMembership,
-                              &RF_hTermMembership,
-                              &RF_tTermList,
-                              &RF_pNodeList,
-                              &RF_pTermList,
-                              &RF_bootMembershipFlag,
-                              &RF_oobMembershipFlag,
-                              &RF_bootMembershipCount,
-                              &RF_ibgMembershipIndex,
-                              &RF_oobMembershipIndex,
-                              &RF_oobSize,
-                              &RF_ibgSize,
-                              &RF_bootMembershipIndex,
-                              &RF_maxDepth,
-                              &RF_orderedTreeIndex,
-                              &RF_serialTreeIndex,
-                              &RF_root,
-                              &RF_nodeCount,
-                              &RF_leafLinkedObjHead,
-                              &RF_leafLinkedObjTail,
-                              &RF_pLeafCount,
-                              &RF_getTreeIndex,
-                              &RF_getTreeCount,
-                              &RF_subjWeightType,
-                              &RF_subjWeightSorted,
-                              &RF_subjWeightDensitySize,
-                              &RF_identityMembershipIndexSize,
-                              &RF_identityMembershipIndex);
-  stackPreDefinedRestoreArrays(RF_xSize,
-                               RF_intrPredictor,
-                               RF_intrPredictorSize,
-                               &RF_importanceFlag);
-  stackAndInitializeTimeAndSubjectArrays(mode,
-                                         RF_startTimeIndex,
-                                         RF_observationSize,
-                                         RF_responseIn,
-                                         RF_timeIndex,
-                                         RF_timeInterestSize,
-                                         RF_subjIn,
-                                         RF_subjSize,
-                                         &RF_masterTime,
-                                         &RF_masterTimeIndexIn,
-                                         &RF_startMasterTimeIndexIn,
-                                         &RF_timeInterest,
-                                         &RF_masterTimeSize,
-                                         &RF_sortedTimeInterestSize,
-                                         &RF_masterToInterestTimeMap,
-                                         &RF_subjSlot,
-                                         &RF_subjSlotCount,
-                                         &RF_subjList,
-                                         &RF_caseMap,
-                                         &RF_subjCount);
-  stackFactorArrays(mode,
-                    RF_rType,
-                    RF_xType,
-                    RF_ySize,
-                    RF_xSize,
-                    RF_xLevelsCnt,
-                    RF_rTarget,
-                    RF_rTargetCount,
-                    RF_timeIndex,
-                    RF_statusIndex,
-                    &RF_rFactorCount,
-                    &RF_xFactorCount,
-                    &RF_rFactorMap,
-                    &RF_xFactorMap,
-                    &RF_rFactorIndex,
-                    &RF_xFactorIndex,
-                    &RF_rFactorSize,
-                    &RF_xFactorSize,
-                    &RF_rNonFactorCount,
-                    &RF_xNonFactorCount,
-                    &RF_rNonFactorMap,
-                    &RF_xNonFactorMap,
-                    &RF_rNonFactorIndex,
-                    &RF_xNonFactorIndex,
-                    &RF_rTargetFactor,
-                    &RF_rTargetNonFactor,
-                    &RF_rTargetFactorCount,
-                    &RF_rTargetNonFactorCount,
-                    &RF_xLevels);
-  initializeFactorArrays(mode,
-                         RF_rFactorCount,
-                         RF_xFactorCount,
-                         RF_rFactorIndex,
-                         RF_xFactorIndex,
-                         RF_rLevelsMax,
-                         RF_xLevelsMax,
-                         RF_rLevelsCnt,
-                         RF_xLevelsCnt,
-                         RF_ntree,
-                         RF_rFactorSize,
-                         RF_xFactorSize,
-                         &RF_rMaxFactorLevel,
-                         &RF_xMaxFactorLevel,
-                         &RF_maxFactorLevel,
-                         &RF_factorList);
-  stackTrainingDataArraysWithPass(mode,
-                                  RF_ySize,
+  if (result) {
+    result = getStrengthTreeCount(mode,
                                   RF_ntree,
-                                  RF_responseIn,
-                                  RF_startTimeIndex,
-                                  RF_statusIndex,
-                                  RF_timeIndex,
-                                  RF_startMasterTimeIndexIn,
-                                  RF_masterTimeIndexIn,
-                                  RF_observationSize,
-                                  RF_observationIn,
-                                  & RF_response,
-                                  & RF_time,
-                                  & RF_startTime,
-                                  & RF_startMasterTimeIndex,
-                                  & RF_masterTimeIndex,
-                                  & RF_status,
-                                  & RF_observation,
-                                  & RF_mStatusFlag,
-                                  & RF_mTimeFlag,
-                                  & RF_mResponseFlag,
-                                  & RF_mPredictorFlag,
-                                  & RF_mRecordSize,
-                                  & RF_mRecordMap);
-  if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
-      stackCompetingArrays(mode,
-                           RF_statusIndex,
-                           RF_splitRule,
-                           RF_eventTypeSize,
-                           RF_eventType,
-                           RF_crWeightSize,
-                           RF_crWeight,
-                           RF_frSize,
-                           RF_observationSize,
-                           RF_fobservationSize,
-                           RF_responseIn,
-                           RF_fresponseIn,
-                           RF_mRecordMap,
-                           RF_fmRecordMap,
-                           RF_mRecordSize,
-                           RF_fmRecordSize,
-                           RF_mpSign,
-                           RF_fmpSign,
-                           &RF_eventTypeIndex,
-                           &RF_feventTypeSize,
-                           &RF_mStatusSize,
-                           &RF_eIndividualSize,
-                           &RF_eIndividualIn);
+                                  VP_maxTree,
+                                  RF_tLeafCount_,
+                                  & VP_strengthTreeCount);
   }
-  if (RF_rFactorCount > 0) {
-    stackClassificationArrays(mode,
-                              RF_rFactorSize,
-                              RF_rLevelsCnt,
-                              RF_rFactorCount,
-                              RF_observationSize,
-                              RF_responseIn,
-                              RF_rFactorIndex,
-                              &RF_rLevels,
-                              &RF_classLevelSize,
-                              &RF_classLevel,
-                              &RF_classLevelIndex,
-                              &RF_rFactorThreshold,
-                              &RF_rFactorMinority,
-                              &RF_rFactorMajority,
-                              &RF_rFactorMinorityFlag);
-  }
-  RF_auxDimConsts = makeAuxDimConsts(RF_rFactorSize,
-                                     RF_rFactorCount,
-                                     RF_rFactorMap,
-                                     RF_rTargetFactor,
-                                     RF_rTargetFactorCount,
-                                     RF_tLeafCount_,
-                                     RF_holdBLKptr);
-  preprocessForestRecord(RF_ntree,
-                         RF_totalNodeCount_,
-                         RF_treeID_,
-                         RF_nodeID_,
-                         RF_parmID_,
-                         RF_mwcpSZ_,
-                         RF_tLeafCount_,
-                         RF_nodeSZ_,
-                         RF_restoreTreeID,
-                         RF_restoreTreeOffset,
-                         RF_nodeCount,
-                         RF_mwcpCT,
-                         RF_restoreMWCPoffset,
-                         & RF_totalTerminalCount);
-  if ((RF_optHigh & OPT_MEMB_INCG) || (RF_optHigh & OPT_TERM_INCG)) {
-    RF_incomingStackCount = 0;
-    stackAuxiliaryInfoList(&RF_incomingAuxiliaryInfoList, 8);
-    stackTNQualitativeIncoming(mode,
-                               RF_auxDimConsts,
-                               RF_incomingAuxiliaryInfoList,
-                               RF_ntree,
-                               RF_bootstrapSize,
-                               RF_observationSize,
-                               RF_sexpStringIO,
-                               RF_RMBR_ID_,
-                               RF_AMBR_ID_,
-                               RF_TN_RCNT_,
-                               RF_TN_ACNT_,
-                               &RF_incomingStackCount,
-                               &RF_RMBR_ID_ptr,
-                               &RF_AMBR_ID_ptr,
-                               &RF_TN_RCNT_ptr,
-                               &RF_TN_ACNT_ptr);
-    stackTNQuantitativeIncoming(mode,
-                                RF_auxDimConsts,
-                                RF_incomingAuxiliaryInfoList,
-                                RF_ntree,
-                                RF_sexpStringIO,
-                                RF_timeIndex,
-                                RF_startTimeIndex,
-                                RF_statusIndex,
-                                RF_rFactorCount,
-                                RF_rNonFactorCount,
-                                RF_eventTypeSize,
-                                RF_sortedTimeInterestSize,
-                                RF_tLeafCount_,
-                                RF_TN_MORT_,
-                                RF_TN_SURV_,
-                                RF_TN_NLSN_,
-                                RF_TN_CSHZ_,
-                                RF_TN_CIFN_,
-                                RF_TN_KHZF_,
-                                RF_TN_REGR_,
-                                RF_TN_CLAS_,
-                                &RF_incomingStackCount,
-                                &RF_TN_MORT_ptr,
-                                &RF_TN_SURV_ptr,
-                                &RF_TN_NLSN_ptr,
-                                &RF_TN_CSHZ_ptr,
-                                &RF_TN_CIFN_ptr,
-                                &RF_TN_KHZF_ptr,
-                                &RF_TN_REGR_ptr,
-                                &RF_TN_CLAS_ptr);
-  }
-  else {
-    RF_incomingStackCount = 0;
-    RF_incomingAuxiliaryInfoList = NULL;
-  }
-  stackStrengthObjectsPtrOnly(mode,
-                              RF_ntree,
-                              VP_maxTree,
-                              RF_tLeafCount_,
-                              & VP_strengthTreeCount,
-                              & VP_strengthTreeID,
-                              & VP_branchCount,
-                              & VP_branchID,
-                              & VP_oobCount,
-                              & VP_xReleaseCount,
-                              & VP_xReleaseIDArray,
-                              & VP_complementCount,
-                              & VP_oobMembers,
-                              & VP_complementMembers,
-                              & VP_proxyIndv,
-                              & VP_proxyIndvDepth);
-  selectTrees(RF_ntree,
-              VP_strengthTreeCount,
-              RF_tLeafCount_,
-              VP_strengthTreeID);
-  makeNode = & makeNodeDerived;
-  freeNode = & freeNodeDerived;
-  makeTerminal = & makeTerminalDerived;
-  freeTerminal = & freeTerminalDerived;
+  if (result) {
+    ran1A = &randomChainParallel;
+    ran1B = &randomChainParallel2;
+    ran1D = &randomChainParallel3;
+    randomSetChain     = &randomSetChainParallel;
+    randomSetChain2    = &randomSetChainParallel2;
+    randomSetChain3    = &randomSetChainParallel3;
+    randomGetChain     = &randomGetChainParallel;
+    randomGetChain2    = &randomGetChainParallel2;
+    randomGetChain3    = &randomGetChainParallel3;
+    stackRandom(RF_ntree);
+    for (b = 1; b <= RF_ntree; b++) {
+      randomSetChain(b , RF_seed_[b]);
+    }
+    seedValueLC = abs(seedValue);
+    lcgenerator(&seedValueLC, TRUE);
+    for (b = 1; b <= RF_ntree; b++) {
+      lcgenerator(&seedValueLC, FALSE);
+      lcgenerator(&seedValueLC, FALSE);
+      while(seedValueLC == 0) {
+        lcgenerator(&seedValueLC, FALSE);
+      }
+      randomSetChain2(b, -seedValueLC);
+    }
+    for (b = 1; b <= RF_ntree; b++) {
+      lcgenerator(&seedValueLC, FALSE);
+      lcgenerator(&seedValueLC, FALSE);
+      while(seedValueLC == 0) {
+        lcgenerator(&seedValueLC, FALSE);
+      }
+      randomSetChain3(b, -seedValueLC);
+    }
+    result = stackIncomingArrays(mode,
+                                 RF_ntree,
+                                 RF_timeInterestSize,
+                                 RF_ytry,
+                                 RF_mtry,
+                                 RF_xWeight,
+                                 RF_yWeight,
+                                 RF_subjSize,
+                                 RF_subjWeight,
+                                 RF_xWeightStat,
+                                 RF_nodeSize,
+                                 RF_bootstrapSize,
+                                 RF_splitRule,
+                                 RF_quantileSize,
+                                 RF_quantile,
+                                 RF_ySize,
+                                 RF_rType,
+                                 RF_frSize,
+                                 RF_subjIn,
+                                 RF_observationSize,
+                                 RF_responseIn,
+                                 RF_fresponseIn,
+                                 RF_xSize,
+                                 RF_xType,
+                                 RF_fobservationSize,
+                                 RF_observationIn,
+                                 RF_fobservationIn,
+                                 &RF_yIndex,
+                                 &RF_yIndexZero,
+                                 &RF_timeIndex,
+                                 &RF_startTimeIndex,
+                                 &RF_statusIndex,
+                                 &RF_masterTime,
+                                 &RF_masterTimeSize,
+                                 &RF_sortedTimeInterestSize,
+                                 &RF_startMasterTimeIndexIn,
+                                 &RF_masterTimeIndexIn,
+                                 &RF_ptnCount,
+                                 &RF_ySizeProxy,
+                                 &RF_yIndexZeroSize);
+    if (result) { 
+      result = stackPreDefinedCommonArrays(mode,
+                                           RF_ntree,
+                                           RF_subjWeight,
+                                           RF_timeIndex,
+                                           RF_startTimeIndex,
+                                           RF_statusIndex,
+                                           RF_bootstrapSize,
+                                           RF_bootstrapIn,
+                                           RF_subjSize,
+                                           RF_ptnCount,
+                                           RF_getTree,
+                                           RF_observationSize,
+                                           RF_subjCount,
+                                           RF_subjSlotCount,
+                                           &RF_nodeMembership,
+                                           &RF_tTermMembership,
+                                           &RF_pNodeMembership,
+                                           &RF_pTermMembership,
+                                           &RF_hTermMembership,
+                                           &RF_tTermList,
+                                           &RF_pNodeList,
+                                           &RF_pTermList,
+                                           &RF_bootMembershipFlag,
+                                           &RF_oobMembershipFlag,
+                                           &RF_bootMembershipCount,
+                                           &RF_ibgMembershipIndex,
+                                           &RF_oobMembershipIndex,
+                                           &RF_oobSize,
+                                           &RF_ibgSize,
+                                           &RF_bootMembershipIndex,
+                                           &RF_maxDepth,
+                                           &RF_orderedTreeIndex,
+                                           &RF_serialTreeIndex,
+                                           &RF_root,
+                                           &RF_nodeCount,
+                                           &RF_leafLinkedObjHead,
+                                           &RF_leafLinkedObjTail,
+                                           &RF_pLeafCount,
+                                           &RF_getTreeIndex,
+                                           &RF_getTreeCount,
+                                           &RF_subjWeightType,
+                                           &RF_subjWeightSorted,
+                                           &RF_subjWeightDensitySize,
+                                           &RF_identityMembershipIndexSize,
+                                           &RF_identityMembershipIndex);
+      if (result) {
+        result = stackPreDefinedRestoreArrays(RF_xSize,
+                                              RF_intrPredictor,
+                                              RF_intrPredictorSize,
+                                              &RF_importanceFlag);
+        if (result) {
+          result = stackAndInitializeTimeAndSubjectArrays(mode,
+                                                 RF_startTimeIndex,
+                                                 RF_observationSize,
+                                                 RF_responseIn,
+                                                 RF_timeIndex,
+                                                 RF_timeInterestSize,
+                                                 RF_subjIn,
+                                                 RF_subjSize,
+                                                 &RF_masterTime,
+                                                 &RF_masterTimeIndexIn,
+                                                 &RF_startMasterTimeIndexIn,
+                                                 &RF_timeInterest,
+                                                 &RF_masterTimeSize,
+                                                 &RF_sortedTimeInterestSize,
+                                                 &RF_masterToInterestTimeMap,
+                                                 &RF_subjSlot,
+                                                 &RF_subjSlotCount,
+                                                 &RF_subjList,
+                                                 &RF_caseMap,
+                                                 &RF_subjCount);
+          if (result) {
+            stackFactorArrays(mode,
+                              RF_rType,
+                              RF_xType,
+                              RF_ySize,
+                              RF_xSize,
+                              RF_xLevelsCnt,
+                              RF_rTarget,
+                              RF_rTargetCount,
+                              RF_timeIndex,
+                              RF_statusIndex,
+                              &RF_rFactorCount,
+                              &RF_xFactorCount,
+                              &RF_rFactorMap,
+                              &RF_xFactorMap,
+                              &RF_rFactorIndex,
+                              &RF_xFactorIndex,
+                              &RF_rFactorSize,
+                              &RF_xFactorSize,
+                              &RF_rNonFactorCount,
+                              &RF_xNonFactorCount,
+                              &RF_rNonFactorMap,
+                              &RF_xNonFactorMap,
+                              &RF_rNonFactorIndex,
+                              &RF_xNonFactorIndex,
+                              &RF_rTargetFactor,
+                              &RF_rTargetNonFactor,
+                              &RF_rTargetFactorCount,
+                              &RF_rTargetNonFactorCount,
+                              &RF_xLevels);
+            initializeFactorArrays(mode,
+                                   RF_rFactorCount,
+                                   RF_xFactorCount,
+                                   RF_rFactorIndex,
+                                   RF_xFactorIndex,
+                                   RF_rLevelsMax,
+                                   RF_xLevelsMax,
+                                   RF_rLevelsCnt,
+                                   RF_xLevelsCnt,
+                                   RF_ntree,
+                                   RF_rFactorSize,
+                                   RF_xFactorSize,
+                                   &RF_rMaxFactorLevel,
+                                   &RF_xMaxFactorLevel,
+                                   &RF_maxFactorLevel,
+                                   &RF_factorList);
+            stackTrainingDataArraysWithPass(mode,
+                                            RF_ySize,
+                                            RF_ntree,
+                                            RF_responseIn,
+                                            RF_startTimeIndex,
+                                            RF_statusIndex,
+                                            RF_timeIndex,
+                                            RF_startMasterTimeIndexIn,
+                                            RF_masterTimeIndexIn,
+                                            RF_observationSize,
+                                            RF_observationIn,
+                                            & RF_response,
+                                            & RF_time,
+                                            & RF_startTime,
+                                            & RF_startMasterTimeIndex,
+                                            & RF_masterTimeIndex,
+                                            & RF_status,
+                                            & RF_observation,
+                                            & RF_mStatusFlag,
+                                            & RF_mTimeFlag,
+                                            & RF_mResponseFlag,
+                                            & RF_mPredictorFlag,
+                                            & RF_mRecordSize,
+                                            & RF_mRecordMap);
+            if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
+              stackCompetingArrays(mode,
+                                   RF_statusIndex,
+                                   RF_splitRule,
+                                   RF_eventTypeSize,
+                                   RF_eventType,
+                                   RF_crWeightSize,
+                                   RF_crWeight,
+                                   RF_frSize,
+                                   RF_observationSize,
+                                   RF_fobservationSize,
+                                   RF_responseIn,
+                                   RF_fresponseIn,
+                                   RF_mRecordMap,
+                                   RF_fmRecordMap,
+                                   RF_mRecordSize,
+                                   RF_fmRecordSize,
+                                   RF_mpSign,
+                                   RF_fmpSign,
+                                   &RF_eventTypeIndex,
+                                   &RF_feventTypeSize,
+                                   &RF_mStatusSize,
+                                   &RF_eIndividualSize,
+                                   &RF_eIndividualIn);
+            }
+            if (RF_rFactorCount > 0) {
+              stackClassificationArrays(mode,
+                                        RF_rFactorSize,
+                                        RF_rLevelsCnt,
+                                        RF_rFactorCount,
+                                        RF_observationSize,
+                                        RF_responseIn,
+                                        RF_rFactorIndex,
+                                        &RF_rLevels,
+                                        &RF_classLevelSize,
+                                        &RF_classLevel,
+                                        &RF_classLevelIndex,
+                                        &RF_rFactorThreshold,
+                                        &RF_rFactorMinority,
+                                        &RF_rFactorMajority,
+                                        &RF_rFactorMinorityFlag);
+            }
+            RF_auxDimConsts = makeAuxDimConsts(RF_rFactorSize,
+                                               RF_rFactorCount,
+                                               RF_rFactorMap,
+                                               RF_rTargetFactor,
+                                               RF_rTargetFactorCount,
+                                               RF_tLeafCount_,
+                                               RF_holdBLKptr);
+            preprocessForestRecord(RF_ntree,
+                                   RF_totalNodeCount_,
+                                   RF_treeID_,
+                                   RF_nodeID_,
+                                   RF_parmID_,
+                                   RF_mwcpSZ_,
+                                   RF_tLeafCount_,
+                                   RF_nodeSZ_,
+                                   RF_restoreTreeID,
+                                   RF_restoreTreeOffset,
+                                   RF_nodeCount,
+                                   RF_mwcpCT,
+                                   RF_restoreMWCPoffset,
+                                   & RF_totalTermCount);
+            if ((RF_optHigh & OPT_MEMB_INCG) || (RF_optHigh & OPT_TERM_INCG)) {
+              RF_incomingStackCount = 0;
+              stackAuxiliaryInfoList(&RF_incomingAuxiliaryInfoList, 8);
+              stackTNQualitativeIncoming(mode,
+                                         RF_auxDimConsts,
+                                         RF_incomingAuxiliaryInfoList,
+                                         RF_ntree,
+                                         RF_bootstrapSize,
+                                         RF_observationSize,
+                                         RF_sexpStringIO,
+                                         RF_RMBR_ID_,
+                                         RF_AMBR_ID_,
+                                         RF_TN_RCNT_,
+                                         RF_TN_ACNT_,
+                                         &RF_incomingStackCount,
+                                         &RF_RMBR_ID_ptr,
+                                         &RF_AMBR_ID_ptr,
+                                         &RF_TN_RCNT_ptr,
+                                         &RF_TN_ACNT_ptr);
+              stackTNQuantitativeIncoming(mode,
+                                          RF_auxDimConsts,
+                                          RF_incomingAuxiliaryInfoList,
+                                          RF_ntree,
+                                          RF_sexpStringIO,
+                                          RF_timeIndex,
+                                          RF_startTimeIndex,
+                                          RF_statusIndex,
+                                          RF_rFactorCount,
+                                          RF_rNonFactorCount,
+                                          RF_eventTypeSize,
+                                          RF_sortedTimeInterestSize,
+                                          RF_tLeafCount_,
+                                          RF_TN_MORT_,
+                                          RF_TN_SURV_,
+                                          RF_TN_NLSN_,
+                                          RF_TN_CSHZ_,
+                                          RF_TN_CIFN_,
+                                          RF_TN_KHZF_,
+                                          RF_TN_REGR_,
+                                          RF_TN_CLAS_,
+                                          &RF_incomingStackCount,
+                                          &RF_TN_MORT_ptr,
+                                          &RF_TN_SURV_ptr,
+                                          &RF_TN_NLSN_ptr,
+                                          &RF_TN_CSHZ_ptr,
+                                          &RF_TN_CIFN_ptr,
+                                          &RF_TN_KHZF_ptr,
+                                          &RF_TN_REGR_ptr,
+                                          &RF_TN_CLAS_ptr);
+            }
+            else {
+              RF_incomingStackCount = 0;
+              RF_incomingAuxiliaryInfoList = NULL;
+            }
+            stackStrengthObjectsPtrOnly(mode,
+                                        & VP_strengthTreeCount,                              
+                                        & VP_strengthTreeID,
+                                        & VP_branchCount,
+                                        & VP_branchID,
+                                        & VP_oobCount,
+                                        & VP_xReleaseCount,
+                                        & VP_xReleaseIDArray,
+                                        & VP_complementCount,
+                                        & VP_oobMembers,
+                                        & VP_complementMembers,
+                                        & VP_proxyIndv,
+                                        & VP_proxyIndvDepth);
+            selectTrees(RF_ntree,
+                        VP_strengthTreeCount,
+                        RF_tLeafCount_,
+                        VP_strengthTreeID);
+            makeNode = & makeNodeDerived;
+            freeNode = & freeNodeDerived;
+            makeTerminal = & makeTerminalDerived;
+            freeTerminal = & freeTerminalDerived;
 #ifdef _OPENMP
 #pragma omp parallel for num_threads(RF_numThreads)
 #endif
-  for (b = 1; b <= VP_strengthTreeCount; b++) {
-    acquireTree(mode, b);
-  }
-  if (RF_rNonFactorCount > 0) {
-    RF_stackCount = 9;
-  }
-  else if (RF_rFactorCount > 0) {
-    RF_stackCount = 9;    
-  }
-  else {
-    RF_stackCount = 8;
-  }
-    initProtect(RF_stackCount);
-  stackAuxiliaryInfoList(&RF_snpAuxiliaryInfoList, RF_stackCount);
-  VP_cpuTime_ = (double*) stackAndProtect(RF_auxDimConsts,
-                                          mode,
-                                          &RF_nativeIndex,
-                                          NATIVE_TYPE_NUMERIC,
-                                          RF_CPU_TIME,
-                                          1,
-                                          0,
-                                          RF_sexpStringIO,
-                                          NULL,
-                                          1,
-                                          1);
-  VP_cpuTime_ --;
-  VP_totalRecordCount = 0;
-  for(b = 1; b <= VP_strengthTreeCount; b++) {
-    for(j = 1; j <= VP_branchCount[b]; j++) {
-      for(k = 1; k <= VP_xReleaseCount[b][j]; k++) {
-        VP_totalRecordCount++;
-      }
-    }
-  }
-  VP_treeID_ = (uint*) stackAndProtect(RF_auxDimConsts,
-                                       mode,
-                                       &RF_nativeIndex,
-                                       NATIVE_TYPE_INTEGER,
-                                       VP_TREE_ID,
-                                       VP_totalRecordCount,
-                                       0,
-                                       VP_sexpStringOutgoing,
-                                       NULL,
-                                       1,
-                                       VP_totalRecordCount);
-  VP_treeID_ --;
-  VP_nodeID_ = (uint*) stackAndProtect(RF_auxDimConsts,
-                                       mode,
-                                       &RF_nativeIndex,
-                                       NATIVE_TYPE_INTEGER,
-                                       VP_NODE_ID,
-                                       VP_totalRecordCount,
-                                       0,
-                                       VP_sexpStringOutgoing,
-                                       NULL,
-                                       1,
-                                       VP_totalRecordCount);
-  VP_nodeID_ --;
-  VP_xReleaseID_ = (uint*) stackAndProtect(RF_auxDimConsts,
-                                           mode,
-                                           &RF_nativeIndex,
-                                           NATIVE_TYPE_INTEGER,
-                                           VP_XVAR_ID,
-                                           VP_totalRecordCount,
-                                           0,
-                                           VP_sexpStringOutgoing,
-                                           NULL,
-                                           1,
-                                           VP_totalRecordCount);
-  VP_xReleaseID_ --;
-  uint localSize;
-  uint membershipSize;
-  if (RF_rNonFactorCount > 0) {
-    localSize = VP_totalRecordCount * RF_rTargetNonFactorCount;
-    VP_oobCT_ = (uint*) stackAndProtect(RF_auxDimConsts,
-                                        mode,
-                                        &RF_nativeIndex,
-                                        NATIVE_TYPE_INTEGER,
-                                        VP_OOBG_CT,
-                                        VP_totalRecordCount,
-                                        0,
-                                        VP_sexpStringOutgoing,
-                                        NULL,
-                                        1,
-                                        VP_totalRecordCount);
-    VP_oobCT_ --;
-    if (!(VP_opt & (VP_OPT_CMP | VP_OPT_OOB))) {
-      VP_importance_ = (double*) stackAndProtect(RF_auxDimConsts,
+            for (b = 1; b <= VP_strengthTreeCount; b++) {
+              acquireTree(mode, b);
+            }
+            if (RF_rNonFactorCount > 0) {
+              RF_stackCount = 9;
+            }
+            else if (RF_rFactorCount > 0) {
+              RF_stackCount = 9;    
+            }
+            else {
+              RF_stackCount = 8;
+            }
+            initProtect(RF_stackCount);
+            stackAuxiliaryInfoList(&RF_snpAuxiliaryInfoList, RF_stackCount);
+            VP_cpuTime_ = (double*) stackAndProtect(RF_auxDimConsts,
+                                                    mode,
+                                                    &RF_nativeIndex,
+                                                    NATIVE_TYPE_NUMERIC,
+                                                    RF_CPU_TIME,
+                                                    1,
+                                                    0,
+                                                    RF_sexpStringIO,
+                                                    NULL,
+                                                    1,
+                                                    1);
+            VP_cpuTime_ --;
+            VP_totalRecordCount = 0;
+            for(b = 1; b <= VP_strengthTreeCount; b++) {
+              for(j = 1; j <= VP_branchCount[b]; j++) {
+                for(k = 1; k <= VP_xReleaseCount[b][j]; k++) {
+                  VP_totalRecordCount++;
+                }
+              }
+            }
+            VP_treeID_ = (uint*) stackAndProtect(RF_auxDimConsts,
                                                  mode,
                                                  &RF_nativeIndex,
-                                                 NATIVE_TYPE_NUMERIC,
-                                                 VP_STAT_IMP,
-                                                 localSize,
+                                                 NATIVE_TYPE_INTEGER,
+                                                 VP_TREE_ID,
+                                                 VP_totalRecordCount,
                                                  0,
                                                  VP_sexpStringOutgoing,
-                                                 & VP_dimImpRGRptr,
-                                                 2,
-                                                 RF_rNonFactorCount,
-                                                 VP_totalRecordCount);
-      VP_importance_ --;
-    }
-    else if ((VP_opt & VP_OPT_CMP) && !(VP_opt & VP_OPT_OOB)) {
-      VP_complementStat_ = (double*) stackAndProtect(RF_auxDimConsts,
-                                                     mode,
-                                                     &RF_nativeIndex,
-                                                     NATIVE_TYPE_NUMERIC,
-                                                     VP_STAT_COMPL,
-                                                     localSize,
-                                                     0,
-                                                     VP_sexpStringOutgoing,
-                                                     & VP_dimImpRGRptr,
-                                                     2,
-                                                     RF_rNonFactorCount,
-                                                     VP_totalRecordCount);
-      VP_complementStat_ --;
-    }
-    else if ((VP_opt & VP_OPT_OOB) && !(VP_opt & VP_OPT_CMP)) {
-      VP_oobStat_ = (double*) stackAndProtect(RF_auxDimConsts,
-                                              mode,
-                                              &RF_nativeIndex,
-                                              NATIVE_TYPE_NUMERIC,
-                                              VP_STAT_OOB,
-                                              localSize,
-                                              0,
-                                              VP_sexpStringOutgoing,
-                                              & VP_dimImpRGRptr,
-                                              2,
-                                              RF_rNonFactorCount,
-                                              VP_totalRecordCount);
-      VP_oobStat_ --;
-    }
-    writeStrengthArray(VP_strengthTreeID,
-                       VP_strengthTreeCount,
-                       VP_branchID,
-                       VP_branchCount,
-                       VP_oobCount,
-                       VP_complementCount,
-                       VP_xReleaseCount,
-                       VP_xReleaseIDArray,
-                       VP_treeID_,
-                       VP_nodeID_,
-                       VP_xReleaseID_,
-                       VP_oobCT_,
-                       VP_dimImpRGRptr);
-  }
-  else if (RF_rFactorCount > 0) {
-    localSize = VP_totalRecordCount;
-    for (j = 1; j <= RF_rTargetFactorCount; j++) {
-      for (k = 1; k <= RF_rFactorSize[RF_rFactorMap[RF_rTargetFactor[j]]]; k++) {
-        localSize += VP_totalRecordCount;
-      }
-    }
-    VP_oobCT_ = (uint*) stackAndProtect(RF_auxDimConsts,
-                                        mode,
-                                        &RF_nativeIndex,
-                                        NATIVE_TYPE_INTEGER,
-                                        VP_OOBG_CT,
-                                        localSize,
-                                        0,
-                                        VP_sexpStringOutgoing,
-                                        & VP_oobCTptr,
-                                        3,
-                                        1,
-                                        -1,
-                                        VP_totalRecordCount);
-    VP_oobCT_ --;
-    if (!(VP_opt & (VP_OPT_CMP | VP_OPT_OOB))) {
-      VP_importance_ = (double*) stackAndProtect(RF_auxDimConsts,
-                                                 mode,
-                                                 &RF_nativeIndex,
-                                                 NATIVE_TYPE_NUMERIC,
-                                                 VP_STAT_IMP,
-                                                 localSize,
-                                                 0,
-                                                 VP_sexpStringOutgoing,
-                                                 & VP_dimImpCLSptr,
-                                                 3,
+                                                 NULL,
                                                  1,
-                                                 -1,
                                                  VP_totalRecordCount);
-      VP_importance_ --;
-    }
-    else if ((VP_opt & VP_OPT_CMP) && !(VP_opt & VP_OPT_OOB)) {
-      VP_complementStat_ = (double*) stackAndProtect(RF_auxDimConsts,
+            VP_treeID_ --;
+            VP_nodeID_ = (uint*) stackAndProtect(RF_auxDimConsts,
+                                                 mode,
+                                                 &RF_nativeIndex,
+                                                 NATIVE_TYPE_INTEGER,
+                                                 VP_NODE_ID,
+                                                 VP_totalRecordCount,
+                                                 0,
+                                                 VP_sexpStringOutgoing,
+                                                 NULL,
+                                                 1,
+                                                 VP_totalRecordCount);
+            VP_nodeID_ --;
+            VP_xReleaseID_ = (uint*) stackAndProtect(RF_auxDimConsts,
                                                      mode,
                                                      &RF_nativeIndex,
-                                                     NATIVE_TYPE_NUMERIC,
-                                                     VP_STAT_COMPL,
-                                                     localSize,
+                                                     NATIVE_TYPE_INTEGER,
+                                                     VP_XVAR_ID,
+                                                     VP_totalRecordCount,
                                                      0,
                                                      VP_sexpStringOutgoing,
-                                                     & VP_dimImpCLSptr,
-                                                     3,
+                                                     NULL,
                                                      1,
-                                                     -1,
                                                      VP_totalRecordCount);
-      VP_complementStat_ --;
-    }
-    else if ((VP_opt & VP_OPT_OOB) && !(VP_opt & VP_OPT_CMP)) {
-      VP_oobStat_ = (double*) stackAndProtect(RF_auxDimConsts,
-                                              mode,
-                                              &RF_nativeIndex,
-                                              NATIVE_TYPE_NUMERIC,
-                                              VP_STAT_OOB,
-                                              localSize,
-                                              0,
-                                              VP_sexpStringOutgoing,
-                                              & VP_dimImpCLSptr,
-                                              3,
-                                              1,
-                                              -1,
-                                              VP_totalRecordCount);
-      VP_oobStat_ --;
-    }
-    writeStrengthArray(VP_strengthTreeID,
-                       VP_strengthTreeCount,
-                       VP_branchID,
-                       VP_branchCount,
-                       VP_oobCount,
-                       VP_complementCount,
-                       VP_xReleaseCount,
-                       VP_xReleaseIDArray,
-                       VP_treeID_,
-                       VP_nodeID_,
-                       VP_xReleaseID_,
-                       VP_oobCTptr,
-                       VP_dimImpCLSptr);
-  }
-  else {
-    VP_oobCT_ = (uint*) stackAndProtect(RF_auxDimConsts,
-                                        mode,
-                                        &RF_nativeIndex,
-                                        NATIVE_TYPE_INTEGER,
-                                        VP_OOBG_CT,
-                                        VP_totalRecordCount,
-                                        0,
-                                        VP_sexpStringOutgoing,
-                                        NULL,
-                                        1,
-                                        VP_totalRecordCount);
-    VP_oobCT_ --;
-    writeStrengthArray(VP_strengthTreeID,
-                       VP_strengthTreeCount,
-                       VP_branchID,
-                       VP_branchCount,
-                       VP_oobCount,
-                       VP_complementCount,
-                       VP_xReleaseCount,
-                       VP_xReleaseIDArray,
-                       VP_treeID_,
-                       VP_nodeID_,
-                       VP_xReleaseID_,
-                       VP_oobCT_,
-                       NULL);
-  }
-  VP_complementCT_ = (uint*) stackAndProtect(RF_auxDimConsts,
-                                             mode,
-                                             &RF_nativeIndex,
-                                             NATIVE_TYPE_INTEGER,
-                                             VP_COMP_CT,
-                                             VP_totalRecordCount,
-                                             0,
-                                             VP_sexpStringOutgoing,
-                                             NULL,
-                                             1,
-                                             VP_totalRecordCount);
-  VP_complementCT_ --;
-  membershipSize = 0;
-  for (b = 1; b <= VP_strengthTreeCount; b++) {
-    for(j = 1; j <= VP_branchCount[b]; j++) {
-      membershipSize += VP_oobCount[b][j];
-    }
-  }
-  VP_oobID_ = (uint*) stackAndProtect(RF_auxDimConsts,
-                                      mode,
-                                      &RF_nativeIndex,
-                                      NATIVE_TYPE_INTEGER,
-                                      VP_OOBG_MEM,
-                                      membershipSize,
-                                      0,
-                                      VP_sexpStringOutgoing,
-                                      NULL,
-                                      1,
-                                      VP_totalRecordCount);
-  VP_oobID_ --;
-  membershipSize = 0;
-  for (b = 1; b <= VP_strengthTreeCount; b++) {
-    for(j = 1; j <= VP_branchCount[b]; j++) {
-      for(k = 1; k <= VP_xReleaseCount[b][j]; k++) {
-        membershipSize += VP_complementCount[b][j][k];
-      }
-    }
-  }
-  VP_complementID_ = (uint*) stackAndProtect(RF_auxDimConsts,
-                                             mode,
-                                             &RF_nativeIndex,
-                                             NATIVE_TYPE_INTEGER,
-                                             VP_COMP_MEM,
-                                             membershipSize,
-                                             0,
-                                             VP_sexpStringOutgoing,
-                                             NULL,
-                                             1,
-                                             VP_totalRecordCount);
-  VP_complementID_ --;
-  writeMembershipArray(VP_strengthTreeCount,
-                       VP_branchCount,
-                       VP_oobCount,
-                       VP_complementCount,
-                       VP_xReleaseCount,
-                       VP_oobMembers,
-                       VP_complementMembers,
-                       VP_complementCT_,
-                       VP_oobID_,
-                       VP_complementID_);
-  for (uint bb = 1; bb <= VP_strengthTreeCount; bb++) {
-    if(RF_tTermList[VP_strengthTreeID[bb]] != NULL) {
-      free_new_vvector(RF_tTermList[VP_strengthTreeID[bb]], 1, RF_tLeafCount_[VP_strengthTreeID[bb]], NRUTIL_TPTR);
-    }
-    freeLeafLinkedObjList(RF_leafLinkedObjHead[VP_strengthTreeID[bb]]);
-    free_new_vvector(RF_tTermMembership[VP_strengthTreeID[bb]], 1, RF_observationSize, NRUTIL_TPTR);
-  }
-  freeStrengthBranchIDVectors(VP_strengthTreeCount,
-                              VP_branchCount,
-                              VP_branchID,
-                              VP_oobCount,
-                              VP_xReleaseCount,
-                              VP_xReleaseIDArray,
-                              VP_complementCount,
-                              VP_oobMembers,
-                              VP_complementMembers,
-                              VP_proxyIndv,
-                              VP_proxyIndvDepth);
-  unstackStrengthObjectsPtrOnly(mode,
-                                VP_strengthTreeCount,
-                                VP_strengthTreeID,
-                                VP_branchCount,
-                                VP_branchID,
-                                VP_oobCount,
-                                VP_xReleaseCount,
-                                VP_xReleaseIDArray,
-                                VP_complementCount,
-                                VP_oobMembers,
-                                VP_complementMembers,
-                                VP_proxyIndv,
-                                VP_proxyIndvDepth);
-  unstackAuxiliaryInfoAndList(RF_auxDimConsts, TRUE, RF_snpAuxiliaryInfoList, RF_stackCount);
-  if ((RF_optHigh & OPT_MEMB_INCG) || (RF_optHigh & OPT_TERM_INCG)) {
-    unstackAuxiliaryInfoAndList(RF_auxDimConsts, FALSE, RF_incomingAuxiliaryInfoList, 8);
-  }
-  freeAuxDimConsts(RF_auxDimConsts);
-  if (RF_rFactorCount > 0) {
-    unstackClassificationArrays(mode,
-                                RF_rFactorSize,
+            VP_xReleaseID_ --;
+            uint localSize;
+            uint membershipSize;
+            if (RF_rNonFactorCount > 0) {
+              localSize = VP_totalRecordCount * RF_rTargetNonFactorCount;
+              VP_oobCT_ = (uint*) stackAndProtect(RF_auxDimConsts,
+                                                  mode,
+                                                  &RF_nativeIndex,
+                                                  NATIVE_TYPE_INTEGER,
+                                                  VP_OOBG_CT,
+                                                  VP_totalRecordCount,
+                                                  0,
+                                                  VP_sexpStringOutgoing,
+                                                  NULL,
+                                                  1,
+                                                  VP_totalRecordCount);
+              VP_oobCT_ --;
+              if (!(VP_opt & (VP_OPT_CMP | VP_OPT_OOB))) {
+                VP_importance_ = (double*) stackAndProtect(RF_auxDimConsts,
+                                                           mode,
+                                                           &RF_nativeIndex,
+                                                           NATIVE_TYPE_NUMERIC,
+                                                           VP_STAT_IMP,
+                                                           localSize,
+                                                           0,
+                                                           VP_sexpStringOutgoing,
+                                                           & VP_dimImpRGRptr,
+                                                           2,
+                                                           RF_rNonFactorCount,
+                                                           VP_totalRecordCount);
+                VP_importance_ --;
+              }
+              else if ((VP_opt & VP_OPT_CMP) && !(VP_opt & VP_OPT_OOB)) {
+                VP_complementStat_ = (double*) stackAndProtect(RF_auxDimConsts,
+                                                               mode,
+                                                               &RF_nativeIndex,
+                                                               NATIVE_TYPE_NUMERIC,
+                                                               VP_STAT_COMPL,
+                                                               localSize,
+                                                               0,
+                                                               VP_sexpStringOutgoing,
+                                                               & VP_dimImpRGRptr,
+                                                               2,
+                                                               RF_rNonFactorCount,
+                                                               VP_totalRecordCount);
+                VP_complementStat_ --;
+              }
+              else if ((VP_opt & VP_OPT_OOB) && !(VP_opt & VP_OPT_CMP)) {
+                VP_oobStat_ = (double*) stackAndProtect(RF_auxDimConsts,
+                                                        mode,
+                                                        &RF_nativeIndex,
+                                                        NATIVE_TYPE_NUMERIC,
+                                                        VP_STAT_OOB,
+                                                        localSize,
+                                                        0,
+                                                        VP_sexpStringOutgoing,
+                                                        & VP_dimImpRGRptr,
+                                                        2,
+                                                        RF_rNonFactorCount,
+                                                        VP_totalRecordCount);
+                VP_oobStat_ --;
+              }
+              writeStrengthArray(VP_strengthTreeID,
+                                 VP_strengthTreeCount,
+                                 VP_branchID,
+                                 VP_branchCount,
+                                 VP_oobCount,
+                                 VP_complementCount,
+                                 VP_xReleaseCount,
+                                 VP_xReleaseIDArray,
+                                 VP_treeID_,
+                                 VP_nodeID_,
+                                 VP_xReleaseID_,
+                                 VP_oobCT_,
+                                 VP_dimImpRGRptr);
+            }
+            else if (RF_rFactorCount > 0) {
+              localSize = VP_totalRecordCount;
+              for (j = 1; j <= RF_rTargetFactorCount; j++) {
+                for (k = 1; k <= RF_rFactorSize[RF_rFactorMap[RF_rTargetFactor[j]]]; k++) {
+                  localSize += VP_totalRecordCount;
+                }
+              }
+              VP_oobCT_ = (uint*) stackAndProtect(RF_auxDimConsts,
+                                                  mode,
+                                                  &RF_nativeIndex,
+                                                  NATIVE_TYPE_INTEGER,
+                                                  VP_OOBG_CT,
+                                                  localSize,
+                                                  0,
+                                                  VP_sexpStringOutgoing,
+                                                  & VP_oobCTptr,
+                                                  3,
+                                                  1,
+                                                  -1,
+                                                  VP_totalRecordCount);
+              VP_oobCT_ --;
+              if (!(VP_opt & (VP_OPT_CMP | VP_OPT_OOB))) {
+                VP_importance_ = (double*) stackAndProtect(RF_auxDimConsts,
+                                                           mode,
+                                                           &RF_nativeIndex,
+                                                           NATIVE_TYPE_NUMERIC,
+                                                           VP_STAT_IMP,
+                                                           localSize,
+                                                           0,
+                                                           VP_sexpStringOutgoing,
+                                                           & VP_dimImpCLSptr,
+                                                           3,
+                                                           1,
+                                                           -1,
+                                                           VP_totalRecordCount);
+                VP_importance_ --;
+              }
+              else if ((VP_opt & VP_OPT_CMP) && !(VP_opt & VP_OPT_OOB)) {
+                VP_complementStat_ = (double*) stackAndProtect(RF_auxDimConsts,
+                                                               mode,
+                                                               &RF_nativeIndex,
+                                                               NATIVE_TYPE_NUMERIC,
+                                                               VP_STAT_COMPL,
+                                                               localSize,
+                                                               0,
+                                                               VP_sexpStringOutgoing,
+                                                               & VP_dimImpCLSptr,
+                                                               3,
+                                                               1,
+                                                               -1,
+                                                               VP_totalRecordCount);
+                VP_complementStat_ --;
+              }
+              else if ((VP_opt & VP_OPT_OOB) && !(VP_opt & VP_OPT_CMP)) {
+                VP_oobStat_ = (double*) stackAndProtect(RF_auxDimConsts,
+                                                        mode,
+                                                        &RF_nativeIndex,
+                                                        NATIVE_TYPE_NUMERIC,
+                                                        VP_STAT_OOB,
+                                                        localSize,
+                                                        0,
+                                                        VP_sexpStringOutgoing,
+                                                        & VP_dimImpCLSptr,
+                                                        3,
+                                                        1,
+                                                        -1,
+                                                        VP_totalRecordCount);
+                VP_oobStat_ --;
+              }
+              writeStrengthArray(VP_strengthTreeID,
+                                 VP_strengthTreeCount,
+                                 VP_branchID,
+                                 VP_branchCount,
+                                 VP_oobCount,
+                                 VP_complementCount,
+                                 VP_xReleaseCount,
+                                 VP_xReleaseIDArray,
+                                 VP_treeID_,
+                                 VP_nodeID_,
+                                 VP_xReleaseID_,
+                                 VP_oobCTptr,
+                                 VP_dimImpCLSptr);
+            }
+            else {
+              VP_oobCT_ = (uint*) stackAndProtect(RF_auxDimConsts,
+                                                  mode,
+                                                  &RF_nativeIndex,
+                                                  NATIVE_TYPE_INTEGER,
+                                                  VP_OOBG_CT,
+                                                  VP_totalRecordCount,
+                                                  0,
+                                                  VP_sexpStringOutgoing,
+                                                  NULL,
+                                                  1,
+                                                  VP_totalRecordCount);
+              VP_oobCT_ --;
+              writeStrengthArray(VP_strengthTreeID,
+                                 VP_strengthTreeCount,
+                                 VP_branchID,
+                                 VP_branchCount,
+                                 VP_oobCount,
+                                 VP_complementCount,
+                                 VP_xReleaseCount,
+                                 VP_xReleaseIDArray,
+                                 VP_treeID_,
+                                 VP_nodeID_,
+                                 VP_xReleaseID_,
+                                 VP_oobCT_,
+                                 NULL);
+            }
+            VP_complementCT_ = (uint*) stackAndProtect(RF_auxDimConsts,
+                                                       mode,
+                                                       &RF_nativeIndex,
+                                                       NATIVE_TYPE_INTEGER,
+                                                       VP_COMP_CT,
+                                                       VP_totalRecordCount,
+                                                       0,
+                                                       VP_sexpStringOutgoing,
+                                                       NULL,
+                                                       1,
+                                                       VP_totalRecordCount);
+            VP_complementCT_ --;
+            membershipSize = 0;
+            for (b = 1; b <= VP_strengthTreeCount; b++) {
+              for(j = 1; j <= VP_branchCount[b]; j++) {
+                membershipSize += VP_oobCount[b][j];
+              }
+            }
+            VP_oobID_ = (uint*) stackAndProtect(RF_auxDimConsts,
+                                                mode,
+                                                &RF_nativeIndex,
+                                                NATIVE_TYPE_INTEGER,
+                                                VP_OOBG_MEM,
+                                                membershipSize,
+                                                0,
+                                                VP_sexpStringOutgoing,
+                                                NULL,
+                                                1,
+                                                VP_totalRecordCount);
+            VP_oobID_ --;
+            membershipSize = 0;
+            for (b = 1; b <= VP_strengthTreeCount; b++) {
+              for(j = 1; j <= VP_branchCount[b]; j++) {
+                for(k = 1; k <= VP_xReleaseCount[b][j]; k++) {
+                  membershipSize += VP_complementCount[b][j][k];
+                }
+              }
+            }
+            VP_complementID_ = (uint*) stackAndProtect(RF_auxDimConsts,
+                                                       mode,
+                                                       &RF_nativeIndex,
+                                                       NATIVE_TYPE_INTEGER,
+                                                       VP_COMP_MEM,
+                                                       membershipSize,
+                                                       0,
+                                                       VP_sexpStringOutgoing,
+                                                       NULL,
+                                                       1,
+                                                       VP_totalRecordCount);
+            VP_complementID_ --;
+            writeMembershipArray(VP_strengthTreeCount,
+                                 VP_branchCount,
+                                 VP_oobCount,
+                                 VP_complementCount,
+                                 VP_xReleaseCount,
+                                 VP_oobMembers,
+                                 VP_complementMembers,
+                                 VP_complementCT_,
+                                 VP_oobID_,
+                                 VP_complementID_);
+            for (uint bb = 1; bb <= VP_strengthTreeCount; bb++) {
+              if(RF_tTermList[VP_strengthTreeID[bb]] != NULL) {
+                free_new_vvector(RF_tTermList[VP_strengthTreeID[bb]], 1, RF_tLeafCount_[VP_strengthTreeID[bb]], NRUTIL_TPTR);
+              }
+              freeLeafLinkedObjList(RF_leafLinkedObjHead[VP_strengthTreeID[bb]]);
+              free_new_vvector(RF_tTermMembership[VP_strengthTreeID[bb]], 1, RF_observationSize, NRUTIL_TPTR);
+            }
+            freeStrengthBranchIDVectors(VP_strengthTreeCount,
+                                        VP_branchCount,
+                                        VP_branchID,
+                                        VP_oobCount,
+                                        VP_xReleaseCount,
+                                        VP_xReleaseIDArray,
+                                        VP_complementCount,
+                                        VP_oobMembers,
+                                        VP_complementMembers,
+                                        VP_proxyIndv,
+                                        VP_proxyIndvDepth);
+            unstackStrengthObjectsPtrOnly(mode,
+                                          VP_strengthTreeCount,
+                                          VP_strengthTreeID,
+                                          VP_branchCount,
+                                          VP_branchID,
+                                          VP_oobCount,
+                                          VP_xReleaseCount,
+                                          VP_xReleaseIDArray,
+                                          VP_complementCount,
+                                          VP_oobMembers,
+                                          VP_complementMembers,
+                                          VP_proxyIndv,
+                                          VP_proxyIndvDepth);
+            unstackAuxiliaryInfoAndList(RF_auxDimConsts, TRUE, RF_snpAuxiliaryInfoList, RF_stackCount);
+            if ((RF_optHigh & OPT_MEMB_INCG) || (RF_optHigh & OPT_TERM_INCG)) {
+              unstackAuxiliaryInfoAndList(RF_auxDimConsts, FALSE, RF_incomingAuxiliaryInfoList, 8);
+            }
+            freeAuxDimConsts(RF_auxDimConsts);
+            if (RF_rFactorCount > 0) {
+              unstackClassificationArrays(mode,
+                                          RF_rFactorSize,
+                                          RF_rFactorCount,
+                                          RF_rLevels,
+                                          RF_classLevelSize,
+                                          RF_classLevel,
+                                          RF_classLevelIndex,
+                                          RF_rFactorThreshold,
+                                          RF_rFactorMinority,
+                                          RF_rFactorMajority,
+                                          RF_rFactorMinorityFlag);
+            }
+            if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
+              unstackCompetingArrays(mode,
+                                     RF_statusIndex,
+                                     RF_eventTypeSize,
+                                     RF_eventType,
+                                     RF_feventTypeSize,
+                                     RF_eventTypeIndex,
+                                     RF_mStatusSize,
+                                     RF_eIndividualSize,
+                                     RF_eIndividualIn);
+            }
+            unstackFactorArrays(mode,
+                                RF_ntree,
+                                RF_ySize,
+                                RF_xSize,
+                                RF_rTarget,
+                                RF_rTargetCount,
+                                RF_rTargetFactor,
+                                RF_rTargetNonFactor,
+                                RF_timeIndex,
+                                RF_statusIndex,
                                 RF_rFactorCount,
-                                RF_rLevels,
-                                RF_classLevelSize,
-                                RF_classLevel,
-                                RF_classLevelIndex,
-                                RF_rFactorThreshold,
-                                RF_rFactorMinority,
-                                RF_rFactorMajority,
-                                RF_rFactorMinorityFlag);
-  }
-  if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
-      unstackCompetingArrays(mode,
-                             RF_statusIndex,
-                             RF_eventTypeSize,
-                             RF_eventType,
-                             RF_feventTypeSize,
-                             RF_eventTypeIndex,
-                             RF_mStatusSize,
-                             RF_eIndividualSize,
-                             RF_eIndividualIn);
-  }
-  unstackFactorArrays(mode,
-                      RF_ntree,
-                      RF_ySize,
-                      RF_xSize,
-                      RF_rTarget,
-                      RF_rTargetCount,
-                      RF_rTargetFactor,
-                      RF_rTargetNonFactor,
-                      RF_timeIndex,
-                      RF_statusIndex,
-                      RF_rFactorCount,
-                      RF_xFactorCount,
-                      RF_rFactorMap,
-                      RF_xFactorMap,
-                      RF_rFactorIndex,
-                      RF_xFactorIndex,
-                      RF_rFactorSize,
-                      RF_xFactorSize,
-                      RF_rNonFactorCount,
-                      RF_xNonFactorCount,
-                      RF_rNonFactorMap,
-                      RF_xNonFactorMap,
-                      RF_rNonFactorIndex,
-                      RF_xNonFactorIndex,
-                      RF_xLevels,
-                      RF_factorList);
-  unstackTrainingDataArraysWithPass(mode,
-                                    RF_ySize,
+                                RF_xFactorCount,
+                                RF_rFactorMap,
+                                RF_xFactorMap,
+                                RF_rFactorIndex,
+                                RF_xFactorIndex,
+                                RF_rFactorSize,
+                                RF_xFactorSize,
+                                RF_rNonFactorCount,
+                                RF_xNonFactorCount,
+                                RF_rNonFactorMap,
+                                RF_xNonFactorMap,
+                                RF_rNonFactorIndex,
+                                RF_xNonFactorIndex,
+                                RF_xLevels,
+                                RF_factorList);
+            unstackTrainingDataArraysWithPass(mode,
+                                              RF_ySize,
+                                              RF_ntree,
+                                              RF_timeIndex,
+                                              RF_statusIndex,
+                                              RF_startTimeIndex,
+                                              RF_response,
+                                              RF_time,
+                                              RF_masterTimeIndex,
+                                              RF_startTime,
+                                              RF_startMasterTimeIndex,
+                                              RF_status,
+                                              RF_observation);
+          }
+          if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
+            unstackTimeAndSubjectArrays(mode,
+                                        RF_startTimeIndex,
+                                        RF_observationSize,
+                                        RF_masterTime,
+                                        RF_masterTimeIndexIn,
+                                        RF_masterTimeSize,
+                                        RF_startMasterTimeIndexIn,
+                                        RF_masterToInterestTimeMap,
+                                        RF_subjSlot,
+                                        RF_subjSlotCount,
+                                        RF_subjList,
+                                        RF_caseMap,
+                                        RF_subjCount);
+          }
+        }
+        unstackPreDefinedRestoreArrays(RF_xSize, RF_importanceFlag);
+      }
+      unstackPreDefinedCommonArrays(mode,
                                     RF_ntree,
                                     RF_timeIndex,
-                                    RF_statusIndex,
                                     RF_startTimeIndex,
-                                    RF_response,
-                                    RF_time,
-                                    RF_masterTimeIndex,
-                                    RF_startTime,
-                                    RF_startMasterTimeIndex,
-                                    RF_status,
-                                    RF_observation);
-  if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
-     unstackTimeAndSubjectArrays(mode,
-                                 RF_startTimeIndex,
-                                 RF_observationSize,
-                                 RF_masterTime,
-                                 RF_masterTimeIndexIn,
-                                 RF_masterTimeSize,
-                                 RF_startMasterTimeIndexIn,
-                                 RF_masterToInterestTimeMap,
-                                 RF_subjSlot,
-                                 RF_subjSlotCount,
-                                 RF_subjList,
-                                 RF_caseMap,
-                                 RF_subjCount);
+                                    RF_statusIndex,
+                                    RF_subjSize,
+                                    RF_ptnCount,
+                                    RF_nodeMembership,
+                                    RF_tTermMembership,
+                                    RF_pNodeMembership,
+                                    RF_pTermMembership,
+                                    RF_hTermMembership,
+                                    RF_tTermList,
+                                    RF_pNodeList,
+                                    RF_pTermList,
+                                    RF_bootMembershipFlag,
+                                    RF_oobMembershipFlag,
+                                    RF_bootMembershipCount,
+                                    RF_ibgMembershipIndex,
+                                    RF_oobMembershipIndex,
+                                    RF_oobSize,
+                                    RF_ibgSize,
+                                    RF_bootMembershipIndex,
+                                    RF_maxDepth,
+                                    RF_orderedTreeIndex,
+                                    RF_serialTreeIndex,
+                                    RF_root,
+                                    RF_nodeCount,
+                                    RF_leafLinkedObjHead,
+                                    RF_leafLinkedObjTail,
+                                    RF_pLeafCount,
+                                    RF_getTreeIndex,
+                                    RF_subjWeightType,
+                                    RF_subjWeightSorted,
+                                    RF_identityMembershipIndexSize,
+                                    RF_identityMembershipIndex);
+    }
+    unstackIncomingArrays(mode,
+                          RF_ySize,
+                          RF_yIndex,
+                          RF_yIndexZero);
+    unstackRandom(RF_ntree);
   }
-  unstackPreDefinedRestoreArrays(RF_xSize,
-                                 RF_importanceFlag);
-  unstackPreDefinedCommonArrays(mode,
-                                RF_ntree,
-                                RF_timeIndex,
-                                RF_startTimeIndex,
-                                RF_statusIndex,
-                                RF_subjSize,
-                                RF_ptnCount,
-                                RF_nodeMembership,
-                                RF_tTermMembership,
-                                RF_pNodeMembership,
-                                RF_pTermMembership,
-                                RF_hTermMembership,
-                                RF_tTermList,
-                                RF_pNodeList,
-                                RF_pTermList,
-                                RF_bootMembershipFlag,
-                                RF_oobMembershipFlag,
-                                RF_bootMembershipCount,
-                                RF_ibgMembershipIndex,
-                                RF_oobMembershipIndex,
-                                RF_oobSize,
-                                RF_ibgSize,
-                                RF_bootMembershipIndex,
-                                RF_maxDepth,
-                                RF_orderedTreeIndex,
-                                RF_serialTreeIndex,
-                                RF_root,
-                                RF_nodeCount,
-                                RF_leafLinkedObjHead,
-                                RF_leafLinkedObjTail,
-                                RF_pLeafCount,
-                                RF_getTreeIndex,
-                                RF_subjWeightType,
-                                RF_subjWeightSorted,
-                                RF_identityMembershipIndexSize,
-                                RF_identityMembershipIndex);
-  unstackIncomingArrays(mode,
-                        RF_ySize,
-                        RF_yIndex,
-                        RF_yIndexZero);
-  unstackRandom(RF_ntree);
+  return result;
 }
 void complement(uint    originalMemberSize,
                 uint   *originalMembers,
