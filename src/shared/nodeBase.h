@@ -4,7 +4,7 @@ struct terminalBase;
 typedef struct nodeBase NodeBase;
 struct nodeBase {
   unsigned int nodeID;
-  unsigned int bnodeID;
+  unsigned int pnodeID;
   unsigned int blnodeID;
   unsigned int brnodeID;
   unsigned int fsrecID;

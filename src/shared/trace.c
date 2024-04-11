@@ -40,6 +40,8 @@ unsigned int updateTimeStamp(unsigned int before) {
   RF_nativePrint("\nRF-SRC:  CPU process time:  %20.3f \n", cpuTimeUsed);
   return stamp;
 }
+void memoryCheck(void) {
+}
 void setMaxMemoryAllocation(size_t value) {
   RF_memor_maxMemoryAllocation = value;
 }
@@ -72,6 +74,4 @@ void decreaseMemoryAllocation(size_t amount) {
 }
 void decreaseProbeMemoryAllocation(size_t amount) {
     RF_memor_probeMemoryAllocation -= amount;
-}
-void memoryCheck(void) {
 }

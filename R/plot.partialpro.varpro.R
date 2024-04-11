@@ -41,10 +41,10 @@ plot.partialpro.varpro <- function(x, xvar.names, nvar,
     xorg <- o[[j]]$xorg
     nxorg <- length(unique(xorg))
     xvirtual <- o[[j]]$xvirtual
-    rO.goodvt <- o[[j]]$rO.goodvt
-    rO.par <- o[[j]]$rO.par
-    rO.nonpar <- o[[j]]$rO.nonpar
-    rO.causal <- o[[j]]$rO.causal
+    goodvt <- o[[j]]$goodvt
+    yhat.par <- o[[j]]$yhat.par
+    yhat.nonpar <- o[[j]]$yhat.nonpar
+    yhat.causal <- o[[j]]$yhat.causal
     ## is this continuous or binary?
     binary.variable <- nxorg == 2
     ## determine type of plot
@@ -121,7 +121,7 @@ plot.partialpro.varpro <- function(x, xvar.names, nvar,
     if (!binary.variable) {
       plotO <- lapply(idx.lst, function(sub) {
         ## obtain frequencies/weights for s.e./smoothing
-        frq <- !apply(rO.goodvt[sub,, drop=FALSE], 2, is.na)
+        frq <- !apply(goodvt[sub,, drop=FALSE], 2, is.na)
         if (is.null(dim(frq))) {
           return(NULL)
         }
@@ -132,7 +132,7 @@ plot.partialpro.varpro <- function(x, xvar.names, nvar,
           return(NULL)
         }
         ## standard error estimate
-        ysd <- apply(rO.nonpar[sub,, drop=FALSE], 2, sd, na.rm = TRUE)
+        ysd <- apply(yhat.nonpar[sub,, drop=FALSE], 2, sd, na.rm = TRUE)
         if (all(is.na(ysd)) || all(ysd <= 1e-10)) {
           ysd <- 1e-10
         }
@@ -154,12 +154,12 @@ plot.partialpro.varpro <- function(x, xvar.names, nvar,
         if (type == "nonparametric" || type == "causal") {
           if (type ==  "nonparametric") {
             o.loess <- tryCatch({suppressWarnings(loess(y ~ x,
-              data.frame(y = colMeans(rO.nonpar[sub,, drop=FALSE], na.rm = TRUE), x = xvirtual)[pt.tolerance,, drop = FALSE],
+              data.frame(y = colMeans(yhat.nonpar[sub,, drop=FALSE], na.rm = TRUE), x = xvirtual)[pt.tolerance,, drop = FALSE],
               weights = weights[pt.tolerance], control=loessControl))}, error = function(ex){NULL})
           }
           else {
             o.loess <- tryCatch({suppressWarnings(loess(y ~ x,
-              data.frame(y = colMeans(rO.causal[sub,, drop = FALSE], na.rm = TRUE), x = xvirtual)[pt.tolerance,, drop = FALSE],
+              data.frame(y = colMeans(yhat.causal[sub,, drop = FALSE], na.rm = TRUE), x = xvirtual)[pt.tolerance,, drop = FALSE],
               weights = weights[pt.tolerance], control=loessControl))}, error = function(ex){NULL})
           }
           ## -------------------------------
@@ -180,7 +180,7 @@ plot.partialpro.varpro <- function(x, xvar.names, nvar,
         ## -------------------------------------------------------------
         else {
           x <- xvirtual
-          y <- rO.par
+          y <- colMeans(yhat.par, na.rm=TRUE)
         }
         ## -------------------------------------------------------------
         ##
@@ -199,13 +199,13 @@ plot.partialpro.varpro <- function(x, xvar.names, nvar,
     else {
       plotO <- lapply(idx.lst, function(sub) {
         ## obtain frequecies for s.e.
-        frq <- !apply(rO.nonpar[sub,, drop=FALSE], 2, is.na)
+        frq <- !apply(yhat.nonpar[sub,, drop=FALSE], 2, is.na)
         if (is.null(dim(frq))) {
           return(NULL)
         }
         frq <- colSums(frq)
         ## standard error estimate
-        ysd <- apply(rO.nonpar[sub,, drop=FALSE], 2, sd, na.rm = TRUE)
+        ysd <- apply(yhat.nonpar[sub,, drop=FALSE], 2, sd, na.rm = TRUE)
         if (all(is.na(ysd)) || all(ysd <= 1e-10)) {
           ysd <- 1e-10
         }
@@ -216,11 +216,11 @@ plot.partialpro.varpro <- function(x, xvar.names, nvar,
         }
         ## mean estimators
         if (type == "causal") {
-          y <- colMeans(rO.causal[sub,, drop=FALSE], na.rm = TRUE)
+          y <- colMeans(yhat.causal[sub,, drop=FALSE], na.rm = TRUE)
         }
         ## there is no parametric estimator for binary case
         else {
-          y <- colMeans(rO.nonpar[sub,, drop=FALSE], na.rm = TRUE)
+          y <- colMeans(yhat.nonpar[sub,, drop=FALSE], na.rm = TRUE)
         }
         ## return goodies
         list(x = xvirtual, y = y, y.se = y.se)

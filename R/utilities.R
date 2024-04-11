@@ -32,10 +32,10 @@ set.nodedepth.reduce <- function(n, p, nodedepth = NULL) {
 set.cv.nodesize <- function(n, p, nodesize = NULL) {
   if (is.null(nodesize)) {
     if (n <= 300 & p > n) {
-      nodesize <- 5
+      nodesize <- 2
     }
     else if (n <= 300 & p <= n) {
-      nodesize <- 15
+      nodesize <- 10
     }
     else if (n > 300 & n <= 2000) {
       nodesize <- 20

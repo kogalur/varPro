@@ -19,7 +19,7 @@
 ### FROM THE AUTHOR.
 ###
 ############################################################################
-varpro <- function(f, data, nvar = 30, ntree = 500,
+varpro <- function(f, data, nvar = 30, ntree = 500, y = NULL,
                    split.weight = TRUE, split.weight.method = NULL, sparse = TRUE,
                    nodesize = NULL, max.rules.tree = 150, max.tree = min(150, ntree),
                    parallel = TRUE, cores = get.number.cores(),
@@ -44,13 +44,24 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
   ## run a stumpy tree as a quick way to extract  x, y and determine family
   ## this also cleans up missing data 
   stump <- get.stump(f, data)
+  family <- stump$family
   yvar.names <- stump$yvar.names
-  y <- stump$yvar
+  if (!is.null(y)) {
+    if (family == "surv" && !is.null(dim(y)) && dim(y)[2] > 1) {
+      stop("external y must be real valued for survival families")
+    }
+    if (family == "surv") {
+      family == "regr"
+      yvar.names <- paste(yvar.names, collapse=".")
+    }
+  }    
+  if (is.null(y)) {
+    y <- stump$yvar
+  }
   y.org <- data.frame(y)
   colnames(y.org) <- stump$yvar.names
   x <- stump$xvar
   xvar.org.names <- colnames(x)
-  family <- stump$family
   rm(stump)
   gc()
   ## coherence check
@@ -199,7 +210,7 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
   ## default setting
   imbalanced.flag <- FALSE
   if (family == "class") {
-    ## length of output
+    ## number of class labels
     nclass <- length(levels(y))
     ## two class processing: class labels are mapped to {0, 1}
     if (nclass == 2) {
@@ -518,7 +529,6 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
     object <- rfsrc(f, data,
                     splitrule = if (imbalanced.flag) "auc" else NULL,
                     xvar.wt = xvar.wt,
-                    #sampsize = sampsize,
                     ntree = ntree,
                     nsplit = nsplit(nrow(data)),
                     nodesize = nodesize,
@@ -529,8 +539,7 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
     object <- rfsrc(f,
                     data,
                     splitrule = if (imbalanced.flag) "auc" else NULL,
-                    mtry = Inf,
-                    #sampsize = sampsize,
+                    mtry = if (is.null(dots$mtry)) Inf else dots$mtry,
                     ntree = ntree,
                     nsplit = nsplit(nrow(data)),
                     nodesize = nodesize,

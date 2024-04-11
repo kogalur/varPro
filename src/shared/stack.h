@@ -38,6 +38,17 @@ void unstackTrainingDataArraysWithPass(char      mode,
                                        double  **status,
                                        double ***observation);
 char stackTrainingDataArraysWithoutPass(char mode);
-char stackTestDataArraysWithPass       (char mode);
-char stackTestDataArraysWithoutPass    (char mode);
+char unstackTrainingDataArraysWithoutPass(char mode);
+char stackTestDataArraysWithPass (char     mode,
+                                  uint     frSize,
+                                  uint     ntree,
+                                  double **fresponseIn,
+                                  uint     fobservationSize,
+                                  double **fobservationIn,
+                                  double ****fresponse,
+                                  double ****fobservation);
+char unstackTestDataArraysWithPass (char mode,
+                                    uint ntree,
+                                    double ***fresponse,
+                                    double ***fobservation);
 #endif

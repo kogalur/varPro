@@ -8,7 +8,7 @@ for Regression, Classification and Survival.
 }
 
 \usage{
-varpro(f, data, nvar = 30, ntree = 500,
+varpro(f, data, nvar = 30, ntree = 500, y = NULL,
        split.weight = TRUE, split.weight.method = NULL, sparse = TRUE,
        nodesize = NULL, max.rules.tree = 150, max.tree = min(150, ntree),
        parallel = TRUE, cores = get.number.cores(),
@@ -24,6 +24,12 @@ varpro(f, data, nvar = 30, ntree = 500,
   \item{nvar}{Upper limit to number of variables returned.}  
 
   \item{ntree}{Number of trees to grow.}
+
+  \item{y}{Users can replace the original response value with their own
+  custom designed response: for example this can be the predicted value
+  from a machine learning method.  Used to study which variables are
+  important in the user's predictor.  The supplied \code{y} must match
+  the dimension of the data.} 
   
   \item{split.weight}{Use guided tree-splitting?  Features selected to
   split a tree node are selected with probability according to a
@@ -373,7 +379,6 @@ print(system.time(o <- varpro(y~., d, ntree = 100, nodesize = 200,
 print(importance(o))
 
 
-
 ## ------------------------------------------------------------
 ## custom split-weights (hidden option)
 ## ------------------------------------------------------------
@@ -413,6 +418,22 @@ cat("varpro result\n")
 print(importance(o))
 print(get.vimp(o, pretty=FALSE))
 print(get.orgvimp(o, pretty=FALSE))
+
+
+## ------------------------------------------------------------
+## user supplied y 
+## ------------------------------------------------------------
+
+## load the data
+data(BostonHousing, package = "mlbench")
+
+## train your ML method here - we use misspecified linear model
+y <- lm(medv~lstat+b, BostonHousing)$fitted
+
+## varpro with user specified y
+o <- varpro(medv~., BostonHousing, y=y)
+print(importance(o))
+
 
 
 }

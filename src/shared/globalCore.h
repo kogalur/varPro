@@ -214,6 +214,7 @@ typedef unsigned long ulong;
 #define RF_PRED   0x02
 #define RF_REST   0x04
 #define RF_NONE   0x08
+#define RF_REAL   0x10
 #define CLAS_FAM     0
 #define REGR_FAM     1
 #define SURV_FAM     2

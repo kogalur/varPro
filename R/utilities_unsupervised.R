@@ -78,7 +78,6 @@ get.beta.entropy <- function(o,
   ## parse the membership values to obtain beta for each variable
   beta <- lapply(xvars, function(releaseX) {
     if (sum(xvars != releaseX) > 0) {
-      keepX <- xvars[xvars != releaseX]
       bO <- do.call(rbind, papply(o$entropy[[releaseX]], function(rule) {
         get.beta.workhorse(releaseX, rule, x,
           lasso=lasso, nfolds=nfolds, maxit=maxit, thresh=thresh, glm.thresh=glm.thresh)

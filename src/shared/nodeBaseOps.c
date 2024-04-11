@@ -18,7 +18,7 @@ NodeBase *makeNodeBase(uint xSize) {
 }
 void initNodeBase(NodeBase *parent, unsigned int xSize) {
   parent -> nodeID               = 0;
-  parent -> bnodeID              = 0;
+  parent -> pnodeID              = 0;
   parent -> blnodeID             = 0;
   parent -> brnodeID             = 0;
   parent -> fsrecID              = 0;

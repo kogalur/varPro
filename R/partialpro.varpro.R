@@ -308,11 +308,15 @@ partialpro.varpro <- function(object,
     ##
     ## --------------------------------------------------------------------------
     if (!binary.variable) {
-      bhat <- colMeans(do.call(rbind, lapply(rOcase, function(oo) {oo$bhat})), na.rm = TRUE)
+      bhat.all <- do.call(rbind, lapply(rOcase, function(oo) {oo$bhat}))
+      bhat <- colMeans(bhat.all, na.rm = TRUE)
       bhat[is.na(bhat)] <- 0
       global.mean <- bhat[1]
-      yhat.par <- global.mean +
-         rowSums(do.call(cbind, lapply(1:df, function(k) {bhat[1+k] * xvirtual ^ k})), na.rm = TRUE)
+      #yhat.par <- global.mean +
+      #   rowSums(do.call(cbind, lapply(1:df, function(k) {bhat[1+k] * xvirtual ^ k})), na.rm = TRUE)
+      yhat.par <- global.mean + t(apply(bhat.all, 1, function(bhat) {
+        rowSums(do.call(cbind, lapply(1:df, function(k) {bhat[1+k] * xvirtual ^ k})), na.rm=TRUE)
+      }))
       yhat.nonpar <- do.call(rbind, lapply(rOcase, function(oo) {oo$yhat.nonpar + global.mean}))       
     }
     else {
@@ -326,10 +330,10 @@ partialpro.varpro <- function(object,
     list(case = sapply(rOcase, function(oo) {oo$case}),
          xorg = xorg,
          xvirtual = xvirtual,
-         rO.goodvt = do.call(rbind, lapply(rOcase, function(oo) {oo$goodvt})),
-         rO.par = yhat.par,
-         rO.nonpar = yhat.nonpar,
-         rO.causal = do.call(rbind, lapply(rOcase, function(oo) {oo$yhat.causal}))
+         goodvt = do.call(rbind, lapply(rOcase, function(oo) {oo$goodvt})),
+         yhat.par = yhat.par,
+         yhat.nonpar = yhat.nonpar,
+         yhat.causal = do.call(rbind, lapply(rOcase, function(oo) {oo$yhat.causal}))
          )
   })### ends loop over variables
   ## ------------------------------------------------------------------------

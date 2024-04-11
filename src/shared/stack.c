@@ -123,9 +123,54 @@ void unstackTrainingDataArraysWithPass(char      mode,
 char stackTrainingDataArraysWithoutPass(char mode){
   return TRUE;
 }
-char stackTestDataArraysWithPass       (char mode){
+char unstackTrainingDataArraysWithoutPass(char mode){
   return TRUE;
 }
+char stackTestDataArraysWithPass (char mode,
+                                  uint frSize,
+                                  uint ntree,
+                                  double **fresponseIn,
+                                  uint    fobservationSize,
+                                  double **fobservationIn,
+                                  double ****fresponse,
+                                  double ****fobservation){
+  char result;
+  uint i;
+  result = TRUE;
+  if (mode == RF_PRED) {
+    *fresponse = (double ***) new_vvector(1, ntree, NRUTIL_DPTR2);
+    if (frSize > 0) {
+      for (i = 1 ; i <= ntree; i++) {
+        (*fresponse)[i] = fresponseIn;
+      }
+    }
+    else {
+      for (i = 1 ; i <= ntree; i++) {
+        (*fresponse)[i] = NULL;
+      }
+    }
+    *fobservation = (double ***) new_vvector(1, ntree, NRUTIL_DPTR2);
+    for (i = 1 ; i <= ntree; i++) {
+      (*fobservation)[i] = fobservationIn;
+    }
+  }
+  return result;
+}
+char unstackTestDataArraysWithPass (char mode,
+                                    uint ntree,
+                                    double ***fresponse,
+                                    double ***fobservation){
+  char result;
+  result = TRUE;
+  if (mode == RF_PRED) {
+    free_new_vvector(fresponse, 1, ntree, NRUTIL_DPTR2);
+    free_new_vvector(fobservation, 1, ntree, NRUTIL_DPTR2);
+  }
+  return result;
+}
 char stackTestDataArraysWithoutPass    (char mode){
+  return TRUE;
+}
+char unstackTestDataArraysWithoutPass    (char mode){
   return TRUE;
 }

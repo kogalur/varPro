@@ -28,9 +28,9 @@ importFrom("utils", "combn", "capture.output")
 importFrom("umap", "umap")
 
 export(
-
-        
-  
+       beta.varpro,
+       clusterpro,
+       clusterpro.varpro,
        cv.matrix.performance,
        cv.matrix,
        cv.varpro,
@@ -52,7 +52,8 @@ export(
        partialpro,
        partialpro.varpro,
 
-        
+       plot.clusterpro,
+       plot.clusterpro.varpro,
 
        plot.partialpro,
        plot.partialpro.varpro,
@@ -65,7 +66,8 @@ export(
        varpro.news,
        varpro.strength)
 
- 
+S3method(plot, clusterpro)
+S3method(plot, clusterpro.varpro)
 
 S3method(plot, partialpro)
 S3method(plot, partialpro.varpro)
