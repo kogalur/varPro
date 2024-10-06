@@ -516,8 +516,8 @@ void free_pthreadvector(pthread_t *v, unsigned long long nl, unsigned long long 
   free_gvector(v+nl-NR_END, nl, nh, sizeof(pthread_t));
 }
 #endif
-struct node;
-struct terminal;
+struct nodeBase;
+struct terminalBase;
 struct factor;
 struct quantileObj;
 struct snpAuxiliaryInfo;
@@ -538,10 +538,10 @@ void *new_vvector(unsigned long long nl, unsigned long long nh, enum alloc_type 
     v = (double ***) gvector(nl, nh, sizeof(double**)) -nl+NR_END;
     break;
   case NRUTIL_NPTR:
-    v = (struct node **) gvector(nl, nh, sizeof(struct node*)) -nl+NR_END;
+    v = (struct nodeBase **) gvector(nl, nh, sizeof(struct nodeBase*)) -nl+NR_END;
     break;
   case NRUTIL_NPTR2:
-    v = (struct node ***) gvector(nl, nh, sizeof(struct node**)) -nl+NR_END;
+    v = (struct nodeBase ***) gvector(nl, nh, sizeof(struct nodeBase**)) -nl+NR_END;
     break;
   case NRUTIL_CPTR:
     v = (char **) gvector(nl, nh, sizeof(char*)) -nl+NR_END;
@@ -550,10 +550,10 @@ void *new_vvector(unsigned long long nl, unsigned long long nh, enum alloc_type 
     v = (double *****) gvector(nl, nh, sizeof(double****)) -nl+NR_END;
     break;
   case NRUTIL_TPTR:
-    v = (struct terminal **) gvector(nl, nh, sizeof(struct terminal*)) -nl+NR_END;
+    v = (struct terminalBase **) gvector(nl, nh, sizeof(struct terminalBase*)) -nl+NR_END;
     break;
   case NRUTIL_TPTR2:
-    v = (struct terminal ***) gvector(nl, nh, sizeof(struct terminal**)) -nl+NR_END;
+    v = (struct terminalBase ***) gvector(nl, nh, sizeof(struct terminalBase**)) -nl+NR_END;
     break;
   case NRUTIL_IPTR:
     v = (int **) gvector(nl, nh, sizeof(int*)) -nl+NR_END;
@@ -562,7 +562,7 @@ void *new_vvector(unsigned long long nl, unsigned long long nh, enum alloc_type 
     v = (int ***) gvector(nl, nh, sizeof(int**)) -nl+NR_END;
     break;
   case NRUTIL_NPTR3:
-    v = (struct node ****) gvector(nl, nh, sizeof(struct node***)) -nl+NR_END;
+    v = (struct nodeBase ****) gvector(nl, nh, sizeof(struct nodeBase***)) -nl+NR_END;
     break;
   case NRUTIL_FPTR:
     v = (struct factor **) gvector(nl, nh, sizeof(struct factor*)) -nl+NR_END;
@@ -649,10 +649,10 @@ void free_new_vvector(void *v, unsigned long long nl, unsigned long long nh, enu
     free_gvector((double***) v +nl-NR_END, nl, nh, sizeof(double**));
     break;
   case NRUTIL_NPTR:
-    free_gvector((struct node**) v +nl-NR_END, nl, nh, sizeof(struct node*));
+    free_gvector((struct nodeBase**) v +nl-NR_END, nl, nh, sizeof(struct nodeBase*));
     break;
   case NRUTIL_NPTR2:
-    free_gvector((struct node***) v +nl-NR_END, nl, nh, sizeof(struct node**));
+    free_gvector((struct nodeBase***) v +nl-NR_END, nl, nh, sizeof(struct nodeBase**));
     break;
   case NRUTIL_CPTR:
     free_gvector((char**) v +nl-NR_END, nl, nh, sizeof(char*));
@@ -661,10 +661,10 @@ void free_new_vvector(void *v, unsigned long long nl, unsigned long long nh, enu
     free_gvector((double*****) v +nl-NR_END, nl, nh, sizeof(double****));
     break;
   case NRUTIL_TPTR:
-    free_gvector((struct terminal**) v +nl-NR_END, nl, nh, sizeof(struct terminal*));
+    free_gvector((struct terminalBase**) v +nl-NR_END, nl, nh, sizeof(struct terminalBase*));
     break;
   case NRUTIL_TPTR2:
-    free_gvector((struct terminal***) v +nl-NR_END, nl, nh, sizeof(struct terminal**));
+    free_gvector((struct terminalBase***) v +nl-NR_END, nl, nh, sizeof(struct terminalBase**));
     break;
   case NRUTIL_IPTR:
     free_gvector((int**) v +nl-NR_END, nl, nh, sizeof(int*));

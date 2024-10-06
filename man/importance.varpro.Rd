@@ -11,8 +11,8 @@
  Calculates variable importance using results from previous varpro call.
 }
 
-\usage{\method{importance}{varpro}(o, cutoff = 2, trim = 0.1,
-  plot.it = FALSE, conf = TRUE, sort = TRUE,
+\usage{\method{importance}{varpro}(o, local.std = TRUE, y.external = NULL,
+  cutoff = 0.79, trim = 0.1, plot.it = FALSE, conf = TRUE, sort = TRUE,
   ylab = if (conf) "Importance" else "Standardized Importance",
   max.rules.tree, max.tree,
   papply = mclapply,
@@ -23,9 +23,15 @@
   
   \item{o}{varpro object obtained from previous call to \code{varpro}.}
 
-  \item{cutoff}{Cut-off value for selecting variables.  Default uses
-  two standard deviations.}
+  \item{local.std}{Use locally standardized importance?}
 
+  \item{y.external}{User supplied external y value.  Must match the
+  dimension and be appropriate for the family.}
+  
+  \item{cutoff}{Cut-off used to highlight significant variables in the
+   importance graphical plot.  Only applies when option
+   \code{plot.it='TRUE'}.}
+    
   \item{trim}{Used for setting windsorized trim value to robustify mean
   and standard deviation values.}
 
@@ -62,14 +68,11 @@
 \value{
 
   Invisibly, table summarizing the results.  Contains mean importance
-  'mean', the standard deviation 'std' and standardized importance 'z'.
-  Value 'zcenter' is the latter centered by the cutoff.  Using the
-  provided cutoff value, 'selected' identifies selected variables.
+  'mean', the standard deviation 'std', and standardized importance 'z'.
 
-  For classification, three additional tables are provided: conditional
-  'z', conditional 'zcenter' and conditional 'selected' where the values
-  are broken down by class label (i.e. values given are conditional
-  on the class label).
+  For classification, conditional 'z' tables are additionally provided,
+  where the $z$ standardized importance values are conditional on the
+  class label.
   
   See \command{cv.varpro} for a data driven cross-validation method for
   selecting the cutoff value, \code{cutoff}.
@@ -83,9 +86,10 @@
 }
 
 \references{
+
+  Lu, M. and Ishwaran, H., (2024). Model-independent variable selection
+  via the rule-based variable priority. arXiv e-prints, pp.arXiv-2409.
   
-  Lu M. and Ishwaran H. (2022).  Model-Independent Variable Selection
-  via the Rule-based Variable Priority (VarPro).
    
 }
 

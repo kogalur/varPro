@@ -98,10 +98,8 @@
 
 \references{
   
-  Lu M. and Ishwaran H. (2022).  Model-Independent Variable Selection
-  via the Rule-based Variable Priority (VarPro).
-
-   Lu M. and  Ishwaran H. (2023).  Unlimited Virtual Twins.
+  Ishwaran H. (2025).  Multivariate Statistics: Classical Foundations
+  and Modern Machine Learning, CRC (Chapman and Hall), in press.
 
 }
 
@@ -145,6 +143,7 @@ par(mfrow=c(2,3))
 plot(pro)
 plot(mypro, ylab="external rf learner")
 
+\donttest{
 ##------------------------------------------------------------------
 ##
 ## Boston housing:  tree gradient boosting learner, bart learner
@@ -155,6 +154,7 @@ if (library("gbm", logical.return=TRUE) &&
     library("BART", logical.return=TRUE)) {
 
 ## varpro analysis
+library(parallel)
 library(mlbench)
 data(BostonHousing)
 o <- varpro(medv~.,BostonHousing)
@@ -163,10 +163,16 @@ o <- varpro(medv~.,BostonHousing)
 pro <- partialpro(o, nvar=3)
 
 ## partial pro call using built in gradient boosting learner
-mypro <- partialpro(o, nvar=3, learner=gbm.learner(o, n.trees=1000))
+## mypro <- partialpro(o, nvar=3, learner=gbm.learner(o, n.trees=1000, n.cores=detectCores()))
+
+## The only way to pass check-as-cran
+mypro <- partialpro(o, nvar=3, learner=gbm.learner(o, n.trees=1000, n.cores=2))
 
 ## partial pro call using built in bart learner
-mypro2 <- partialpro(o, nvar=3, learner=bart.learner(o))
+## mypro2 <- partialpro(o, nvar=3, learner=bart.learner(o, mc.cores=detectCores()))
+
+## The only way to pass check-as-cran
+mypro2 <- partialpro(o, nvar=3, learner=bart.learner(o, mc.cores=2))
 
 ## compare the learners
 par(mfrow=c(3,3))
@@ -174,6 +180,7 @@ plot(pro)
 plot(mypro, ylab="external boosting learner")
 plot(mypro2, ylab="external bart learner")
 
+}
 }
 
 ##------------------------------------------------------------------
@@ -220,7 +227,7 @@ plot((oo.iris.3 <- partialpro(o.iris, target=3, nvar=2)),ylab=yl[3])
 
 ## quickly impute the data; log transform the outcome
 data(housing, package = "randomForestSRC")
-housing <- impute(SalePrice~., housing, splitrule="random", nimpute=1)
+housing <- randomForestSRC::impute(SalePrice~., housing, splitrule="random", nimpute=1)
 dta <- data.frame(data.matrix(housing))
 dta$y <- log(housing$SalePrice)
 dta$SalePrice <- NULL

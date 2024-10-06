@@ -1,5 +1,5 @@
 cv.varpro <- function(f, data, nvar = 30, ntree = 150,
-                      zcut = seq(0.1, 2, length = 50), nblocks = 10,
+                      local.std = TRUE, zcut = seq(0.1, 2, length = 50), nblocks = 10,
                       split.weight = TRUE, split.weight.method = NULL, sparse = TRUE,
                       nodesize = NULL, max.rules.tree = 150, max.tree = min(150, ntree),
                       papply = mclapply, verbose = FALSE, seed = NULL,
@@ -106,7 +106,7 @@ cv.varpro <- function(f, data, nvar = 30, ntree = 150,
   ## map importance values which are hot-encoded back to original data 
   ##
   ##--------------------------------------------------------------
-  vorg <- get.orgvimp(o, papply = papply)
+  vorg <- get.orgvimp(o, papply = papply, local.std = local.std)
   xvar.names <- vorg$variable
   imp <- vorg$z
   imp[is.na(imp)] <- 0
@@ -260,7 +260,7 @@ cv.varpro <- function(f, data, nvar = 30, ntree = 150,
              zcut.liberal = zcut.liberal)
   class(rO) <- "cv.varpro"
   ## append some useful information as attributes
-  attr(rO, "imp.org") <- importance(o)
+  attr(rO, "imp.org") <- importance(o, local.std = local.std)
   attr(rO, "xvar.names") <- o$xvar.names
   attr(rO, "xvar.org.names") <- o$xvar.org.names
   attr(rO, "family") <- o$family

@@ -23,7 +23,7 @@ void preprocessForestRecord(uint    ntree,
                             uint   *nodeCount,
                             uint  **mwcpCT,
                             ulong **restoreMWCPoffset,
-                            ulong  *totalTerminalCount) {
+                            ulong  *totalTermCount) {
   ulong *mwcpOffset;
   uint previousTreeID;
   uint b;
@@ -59,9 +59,9 @@ void preprocessForestRecord(uint    ntree,
     }
   }
   free_ulvector(mwcpOffset, 1, 1);
-  *totalTerminalCount = 0;
+  *totalTermCount = 0;
   for (b = 1; b <= ntree; b++) {
-    (*totalTerminalCount) += (ulong) tLeafCount[b];
+    (*totalTermCount) += (ulong) tLeafCount[b];
   }
 }
 void preprocessForestRecordSynthetic() {

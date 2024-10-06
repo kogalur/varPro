@@ -222,7 +222,27 @@ varpro.strength <- function(object,
   class.count <- length(class.index)
   regr.index <- which(yvar.types == "R")
   regr.count <- length(regr.index)
-  if(family == "regr") {
+  if(family == "surv") {
+      strengthArray <- as.data.frame(cbind(strengthArray,
+                                           nativeOutput$oobCT[1:strengthArraySize]))
+      strengthArrayHeader <- c(strengthArrayHeader, "oobCT")
+      if(stat == "importance") {
+          strengthArray = as.data.frame(cbind(strengthArray,
+                                              nativeOutput$statImportance[1:strengthArraySize]))
+          strengthArrayHeader <- c(strengthArrayHeader, "importance")
+      }
+      else if(stat == "complement") {
+          strengthArray = as.data.frame(cbind(strengthArray,
+                                              nativeOutput$statComplement[1:strengthArraySize]))
+          strengthArrayHeader <- c(strengthArrayHeader, "mortalityComplement")
+      }
+      else if(stat == "oob") {
+          strengthArray = as.data.frame(cbind(strengthArray,
+                                              nativeOutput$statOOB[1:strengthArraySize]))
+          strengthArrayHeader <- c(strengthArrayHeader, "mortalityOOB")
+      }
+  }
+  else if(family == "regr") {
       strengthArray <- as.data.frame(cbind(strengthArray,
                                            nativeOutput$oobCT[1:strengthArraySize]))
       strengthArrayHeader <- c(strengthArrayHeader, "oobCT")

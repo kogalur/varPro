@@ -1,14 +1,14 @@
 #ifndef  RF_CLASSIFICATION_H
 #define  RF_CLASSIFICATION_H
 #include "terminalBase.h"
-void assignMultiClassProb(uint           treeID,
-                          TerminalBase  *parent,
-                          uint         **tn_clas_ptr);
-void calculateMultiClassProb(uint           treeID,
-                             TerminalBase  *parent,
-                             uint          *membershipIndex,
-                             uint           membershipSize,
-                             uint          *membershipIterator);
+void assignAllClassificationOutcomes(char          mode,
+                                     uint          treeID,
+                                     TerminalBase *term);
+void assignMultiClassProb(uint                    treeID,
+                          TerminalClassification *parent,
+                          uint                  **tn_clas_ptr);
+void calculateMultiClassProb(uint                    treeID,
+                             TerminalClassification *parent);
 void updateEnsembleClas(char mode, uint treeID);
 double getClassificationIndex(uint     size,
                               double  *responsePtr,

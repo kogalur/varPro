@@ -360,8 +360,6 @@ char stackPreDefinedCommonArrays(char          mode,
                                  uint          ptnCount,
                                  uint         *getTree,
                                  uint          observationSize,
-                                 uint          subjCount,
-                                 uint         *subjSlotCount,
                                  NodeBase      ****nodeMembership,
                                  TerminalBase  ****tTermMembership,
                                  NodeBase      ****pNodeMembership,
@@ -393,7 +391,6 @@ char stackPreDefinedCommonArrays(char          mode,
                                  uint         *subjWeightDensitySize,
                                  uint         *identityMembershipIndexSize,
                                  uint        **identityMembershipIndex) {
-  uint maxCaseCount, maxIdentityCount;
   uint i, j, k;
   char result;
   result = TRUE;
@@ -454,7 +451,7 @@ char stackPreDefinedCommonArrays(char          mode,
                  subjWeightDensitySize); 
   }
   *getTreeIndex = uivector(1, ntree);
-  if (mode == RF_GROW) {
+  if ((mode == RF_GROW) || (getTree == NULL)) {
     for (i = 1; i <= ntree; i++) {
       (*getTreeIndex)[i] = i;
     }
@@ -469,24 +466,6 @@ char stackPreDefinedCommonArrays(char          mode,
     }
   }
   *identityMembershipIndexSize = (bootstrapSize > observationSize ) ? bootstrapSize : observationSize;
-  if ((timeIndex > 0) && (statusIndex > 0)) {
-    if (startTimeIndex == 0) {
-      *identityMembershipIndexSize = (bootstrapSize > observationSize ) ? bootstrapSize : observationSize;
-    }
-    else {
-      maxCaseCount = 0;
-      for (i = 1; i <= subjCount; i++) {
-        if (subjSlotCount[i] > maxCaseCount ) {
-          maxCaseCount = subjSlotCount[i];
-        }
-      }
-      maxIdentityCount = bootstrapSize * maxCaseCount;
-      *identityMembershipIndexSize = (maxIdentityCount > observationSize ) ? maxIdentityCount : observationSize;
-    }
-  }
-  else {
-    *identityMembershipIndexSize = (bootstrapSize > observationSize ) ? bootstrapSize : observationSize;
-  }
   *identityMembershipIndex = uivector(1, *identityMembershipIndexSize);
   for (i = 1; i <= *identityMembershipIndexSize; i++) {
     (*identityMembershipIndex)[i] = i;
@@ -768,7 +747,7 @@ char stackAndInitializeTimeAndSubjectArrays(char     mode,
                                             uint     timeIndex,
                                             uint     timeInterestSize,
                                             uint    *subjIn,
-                                            uint     subjSize,
+                                            uint    *subjSize,
                                             double **masterTime,
                                             uint   **masterTimeIndexIn,
                                             uint   **startMasterTimeIndexIn,
@@ -780,6 +759,7 @@ char stackAndInitializeTimeAndSubjectArrays(char     mode,
                                             uint   **subjSlotCount,
                                             uint  ***subjList,
                                             uint   **caseMap,
+                                            uint   **subjMap,
                                             uint    *subjCount) {
   uint i, j;
   uint leadingIndex;
@@ -802,8 +782,6 @@ char stackAndInitializeTimeAndSubjectArrays(char     mode,
         adjObsSize = observationSize;
       }
       else {
-        RF_optHigh = RF_optHigh & (~OPT_MEMB_OUTG);
-        RF_optHigh = RF_optHigh & (~OPT_TERM_OUTG);
         RF_opt                  = RF_opt & (~OPT_PERF);
         RF_opt                  = RF_opt & (~OPT_VIMP);
         *masterTime  = dvector(1, 2 * observationSize);
@@ -836,9 +814,9 @@ char stackAndInitializeTimeAndSubjectArrays(char     mode,
       }
       if (startTimeIndex > 0) {
         *masterToInterestTimeMap = uivector(1, *masterTimeSize);
-        *subjSlot      = uivector(1, observationSize);
+        *subjSlot = uivector(1, observationSize);
         *subjSlotCount = uivector(1, observationSize);
-        *caseMap     = uivector(1, observationSize);
+        *caseMap = uivector(1, observationSize);
         double *copySubjIn = dvector(1, observationSize);
         uint   *sortedIdx = uivector(1, observationSize);
         for (i = 1; i <= observationSize; i++) {
@@ -861,7 +839,17 @@ char stackAndInitializeTimeAndSubjectArrays(char     mode,
         for (i = (*subjCount) + 1; i <= observationSize; i++) {
           (*subjSlot)[i] = 0;
         }
-        if (*subjCount != subjSize) {
+        *subjMap = uivector(1, (*subjSlot)[*subjCount]);
+        for (i = 1; i <= (*subjSlot)[*subjCount]; i++) {
+          (*subjMap)[i] = 0;
+        }
+        for (i = 1; i <= *subjCount; i++) {
+          (*subjMap)[(*subjSlot)[i]] = i;
+        }
+        if (*subjSize == 0) {
+          *subjSize = *subjCount;
+        }
+        if (*subjCount != *subjSize) {
           RF_nativeError("\nRF-SRC: *** ERROR *** ");
           RF_nativeError("\nRF-SRC: Subject count found in cases inconsistent with incoming subject size:  %10d vs %10d", *subjCount, subjSize);
           result = FALSE;
@@ -936,6 +924,7 @@ void unstackTimeAndSubjectArrays(char     mode,
                                  uint    *subjSlotCount,
                                  uint   **subjList,
                                  uint    *caseMap,
+                                 uint    *subjMap,
                                  uint     subjCount) {
   uint i;
   if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
@@ -951,6 +940,7 @@ void unstackTimeAndSubjectArrays(char     mode,
       }
     }
     if (startTimeIndex > 0) {
+      free_uivector(subjMap, 1, subjSlot[subjCount]);
       free_uivector(subjSlot, 1, observationSize);
       free_uivector(caseMap, 1, observationSize);
       if (subjList != NULL) {
@@ -1850,6 +1840,21 @@ char stackClassificationArrays(char     mode,
     for (j = 1; j <= rFactorCount; j++) {
       if (rFactorSize[j] == 2) {
         (*rFactorMinorityFlag)[j] = TRUE;
+      }
+    }
+  }
+  if (mode == RF_PRED) {
+    for (k = 1; k <= rFactorCount; k++) {
+      for (i = 1; i <= RF_fobservationSize; i++) {
+        if (!RF_nativeIsNaN(RF_fresponseIn[rFactorIndex[k]][i])) {
+          if ((uint) RF_fresponseIn[rFactorIndex[k]][i] > (*classLevelSize)[k]) {
+            RF_nativeError("\nRF-SRC: *** ERROR *** ");
+            RF_nativeError("\nRF-SRC: Inconsistent test response in factor:  compressed-index = %10d, y-index = %10d", k, rFactorIndex[k]);
+            RF_nativeError("\nRF-SRC: Level countered versus class size:  test level = %10d, class size = %10d", (uint) RF_fresponseIn[rFactorIndex[k]][i], (*classLevelSize)[k]);
+            RF_nativeError("\nRF-SRC: Please Contact Technical Support.");
+            RF_nativeExit();
+          }
+        }
       }
     }
   }

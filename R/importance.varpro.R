@@ -9,7 +9,8 @@
 ###    
 ###
 ####################################################################
-importance.varpro <- function(o, cutoff = 2, trim = 0.1,
+importance.varpro <- function(o, local.std = TRUE, y.external = NULL,
+                              cutoff = 0.79, trim = 0.1,
                               plot.it = FALSE, conf = TRUE, sort = TRUE,
                               ylab = if (conf) "Importance" else "Standardized Importance",
                               max.rules.tree, max.tree,
@@ -24,28 +25,71 @@ importance.varpro <- function(o, cutoff = 2, trim = 0.1,
   if (!(inherits(o, "varpro", TRUE) || inherits(o, "unsupv", TRUE))) {
     stop("this function only works for varpro, unsupv objects")
   }
+  if (inherits(o, "unsupv", TRUE)) {
+    local.std <- FALSE
+    y.external <- NULL
+  }
   ## ------------------------------------------------------------------------
   ##
-  ## call varpro.strength? - only applies if user over-rides max.rules.tree/max.tree
+  ## call varpro.strength?
+  ## applies under various settings
   ##
   ## ------------------------------------------------------------------------
-  if (!missing(max.rules.tree) || !missing(max.tree)) {
+  if (local.std || !is.null(y.external) || (!missing(max.rules.tree) || !missing(max.tree))) {
+    ## update varpro parameters if they are supplied
     if (missing(max.rules.tree)) {
       max.rules.tree <- o$max.rules.tree
     }
     if (missing(max.tree)) {
       max.tree <- o$max.tree
     }
-    ## obtain varpro strength
-    var.strength <- varpro.strength(object = o$rf,
-                                    max.rules.tree = max.rules.tree,
-                                    max.tree = max.tree)$strengthArray
-    ## process the strength array
-    var.strength <- get.varpro.strengthArray(var.strength, o$family, o$y)
+    ## externally supplied y?
+    if (!is.null(y.external)) {
+      y <- y.external
+    }
+    else {
+      y <- o$y
+    }
+    ## call varpro strength
+    oo <- get.varpro.strength(object = o,
+                      max.rules.tree = max.rules.tree,
+                      max.tree = max.tree,
+                      membership = TRUE)
+    ## updated results
+    results <- get.varpro.strengthArray(oo$strengthArray, o$family, y)
+    ## obtain updated varpro statistic
+    if (local.std) {
+      ## over-write original importance values
+      imp.names.pt <- grepl("imp", colnames(results))
+      results[, imp.names.pt] <- NA
+      ## calculate locally standardized
+      ## replaces original varpro statistic with locally standardize one
+      if (local.std) {
+        ## identify useful rules and variables at play
+        keep.rules <- which(oo$strengthArray$oobCT > 0 & oo$strengthArray$compCT > 0)
+        ## membership lists 
+        oobMembership <- oo$oobMembership
+        compMembership <- oo$compMembership
+        ## keep track of which variable is released for a rule
+        xreleaseId <- oo$strengthArray$xReleaseID
+        ## locally standardized importance values
+        if (length(keep.rules) > 0) {
+          imp <- papply(keep.rules, function(i) {
+            local.importance(y, oobMembership[[i]], compMembership[[i]])
+          })
+          if (sum(imp.names.pt) == 1) {
+            results[keep.rules, imp.names.pt] <- unlist(imp)
+          }
+          else {
+            results[keep.rules, imp.names.pt] <- do.call(rbind, imp)
+          }
+        }
+      }
+    }
     ## over-ride original object with updated information
+    o$results <- results
     o$max.rules.tree <- max.rules.tree
     o$max.tree <- max.tree
-    o$results <- var.strength
   }
   ## ------------------------------------------------------------------------
   ##
@@ -53,14 +97,16 @@ importance.varpro <- function(o, cutoff = 2, trim = 0.1,
   ##
   ## ------------------------------------------------------------------------
   if (o$family != "regr+") {
-    importance.varpro.workhorse(o=o,
-                                cutoff=cutoff,
-                                trim=trim,
-                                plot.it=plot.it,
-                                conf=conf,
-                                sort=sort,
-                                ylab=ylab,
-                                papply=papply, ...) 
+    importance.varpro.workhorse(o = o,
+                                cutoff = cutoff,
+                                trim = trim,
+                                plot.it = plot.it,
+                                conf = conf,
+                                sort = sort,
+                                ylab = ylab,
+                                papply = papply,
+                                local.std = local.std,
+                                ...)
   }
   ## ------------------------------------------------------------------------
   ##
@@ -70,17 +116,20 @@ importance.varpro <- function(o, cutoff = 2, trim = 0.1,
   else {
     lapply(1:ncol(o$y), function(j) {
       o$results <- o$results[, c((1:4), 4+j)]
-      importance.varpro.workhorse(o=o,
-                                  cutoff=cutoff,
-                                  trim=trim,
-                                  plot.it=FALSE,
-                                  sort=sort,
-                                  papply=papply)
+      importance.varpro.workhorse(o = o,
+                                  cutoff = cutoff,
+                                  trim = trim,
+                                  plot.it = FALSE,
+                                  sort = sort,
+                                  papply = papply,
+                                  local.std = local.std,
+                                  ...)
     })
   }
 }
 importance <- importance.varpro 
-importance.varpro.workhorse <- function(o, cutoff, trim, plot.it, conf, sort, ylab, papply, ...) {
+importance.varpro.workhorse <- function(o, cutoff, trim, plot.it, conf, sort,
+              ylab, papply, local.std, ...) {
   ## ------------------------------------------------------------------------
   ##
   ## extract desired quantities from the varpro object
@@ -216,6 +265,9 @@ importance.varpro.workhorse <- function(o, cutoff, trim, plot.it, conf, sort, yl
   imp.tree <- imp.tree[, (1:p), drop = FALSE]
   impwt.mn <- apply(imp.tree, 2, winsorize.mean, trim = trim)
   impwt.sd <- apply(imp.tree, 2, winsorize.sd, trim = trim)
+  if (local.std) {
+    impwt.sd <- 1
+  }
   ## clean up and get ready for output
   rO$mean <- impwt.mn
   rO$std <- impwt.sd
@@ -246,8 +298,13 @@ importance.varpro.workhorse <- function(o, cutoff, trim, plot.it, conf, sort, yl
     rOC.z <- do.call(cbind, lapply(1:J, function(j) {
       impCj.tree <- impC.tree[, colnames(impC.tree) %in% paste0(xvarused.names, ".", j), drop = FALSE]
       impCwtj.mn <- apply(impCj.tree, 2, winsorize.mean, trim = trim)
-      impCwtj.sd <- apply(impCj.tree, 2, winsorize.sd, trim = trim)
-      impCwtj.mn / impCwtj.sd
+      if (!local.std) {
+        impCwtj.sd <- apply(impCj.tree, 2, winsorize.sd, trim = trim)
+        impCwtj.mn / impCwtj.sd
+      }
+      else {
+        impCwtj.mn
+      }
     }))
     rownames(rOC.z) <- xvarused.names
     colnames(rOC.z) <- ylevels
@@ -309,13 +366,12 @@ importance.varpro.workhorse <- function(o, cutoff, trim, plot.it, conf, sort, yl
   ## return the goodies
   ##
   ## ------------------------------------------------------------------------
+  ## deprecated
+  rO$zcenter <- rO$selected <- NULL
   if (o$family != "class") {
     rO
   }
   else {
-    list(unconditional = rO,
-         conditional.z = rOC.z,
-         conditional.zcenter = rOC.zcenter,
-         conditional.selected = rOC.selected)
+    list(unconditional = rO, conditional.z = rOC.z)
   }
 }

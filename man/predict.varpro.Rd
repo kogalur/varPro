@@ -39,8 +39,9 @@
 
 \references{
 
-  Lu M. and Ishwaran H. (2022).  Model-Independent Variable Selection
-  via the Rule-based Variable Priority (VarPro).
+  Lu, M. and Ishwaran, H., (2024). Model-independent variable selection
+  via the rule-based variable priority. arXiv e-prints, pp.arXiv-2409.
+  
 
 
 }

@@ -10,40 +10,55 @@
 #include "regression.h"
 #include "termBaseOps.h"
 #include "nrutil.h"
-void assignMeanResponse(uint           treeID,
-                        TerminalBase  *parent,
-                        double        *tn_regr_ptr) {
+void assignAllRegressionOutcomes(char          mode,
+                                 uint          treeID,
+                                 TerminalBase *term) {
+  TerminalRegression *parent;
+  parent = term -> regressionBase;
+  assignMeanResponse(treeID, parent, RF_TN_REGR_ptr[treeID][term -> nodeID]);
+}
+void calculateAllRegressionOutcomes(char          mode,
+                                    uint          treeID,
+                                    TerminalBase *term) {
+  TerminalRegression *parent;
+  parent = term -> regressionBase;
+  calculateMeanResponse(treeID, parent);
+}
+void assignMeanResponse(uint                 treeID,
+                        TerminalRegression  *parent,
+                        double              *tn_regr_ptr) {
   uint j;
   stackMeanResponse(parent);
   for (j = 1; j <= parent -> rnfCount; j++) {
     (parent -> meanResponse)[j] = tn_regr_ptr[j];
   }
 }
-void calculateMeanResponse(uint           treeID,
-                           TerminalBase  *parent,
-                           uint          *membershipIndex,
-                           uint           membershipSize,
-                           uint          *membershipIterator) {
+void calculateMeanResponse(uint                treeID,
+                           TerminalRegression *parent) {
+  uint  membrSize;
+  uint *membrIndx;
   uint i, j;
   stackMeanResponse(parent);
   for (j = 1; j <= parent -> rnfCount; j++) {
     (parent -> meanResponse)[j] = 0.0;
   }
-  parent -> membrCount = membershipSize;
-  for (i = 1; i <= membershipSize; i++) {
+  membrSize = parent -> base -> membrCount = parent -> base -> mate -> repMembrSize;
+  membrIndx = parent -> base -> mate -> repMembrIndx;
+  for (i = 1; i <= membrSize; i++) {
     for (j = 1; j <= parent -> rnfCount; j++) {
-      (parent -> meanResponse)[j] += RF_response[treeID][parent -> rnfIndex[j]][membershipIndex[i]];
+      (parent -> meanResponse)[j] += RF_response[treeID][parent -> rnfIndex[j]][membrIndx[i]];
     }
   }
-  if (membershipSize > 0) {
+  if (membrSize > 0) {
     for (j = 1; j <= parent -> rnfCount; j++) {
-      (parent -> meanResponse)[j] = (parent -> meanResponse)[j] / (double) membershipSize;
+      (parent -> meanResponse)[j] = (parent -> meanResponse)[j] / (double) membrSize;
     }
   }
 }
 void updateEnsembleMean(char mode, uint treeID) {
   char oobFlag, fullFlag, outcomeFlag;
   TerminalBase ***termMembershipPtr;
+  TerminalRegression *parent;
   uint    *membershipIndex;
   uint     membershipSize;
   double    **ensembleRGRnum;
@@ -102,10 +117,9 @@ void updateEnsembleMean(char mode, uint treeID) {
 #endif
     }
     for (uint i = 1; i <= membershipSize; i++) {
-      TerminalBase *parent;
       uint j, ii;
       ii = membershipIndex[i];
-      parent = termMembershipPtr[treeID][ii];
+      parent = termMembershipPtr[treeID][ii] -> regressionBase;
 #ifdef _OPENMP
       omp_set_lock(&(lockDENptr[ii]));
 #endif

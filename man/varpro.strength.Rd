@@ -55,7 +55,7 @@ varpro.strength(object,
 ## load the data
 data(BostonHousing, package = "mlbench")
 
-o <- rfsrc(medv~., BostonHousing, ntree=100)
+o <- randomForestSRC::rfsrc(medv~., BostonHousing, ntree=100)
 
 ## call varpro.strength
 varpro.strength(object = o, max.rules.tree = 10, max.tree = 15)

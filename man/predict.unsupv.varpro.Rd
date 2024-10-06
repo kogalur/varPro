@@ -48,14 +48,6 @@
 
 }
 
-\references{
-
-  Lu M. and Ishwaran H. (2022).  Model-Independent Variable Selection
-  via the Rule-based Variable Priority (VarPro).
-
-
-}
-
 \seealso{
   \command{\link{unsupv.varpro}}
 }

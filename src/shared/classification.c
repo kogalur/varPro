@@ -10,9 +10,23 @@
 #include "classification.h"
 #include "termBaseOps.h"
 #include "nrutil.h"
-void assignMultiClassProb(uint           treeID,
-                          TerminalBase  *parent,
-                          uint         **tn_clas_ptr) {
+void assignAllClassificationOutcomes(char          mode,
+                                     uint          treeID,
+                                     TerminalBase *term) {
+  TerminalClassification *parent;
+  parent = term -> classificationBase;
+  assignMultiClassProb(treeID, parent, RF_TN_CLAS_ptr[treeID][term -> nodeID]);
+}
+void calculateAllClassificationOutcomes(char          mode,
+                                        uint          treeID,
+                                        TerminalBase *term) {
+  TerminalClassification *parent;
+  parent = term -> classificationBase;
+  calculateMultiClassProb(treeID, parent);
+}
+void assignMultiClassProb(uint                    treeID,
+                          TerminalClassification *parent,
+                          uint                  **tn_clas_ptr) {
   uint j, k;
   double maxValue, maxClass;
   stackMultiClassProb(parent);
@@ -33,23 +47,23 @@ void assignMultiClassProb(uint           treeID,
     (parent -> maxClass)[j] = maxClass;
   }
 }
-void calculateMultiClassProb(uint           treeID,
-                             TerminalBase  *parent,
-                             uint          *membershipIndex,
-                             uint           membershipSize,
-                             uint          *membershipIterator) {
-  uint i, j, k;
+void calculateMultiClassProb(uint                    treeID,
+                             TerminalClassification *parent) {
+  uint  membrSize;
+  uint *membrIndx;
   double maxValue, maxClass;
+  uint i, j, k;
   stackMultiClassProb(parent);
   for (j = 1; j <= parent -> rfCount; j++) {
     for (k = 1; k <= parent -> rfSize[j]; k++) {
       (parent -> multiClassProb)[j][k] = 0;
     }
   }
-  parent -> membrCount = membershipSize;
-  for (i = 1; i <= membershipSize; i++) {
+  membrSize = parent -> base -> membrCount = parent -> base -> mate -> repMembrSize;
+  membrIndx = parent -> base -> mate -> repMembrIndx;
+  for (i = 1; i <= membrSize; i++) {
     for (j = 1; j <= parent -> rfCount; j++) {
-      (parent -> multiClassProb)[j][(uint) RF_response[treeID][parent -> rfIndex[j]][membershipIndex[i]]] ++;
+      (parent -> multiClassProb)[j][(uint) RF_response[treeID][parent -> rfIndex[j]][membrIndx[i]]] ++;
     }
   }
   for (j = 1; j <= parent -> rfCount; j++) {
@@ -67,6 +81,7 @@ void calculateMultiClassProb(uint           treeID,
 void updateEnsembleClas(char mode, uint treeID) {
   char oobFlag, fullFlag, outcomeFlag;
   TerminalBase ***termMembershipPtr;
+  TerminalClassification *parent;
   uint    *membershipIndex;
   uint     membershipSize;
   double   ***ensembleCLSnum;
@@ -125,17 +140,16 @@ void updateEnsembleClas(char mode, uint treeID) {
 #endif
     }
     for (uint i = 1; i <= membershipSize; i++) {
-      TerminalBase *parent;
       uint j, k, ii;
       ii = membershipIndex[i];
-      parent = termMembershipPtr[treeID][ii];
+      parent = termMembershipPtr[treeID][ii] -> classificationBase;
 #ifdef _OPENMP        
       omp_set_lock(&(lockDENptr[ii]));
 #endif
       ensembleDen[ii] ++;          
       for (j = 1; j <= RF_rTargetFactorCount; j++) {
         for (k = 1; k <= RF_rFactorSize[RF_rFactorMap[RF_rTargetFactor[j]]]; k++) {
-          ensembleCLSnum[j][k][ii] += (double) (parent -> multiClassProb)[RF_rFactorMap[RF_rTargetFactor[j]]][k] / (double) (parent -> membrCount);
+          ensembleCLSnum[j][k][ii] += (double) (parent -> multiClassProb)[RF_rFactorMap[RF_rTargetFactor[j]]][k] / (double) (termMembershipPtr[treeID][ii] -> membrCount);
         }
       }
 #ifdef _OPENMP

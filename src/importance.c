@@ -11,8 +11,10 @@
     
 
 #include "importance.h"
+#include "survivalUtil.h"
 #include "terminal.h"
 #include "termOps.h"
+#include "shared/termBaseOps.h"
 #include "shared/nrutil.h"
 void getMeanResponse(uint       treeID,
                      Terminal  *parent,
@@ -20,7 +22,7 @@ void getMeanResponse(uint       treeID,
                      uint       membershipSize,
                      uint       xReleaseIndx,
                      char       oob) {
-  uint    i, j;
+  uint i, j;
   double *mean;
   mean = dvector(1, RF_rNonFactorCount);
   if(oob) {
@@ -131,4 +133,44 @@ void getMultiClassProb (uint       treeID,
     free_uivector(mcp[j], 1, RF_rFactorSize[j]);
   }
   free_new_vvector(mcp, 1, RF_rFactorCount , NRUTIL_UPTR);
+}
+void getMortality(uint       treeID,
+                  Terminal  *parent,
+                  uint      *membershipIndex,
+                  uint       membershipSize,
+                  uint       xReleaseIndx,
+                  char       oob) {
+  TerminalSurvival *tSurvBase;
+  tSurvBase = ((TerminalBase *) parent) -> survivalBase;
+  if (membershipSize == 0) {
+    if(oob) {
+      parent -> oobMortality = RF_nativeNaN;
+    }
+    else {
+      (parent -> complementMortality[xReleaseIndx]) = RF_nativeNaN;
+    }
+  }
+  else {
+    getAtRiskAndEventCount(treeID,
+                           tSurvBase,
+                           membershipIndex,
+                           membershipSize,
+                           RF_response[treeID][RF_statusIndex]);
+    getLocalRatio(treeID, tSurvBase);
+    getLocalNelsonAalen(treeID, tSurvBase);
+    getNelsonAalen(treeID, tSurvBase);
+    getSurvivalOutcome(treeID, tSurvBase);
+    if(oob) {
+      parent -> oobMortality = tSurvBase -> outcome[1];
+    }
+    else {
+      (parent -> complementMortality[xReleaseIndx]) = tSurvBase -> outcome[1];
+    }
+    unstackSurvivalOutcome(tSurvBase);
+    unstackNelsonAalen(tSurvBase);
+    unstackLocalNelsonAalen(tSurvBase);
+    unstackLocalRatio(tSurvBase);
+    unstackAtRiskAndEventCount(tSurvBase);
+    unstackEventTimeIndex(tSurvBase);
+  }
 }

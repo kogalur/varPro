@@ -74,10 +74,9 @@
 
 \references{
   
-  Lu M. and Ishwaran H. (2022).  Model-Independent Variable Selection
-  via the Rule-based Variable Priority (VarPro).
-  
-  Lu M. and  Ishwaran H. (2023).  Unlimited Virtual Twins.
+  Ishwaran H. (2025).  Multivariate Statistics: Classical Foundations
+  and Modern Machine Learning, CRC (Chapman and Hall), in press.
+ 
    
 }
 

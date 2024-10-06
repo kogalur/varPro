@@ -162,8 +162,6 @@ char varProMain(char mode, int seedValue) {
                                            RF_ptnCount,
                                            RF_getTree,
                                            RF_observationSize,
-                                           RF_subjCount,
-                                           RF_subjSlotCount,
                                            &RF_nodeMembership,
                                            &RF_tTermMembership,
                                            &RF_pNodeMembership,
@@ -202,25 +200,26 @@ char varProMain(char mode, int seedValue) {
                                               &RF_importanceFlag);
         if (result) {
           result = stackAndInitializeTimeAndSubjectArrays(mode,
-                                                 RF_startTimeIndex,
-                                                 RF_observationSize,
-                                                 RF_responseIn,
-                                                 RF_timeIndex,
-                                                 RF_timeInterestSize,
-                                                 RF_subjIn,
-                                                 RF_subjSize,
-                                                 &RF_masterTime,
-                                                 &RF_masterTimeIndexIn,
-                                                 &RF_startMasterTimeIndexIn,
-                                                 &RF_timeInterest,
-                                                 &RF_masterTimeSize,
-                                                 &RF_sortedTimeInterestSize,
-                                                 &RF_masterToInterestTimeMap,
-                                                 &RF_subjSlot,
-                                                 &RF_subjSlotCount,
-                                                 &RF_subjList,
-                                                 &RF_caseMap,
-                                                 &RF_subjCount);
+                                                          RF_startTimeIndex,
+                                                          RF_observationSize,
+                                                          RF_responseIn,
+                                                          RF_timeIndex,
+                                                          RF_timeInterestSize,
+                                                          RF_subjIn,
+                                                          &RF_subjSize,
+                                                          &RF_masterTime,
+                                                          &RF_masterTimeIndexIn,
+                                                          &RF_startMasterTimeIndexIn,
+                                                          &RF_timeInterest,
+                                                          &RF_masterTimeSize,
+                                                          &RF_sortedTimeInterestSize,
+                                                          &RF_masterToInterestTimeMap,
+                                                          &RF_subjSlot,
+                                                          &RF_subjSlotCount,
+                                                          &RF_subjList,
+                                                          &RF_caseMap,
+                                                          &RF_subjMap,
+                                                          &RF_subjCount);
           if (result) {
             stackFactorArrays(mode,
                               RF_rType,
@@ -435,7 +434,10 @@ char varProMain(char mode, int seedValue) {
             for (b = 1; b <= VP_strengthTreeCount; b++) {
               acquireTree(mode, b);
             }
-            if (RF_rNonFactorCount > 0) {
+            if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
+              RF_stackCount = 9;
+            }
+            else if (RF_rNonFactorCount > 0) {
               RF_stackCount = 9;
             }
             else if (RF_rFactorCount > 0) {
@@ -504,7 +506,80 @@ char varProMain(char mode, int seedValue) {
             VP_xReleaseID_ --;
             uint localSize;
             uint membershipSize;
-            if (RF_rNonFactorCount > 0) {
+            if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
+              localSize = VP_totalRecordCount * 1;
+              VP_oobCT_ = (uint*) stackAndProtect(RF_auxDimConsts,
+                                                  mode,
+                                                  &RF_nativeIndex,
+                                                  NATIVE_TYPE_INTEGER,
+                                                  VP_OOBG_CT,
+                                                  VP_totalRecordCount,
+                                                  0,
+                                                  VP_sexpStringOutgoing,
+                                                  NULL,
+                                                  1,
+                                                  VP_totalRecordCount);
+              VP_oobCT_ --;
+              if (!(VP_opt & (VP_OPT_CMP | VP_OPT_OOB))) {
+                VP_importance_ = (double*) stackAndProtect(RF_auxDimConsts,
+                                                           mode,
+                                                           &RF_nativeIndex,
+                                                           NATIVE_TYPE_NUMERIC,
+                                                           VP_STAT_IMP,
+                                                           localSize,
+                                                           0,
+                                                           VP_sexpStringOutgoing,
+                                                           & VP_dimImpSRVptr,
+                                                           2,
+                                                           1,
+                                                           VP_totalRecordCount);
+                VP_importance_ --;
+              }
+              else if ((VP_opt & VP_OPT_CMP) && !(VP_opt & VP_OPT_OOB)) {
+                VP_complementStat_ = (double*) stackAndProtect(RF_auxDimConsts,
+                                                               mode,
+                                                               &RF_nativeIndex,
+                                                               NATIVE_TYPE_NUMERIC,
+                                                               VP_STAT_COMPL,
+                                                               localSize,
+                                                               0,
+                                                               VP_sexpStringOutgoing,
+                                                               & VP_dimImpSRVptr,
+                                                               2,
+                                                               1,
+                                                               VP_totalRecordCount);
+                VP_complementStat_ --;
+              }
+              else if ((VP_opt & VP_OPT_OOB) && !(VP_opt & VP_OPT_CMP)) {
+                VP_oobStat_ = (double*) stackAndProtect(RF_auxDimConsts,
+                                                        mode,
+                                                        &RF_nativeIndex,
+                                                        NATIVE_TYPE_NUMERIC,
+                                                        VP_STAT_OOB,
+                                                        localSize,
+                                                        0,
+                                                        VP_sexpStringOutgoing,
+                                                        & VP_dimImpSRVptr,
+                                                        2,
+                                                        RF_rNonFactorCount,
+                                                        VP_totalRecordCount);
+                VP_oobStat_ --;
+              }
+              writeStrengthArray(VP_strengthTreeID,
+                                 VP_strengthTreeCount,
+                                 VP_branchID,
+                                 VP_branchCount,
+                                 VP_oobCount,
+                                 VP_complementCount,
+                                 VP_xReleaseCount,
+                                 VP_xReleaseIDArray,
+                                 VP_treeID_,
+                                 VP_nodeID_,
+                                 VP_xReleaseID_,
+                                 VP_oobCT_,
+                                 VP_dimImpSRVptr);
+            }
+            else if (RF_rNonFactorCount > 0) {
               localSize = VP_totalRecordCount * RF_rTargetNonFactorCount;
               VP_oobCT_ = (uint*) stackAndProtect(RF_auxDimConsts,
                                                   mode,
@@ -860,6 +935,7 @@ char varProMain(char mode, int seedValue) {
                                         RF_subjSlotCount,
                                         RF_subjList,
                                         RF_caseMap,
+                                        RF_subjMap,
                                         RF_subjCount);
           }
         }

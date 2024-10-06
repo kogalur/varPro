@@ -45,9 +45,8 @@
   forest.  2008 Eighth IEEE International Conference on Data
   Mining. IEEE.
 
-  Lu M. and Ishwaran H. (2022).  Model-Independent Variable Selection
-  via the Rule-based Variable Priority (VarPro).
-
+  Ishwaran H. (2025).  Multivariate Statistics: Classical Foundations
+  and Modern Machine Learning, CRC (Chapman and Hall), in press.
 
 }
 

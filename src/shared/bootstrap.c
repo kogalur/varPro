@@ -29,7 +29,6 @@ char bootstrap (char      mode,
                 char    **bootMembershipFlag,
                 char    **oobMembershipFlag,
                 uint    **bootMembershipCount,
-                uint    **bootMembershipIndex,
                 uint     *oobSize,
                 uint     *ibgSize,
                 uint    **ibgMembershipIndex,
@@ -122,15 +121,12 @@ char bootstrap (char      mode,
       }
     }
   }
-  uint iter;
-  for (i = 1; i <= observationSize; i++) {
+  for (i = 1; i <= subjSize; i++) {
     bootMembershipFlag[treeID][i]  = FALSE;
     oobMembershipFlag[treeID][i]   = TRUE;
     bootMembershipCount[treeID][i] = 0;
   }
-  iter = 0;
   for (i = 1; i <= indexSize; i++) {
-    bootMembershipIndex[treeID][++iter] = index[i];
     bootMembershipFlag[treeID][index[i]] = TRUE;
     oobMembershipFlag[treeID][index[i]]  = FALSE;
     bootMembershipCount[treeID][index[i]] ++;
@@ -140,22 +136,13 @@ char bootstrap (char      mode,
   }
   oobSize[treeID] = 0;
   ibgSize[treeID] = 0;
-  for (i = 1; i <= observationSize; i++) {
+  for (i = 1; i <= subjSize; i++) {
     if (bootMembershipFlag[treeID][i] == FALSE) {
       oobMembershipIndex[treeID][++oobSize[treeID]] = i;
     }
     else {
       ibgMembershipIndex[treeID][++ibgSize[treeID]] = i;
     }
-  }
-  if (result) {
-    result = TRUE;
-  }
-  else {
-  }
-  if (result) {
-  } 
-  else {
   }
   return result;
 }

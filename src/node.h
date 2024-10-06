@@ -3,5 +3,6 @@
 typedef struct node Node;
 struct node {
   struct nodeBase base;
+  unsigned int nSize;
 };
 #endif

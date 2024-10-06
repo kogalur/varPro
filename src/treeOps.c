@@ -11,21 +11,24 @@
     
 
 #include "treeOps.h"
-#include "shared/stackMembershipVectors.h"
-#include "shared/terminalBase.h"
-#include "shared/nrutil.h"
-#include "shared/restoreTree.h"
-#include "shared/assignTermNodeInfo.h"
-#include "shared/bootstrap.h"
-#include "shared/nodeBaseOps.h"
-#include "shared/polarity.h"
 #include "terminal.h"
 #include "node.h"
 #include "stackOutput.h"
 #include "varProMain.h"
 #include "importance.h"
 #include "termOps.h"
+#include "shared/stackMembershipVectors.h"
+#include "shared/terminalBase.h"
+#include "shared/nrutil.h"
+#include "shared/restoreTree.h"
+#include "shared/bootstrap.h"
+#include "shared/nodeBaseOps.h"
+#include "shared/termBaseOps.h"
+#include "shared/polarityNew.h"
 void acquireTree(char mode, uint b) {
+  Node     *root;
+  NodeBase *rootBase;
+  uint nSize, xSize;
   uint  treeID;
   uint  ambrIterator;
   uint *bootMembrIndx;
@@ -52,39 +55,42 @@ void acquireTree(char mode, uint b) {
                  & VP_proxyIndvDepth[b]);
 #ifdef _OPENMP
 #endif
-  stackMembershipVectors(RF_observationSize,
-                         RF_identityMembershipIndexSize,
+  nSize = RF_observationSize;
+  xSize = RF_xSize;
+  stackMembershipVectors(nSize,
                          &RF_bootMembershipFlag[treeID],
                          &RF_oobMembershipFlag[treeID],
                          &RF_bootMembershipCount[treeID],
                          &RF_ibgMembershipIndex[treeID],
-                         &RF_oobMembershipIndex[treeID],
-                         &RF_bootMembershipIndex[treeID]);
-  RF_tTermMembership[treeID] = (TerminalBase **) new_vvector(1, RF_observationSize, NRUTIL_TPTR);
+                         &RF_oobMembershipIndex[treeID]);
+  RF_tTermMembership[treeID] = (TerminalBase **) new_vvector(1, nSize, NRUTIL_TPTR);
   RF_leafLinkedObjHead[treeID] = RF_leafLinkedObjTail[treeID] = makeLeafLinkedObj();
-  RF_root[treeID] = makeNode(RF_xSize);
-  for (i = 1; i <= ((NodeBase*) RF_root[treeID]) -> xSize; i++) {
-    ((NodeBase*) RF_root[treeID]) -> permissible[i] = FALSE;
+  root = makeNode(xSize);
+  root -> nSize = nSize;
+  rootBase = (NodeBase *) root;
+  RF_root[treeID] = rootBase;
+  rootBase -> parent = NULL;
+  rootBase -> nodeID = 1;
+  for (k = 1; k <= rootBase -> xSize; k++) {
+    rootBase -> permissible[k] = TRUE;
   }
-  ((NodeBase*) RF_root[treeID]) -> parent = NULL;
-  ((NodeBase*) RF_root[treeID]) -> nodeID = 1;
-  ((NodeBase*) RF_root[treeID]) -> allMembrSizeAlloc = ((NodeBase*) RF_root[treeID]) -> allMembrSize = RF_observationSize;
-  ((NodeBase*) RF_root[treeID]) -> allMembrIndx = uivector(1, ((NodeBase*) RF_root[treeID]) -> allMembrSizeAlloc);
-  for (i = 1; i <= RF_observationSize; i++) {
-    ((NodeBase*) RF_root[treeID]) -> allMembrIndx[i] = i;
+  rootBase -> allMembrSizeAlloc = rootBase -> allMembrSize = nSize;
+  rootBase -> allMembrIndx = uivector(1, rootBase -> allMembrSizeAlloc);
+  for (i = 1; i <= nSize; i++) {
+    rootBase -> allMembrIndx[i] = i;
   }
   if ( (RF_opt & OPT_BOOT_TYP1) || (RF_opt & OPT_BOOT_TYP2)) {
     bootMembrSize = RF_bootstrapSize;
   }
   else {
-    bootMembrSize = ((NodeBase*) RF_root[treeID]) -> allMembrSize;
+    bootMembrSize = nSize;
   }
   bootMembrIndx  = uivector(1, bootMembrSize);
   bootResult = bootstrap (mode,
                           treeID,
-                          (NodeBase*) RF_root[treeID],
-                          ((NodeBase*) RF_root[treeID]) -> allMembrIndx,
-                          ((NodeBase*) RF_root[treeID]) -> allMembrSize,
+                          rootBase, 
+                          rootBase -> allMembrIndx,
+                          rootBase -> allMembrSize,
                           bootMembrSize,
                           RF_bootstrapIn,
                           RF_subjSize,
@@ -92,18 +98,19 @@ void acquireTree(char mode, uint b) {
                           RF_subjWeightType,
                           RF_subjWeightSorted,
                           RF_subjWeightDensitySize,
-                          RF_observationSize,
+                          nSize,
                           bootMembrIndx,
                           RF_bootMembershipFlag,
                           RF_oobMembershipFlag,
                           RF_bootMembershipCount,
-                          RF_bootMembershipIndex,
                           RF_oobSize,
                           RF_ibgSize,
                           RF_ibgMembershipIndex,
                           RF_oobMembershipIndex,
                           RF_BOOT_CT_ptr);
   if (bootResult) {
+    rootBase -> repMembrIndx = bootMembrIndx;
+    rootBase -> repMembrSize = rootBase -> repMembrSizeAlloc = bootMembrSize;
     restoreTree(mode, treeID, RF_root[treeID]);
     if (RF_optHigh & OPT_MEMB_INCG) {
       ambrIterator = 0;
@@ -124,13 +131,7 @@ void acquireTree(char mode, uint b) {
       leafLinkedObjectPtr = RF_leafLinkedObjHead[treeID];
       for(i = 1; i <= RF_tLeafCount_[treeID]; i++) {
         leafLinkedObjectPtr = leafLinkedObjectPtr -> fwdLink;
-        assignTerminalNodeOutcomes(mode,
-                                   treeID,
-                                   leafLinkedObjectPtr -> termPtr,
-                                   RF_startTimeIndex,
-                                   RF_timeIndex,
-                                   RF_statusIndex,
-                                   RF_rFactorSize);
+        restoreTerminalNodeOutcomesVarPro(treeID, (Terminal *) (leafLinkedObjectPtr -> termPtr));
       }
     }
     RF_tTermList[treeID] = (TerminalBase **) new_vvector(1, RF_tLeafCount_[treeID], NRUTIL_TPTR);
@@ -168,7 +169,15 @@ void acquireTree(char mode, uint b) {
       else {
         VP_oobMembers[b][j]      = NULL;
       }
-      if (RF_rNonFactorCount > 0) {
+      if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
+        getMortality(treeID,
+                     (Terminal *) RF_tTermList[treeID][branchID],
+                     VP_oobMembers[b][j],
+                     VP_oobCount[b][j],
+                     0,
+                     TRUE);
+      }
+      else if (RF_rNonFactorCount > 0) {
         getMeanResponse(treeID,
                         (Terminal *) RF_tTermList[treeID][branchID],
                         VP_oobMembers[b][j],
@@ -176,7 +185,7 @@ void acquireTree(char mode, uint b) {
                         0,
                         TRUE);
       }
-      if (RF_rFactorCount > 0) {
+      else if (RF_rFactorCount > 0) {
         getMultiClassProb(treeID,
                           (Terminal *) RF_tTermList[treeID][branchID],
                           VP_oobMembers[b][j],
@@ -204,10 +213,13 @@ void acquireTree(char mode, uint b) {
                     & VP_xReleaseCount[b][j]);
       VP_complementCount[b][j] = uivector(1, VP_xReleaseCount[b][j]);
       VP_complementMembers[b][j] = (uint **) new_vvector(1, VP_xReleaseCount[b][j], NRUTIL_UPTR);
-      if (RF_rNonFactorCount > 0) {
+      if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
+        stackCompMortalityOuter((Terminal *) RF_tTermList[treeID][branchID], VP_xReleaseCount[b][j]);
+      }        
+      else if (RF_rNonFactorCount > 0) {
         stackCompMeanResponseOuter((Terminal *) RF_tTermList[treeID][branchID], VP_xReleaseCount[b][j]);
       }
-      if(RF_rFactorCount > 0) {
+      else if(RF_rFactorCount > 0) {
         stackCompMultiClassOuter((Terminal *) RF_tTermList[treeID][branchID], VP_xReleaseCount[b][j]);
       }
       for(k = 1; k <= VP_xReleaseCount[b][j]; k++) {
@@ -241,7 +253,15 @@ void acquireTree(char mode, uint b) {
           else {
             VP_complementMembers[b][j][k] = NULL;
           }
-          if (RF_rNonFactorCount > 0) {
+          if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
+            getMortality(treeID,
+                         (Terminal *) RF_tTermList[treeID][branchID],
+                         VP_complementMembers[b][j][k],
+                         VP_complementCount[b][j][k],
+                         k,
+                         FALSE);
+          }
+          else if (RF_rNonFactorCount > 0) {
             getMeanResponse(treeID,
                             (Terminal *) RF_tTermList[treeID][branchID],
                             VP_complementMembers[b][j][k],
@@ -249,7 +269,7 @@ void acquireTree(char mode, uint b) {
                             k,
                             FALSE);
           }
-          if (RF_rFactorCount > 0) {
+          else if (RF_rFactorCount > 0) {
             getMultiClassProb(treeID,
                               (Terminal *) RF_tTermList[treeID][branchID],
                               VP_complementMembers[b][j][k],
@@ -269,7 +289,15 @@ void acquireTree(char mode, uint b) {
           else {
             VP_complementMembers[b][j][k] = NULL;
           }
-          if (RF_rNonFactorCount > 0) {
+          if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
+            getMortality(treeID,
+                         (Terminal *) RF_tTermList[treeID][branchID],
+                         VP_complementMembers[b][j][k],
+                         VP_complementCount[b][j][k],
+                         k,
+                         FALSE);
+          }
+          else if (RF_rNonFactorCount > 0) {
             getMeanResponse(treeID,
                             (Terminal *) RF_tTermList[treeID][branchID],
                             VP_complementMembers[b][j][k],
@@ -277,7 +305,7 @@ void acquireTree(char mode, uint b) {
                             k,
                             FALSE);
           }
-          if (RF_rFactorCount > 0) {
+          else if (RF_rFactorCount > 0) {
             getMultiClassProb(treeID,
                               (Terminal *) RF_tTermList[treeID][branchID],
                               VP_complementMembers[b][j][k],
@@ -300,14 +328,14 @@ void acquireTree(char mode, uint b) {
   else {
   }
   free_uivector(bootMembrIndx, 1, bootMembrSize);
-  unstackMembershipVectors(RF_observationSize,
-                           RF_identityMembershipIndexSize,
+  rootBase -> repMembrIndx = NULL;
+  rootBase -> repMembrSize = rootBase -> repMembrSizeAlloc = 0;
+  unstackMembershipVectors(nSize,
                            RF_bootMembershipFlag[treeID],
                            RF_oobMembershipFlag[treeID],
                            RF_bootMembershipCount[treeID],
                            RF_ibgMembershipIndex[treeID],
-                           RF_oobMembershipIndex[treeID],
-                           RF_bootMembershipIndex[treeID]);
+                           RF_oobMembershipIndex[treeID]);
   freeTree(treeID, (NodeBase*) RF_root[treeID]);
 }
 void freeTree(uint treeID, NodeBase *parent) {
@@ -366,35 +394,21 @@ void acquireBranch(uint      b,
                    char     *releaseFlag,
                    uint     *xReleaseCount) {
   uint depth;
-  SplitInfo *info;
+  SplitInfoMax *info;
   char parseFlag;
   char daughterFlag;
-  char (*getDaughterPolarityGeneric) (uint       treeID,
-                                      SplitInfo *info,
-                                      uint       indv,
-                                      void      *value,
-                                      ...);
   void *gobsLocal;
   uint xvar;
   parseFlag = TRUE;
   depth = 0;
   while (parseFlag) {
-    info = parent -> splitInfo;
+    info = parent -> splitInfoMax;
     if (info != NULL) {
       gobsLocal = (double **) xArray;
-      gobsLocal = (double *) ((double **) gobsLocal)[info -> randomVar[1]];
-      if (info -> mwcpSizeAbs[1] > 0) {
-        getDaughterPolarityGeneric = &getDaughterPolaritySimpleFactor;
-      }
-      else {
-        getDaughterPolarityGeneric = &getDaughterPolaritySimpleNonFactor;
-      }
-      daughterFlag = getDaughterPolarityGeneric(treeID,
-                                                info,
-                                                indv,
-                                                gobsLocal,
-                                                parent,
-                                                RF_GROW);
+      daughterFlag = getDaughterPolarityNew(treeID,
+                                            info,
+                                            indv,
+                                            gobsLocal);
       if (daughterFlag == LEFT) {
         pathPolarity[++depth] = LEFT;
         parent = parent -> left;
@@ -403,7 +417,7 @@ void acquireBranch(uint      b,
         pathPolarity[++depth] = RIGHT;
         parent = parent -> right;
       }
-      xvar = info -> randomVar[1];
+      xvar = info -> splitParameter;
       if(releaseFlag[xvar] == FALSE) {
         releaseFlag[xvar] = TRUE;
         xReleaseID[++(*xReleaseCount)] = xvar;
@@ -429,18 +443,13 @@ void acquireReleasedMembership(uint      b,
                                uint     *membershipReleasedCount) {
   uint *newMembership;
   uint  newMembershipCount;
-  SplitInfo *info;
+  SplitInfoMax *info;
   char daughterFlag;
-  char (*getDaughterPolarityGeneric) (uint       treeID,
-                                      SplitInfo *info,
-                                      uint       indv,
-                                      void      *value,
-                                      ...);
   void *gobsLocal;
   uint i;
-  info = parent -> splitInfo;
+  info = parent -> splitInfoMax;
   if (info != NULL) {
-    if(info -> randomVar[1] == xReleaseID) {
+    if(info -> splitParameter == xReleaseID) {
       newMembership = membership;
       newMembershipCount = membershipCount;
     }
@@ -449,20 +458,11 @@ void acquireReleasedMembership(uint      b,
         newMembership = uivector(1, membershipCount);
         newMembershipCount = 0;
         gobsLocal = (double **) xArray;
-        gobsLocal = (double *) ((double **) gobsLocal)[info -> randomVar[1]];
-        if (info -> mwcpSizeAbs[1] > 0) {
-          getDaughterPolarityGeneric = &getDaughterPolaritySimpleFactor;
-        }
-        else {
-          getDaughterPolarityGeneric = &getDaughterPolaritySimpleNonFactor;
-        }
         for(i = 1; i <= membershipCount; i++) {
-          daughterFlag = getDaughterPolarityGeneric(treeID,
-                                                    info,
-                                                    membership[i],
-                                                    gobsLocal,
-                                                    parent,
-                                                    RF_GROW);
+          daughterFlag = getDaughterPolarityNew(treeID,
+                                                info,
+                                                membership[i],
+                                                gobsLocal);
           if((*pathPolarity) == daughterFlag) {
             newMembership[++newMembershipCount] = membership[i];
           }

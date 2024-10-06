@@ -15,10 +15,9 @@
 #include "nodeBaseOps.h"
 #include "termBaseOps.h"
 #include "leafLink.h"
-#include "assignTermNodeInfo.h"
 void restoreTree(char mode, uint treeID, NodeBase *parent) {
   ulong *offset;
-  SplitInfo *info;
+  SplitInfoMax *info;
   uint i;
   offset = &RF_restoreTreeOffset[treeID];
   if (treeID != RF_treeID_[*offset]) {
@@ -39,29 +38,25 @@ void restoreTree(char mode, uint treeID, NodeBase *parent) {
   parent -> nodeID = RF_nodeID_[*offset];
   parent -> repMembrSize = RF_nodeSZ_[*offset];
   if (RF_parmID_[1][*offset] != 0) {
-    info = parent -> splitInfo = makeSplitInfo(0);
-    info -> mwcpSizeAbs = uivector(1, 1);
-    info -> randomVar   = ivector(1, 1);
-    info -> randomPts   = new_vvector(1, 1, NRUTIL_VPTR);
-    info -> randomVar[1] = RF_parmID_[1][*offset];
-    info -> mwcpSizeAbs[1] = RF_mwcpSZ_[1][*offset];
+    info = parent -> splitInfoMax = makeSplitInfoMax(0);
+    info -> splitParameter = RF_parmID_[1][*offset];
+    info -> splitValueFactSize = RF_mwcpSZ_[1][*offset];
     if (RF_mwcpSZ_[1][*offset] > 0) {
-      info -> randomPts[1] = uivector(1, RF_mwcpSZ_[1][*offset]);
+      info -> splitValueFactPtr = uivector(1, RF_mwcpSZ_[1][*offset]);
       for (i = 1; i <= RF_mwcpSZ_[1][*offset]; i++) {
         RF_restoreMWCPoffset[1][treeID] ++;
-        ((uint *) info -> randomPts[1])[i] = RF_mwcpPT_[1][RF_restoreMWCPoffset[1][treeID]];
+        info -> splitValueFactPtr[i] = RF_mwcpPT_[1][RF_restoreMWCPoffset[1][treeID]];
       }
     }
     else {
-      info -> randomPts[1] = dvector(1, 1);
-      ((double *) info -> randomPts[1])[1] =  RF_contPT_[1][*offset];
+      info -> splitValueCont =  RF_contPT_[1][*offset];
     }
   }
   else {
-    parent -> splitInfo = NULL;
+    parent -> splitInfoMax = NULL;
   }
   (*offset) ++;
-  if (parent -> splitInfo != NULL) {
+  if (parent -> splitInfoMax != NULL) {
     parent -> left  = (NodeBase *) makeNode(0);
     setParent(parent ->  left, parent);
     restoreTree(mode, treeID, parent -> left);
@@ -70,23 +65,22 @@ void restoreTree(char mode, uint treeID, NodeBase *parent) {
     restoreTree(mode, treeID, parent -> right);
   }
   else {
-    if (RF_optHigh & OPT_MEMB_INCG) {
-      RF_leafLinkedObjTail[treeID] = makeAndSpliceLeafLinkedObj(RF_leafLinkedObjTail[treeID]);
-      RF_leafLinkedObjTail[treeID] -> nodePtr = parent;
-      RF_leafLinkedObjTail[treeID] -> termPtr = (TerminalBase *) makeTerminal();
-      initTerminalBase(RF_leafLinkedObjTail[treeID] -> termPtr,
-                       RF_eventTypeSize,
-                       RF_masterTimeSize,
-                       RF_sortedTimeInterestSize,
-                       RF_rNonFactorCount,
-                       RF_rFactorCount,
-                       RF_rFactorSize,
-                       RF_rFactorIndex,
-                       RF_rNonFactorIndex);
-      parent -> mate = RF_leafLinkedObjTail[treeID] -> termPtr;
-      (RF_leafLinkedObjTail[treeID] -> termPtr) -> mate = parent;
-      RF_leafLinkedObjTail[treeID] -> nodeID = (RF_leafLinkedObjTail[treeID] -> termPtr) -> nodeID = parent -> nodeID;
-    }  
+    RF_leafLinkedObjTail[treeID] = makeAndSpliceLeafLinkedObj(RF_leafLinkedObjTail[treeID]);
+    RF_leafLinkedObjTail[treeID] -> nodePtr = parent;
+    TerminalBase *termBasePtr = (TerminalBase *) makeTerminal();
+    RF_leafLinkedObjTail[treeID] -> termPtr = termBasePtr;
+    initTerminalBase(termBasePtr,
+                     RF_eventTypeSize,
+                     RF_masterTimeSize,
+                     RF_sortedTimeInterestSize,
+                     RF_rNonFactorCount,
+                     RF_rNonFactorIndex,
+                     RF_rFactorCount,
+                     RF_rFactorIndex,
+                     RF_rFactorSize);
+    parent -> mate = termBasePtr;
+    termBasePtr -> mate = parent;
+    RF_leafLinkedObjTail[treeID] -> nodeID = (RF_leafLinkedObjTail[treeID] -> termPtr) -> nodeID = parent -> nodeID;
   }
 }
 char restoreNodeMembership(char      mode,

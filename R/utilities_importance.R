@@ -11,7 +11,7 @@ get.splitweight.custom <- function(f, data, namedvec = NULL) {
   }
   swt
 }
-get.orgvimp <- function(o, papply = mclapply, pretty = TRUE) {
+get.orgvimp <- function(o, papply = mclapply, pretty = TRUE, local.std = TRUE) {
   ## input value must be a varpro, cv.varpro or unsupv object
   if (!(inherits(o, "varpro", TRUE) ||
         inherits(o, "cv.varpro", TRUE) ||
@@ -37,7 +37,7 @@ get.orgvimp <- function(o, papply = mclapply, pretty = TRUE) {
   }
   ## hereafter we are dealing with a varpro object  
   ## extract the vimp 
-  vmp <- importance(o, papply = papply)
+  vmp <- importance(o, papply = papply, local.std = local.std)
   if (o$family == "regr+") {
       vmp <- do.call(rbind, vmp)
   }
@@ -95,13 +95,13 @@ get.orgvimp <- function(o, papply = mclapply, pretty = TRUE) {
   }
 }
 ## extract names of signal variables from varpro analysis
-get.topvars <- function(o, papply = mclapply) {
+get.topvars <- function(o, papply = mclapply, local.std = TRUE) {
   ## input value must be a varpro or unsupv object
   if (!(inherits(o, "varpro", TRUE) || inherits(o, "unsupv", TRUE))) {
     stop("object must be a varpro or unsupv object")
   }
   ## extract the vimp and names
-  vmp <- importance(o, papply = papply)
+  vmp <- importance(o, papply = papply, local.std = local.std)
   ## mv-regression
   if (o$family == "regr+") {
       vmp <- do.call(rbind, vmp)
@@ -114,7 +114,7 @@ get.topvars <- function(o, papply = mclapply) {
   rownames(vmp)
 }
 ## extract vimp
-get.vimp <- function(o, papply = mclapply, pretty = TRUE) {
+get.vimp <- function(o, papply = mclapply, pretty = TRUE, local.std = TRUE) {
   ## input value must be a varpro, cv.varpro or unsupv object
   if (!(inherits(o, "varpro", TRUE) ||
         inherits(o, "cv.varpro", TRUE) ||
@@ -124,7 +124,7 @@ get.vimp <- function(o, papply = mclapply, pretty = TRUE) {
   ## varpro, unsupv object
   if (inherits(o, "varpro", TRUE) || inherits(o, "unsupv", TRUE)) {
     ## extract the vimp and names
-    vmp <- importance(o, papply = papply)
+    vmp <- importance(o, papply = papply, local.std = local.std)
     ## mv-regression
     if (o$family == "regr+") {
       vmp <- do.call(rbind, vmp)
@@ -210,5 +210,112 @@ winsorize.mean <- function (x, trim = 0.1, na.rm = TRUE) {
   }
   else {
     return(median(x, na.rm = na.rm))
+  }
+}
+##################################################################
+### 
+### 
+### 
+### custom locally standardized importance 
+###
+###    
+###
+####################################################################
+local.importance <- function(y, idx1, idx2, standardize = TRUE) {
+  if (ncol(cbind(y)) == 1) {
+    local.importance.workhorse(y, idx1, idx2, standardize)
+  }
+  ## regr+ requires separate calls for each y outcome
+  else {
+    do.call(cbind, lapply(1:ncol(y), function(j) {
+      local.importance.workhorse(y[, j], idx1, idx2, standardize)
+    }))
+  }
+}
+local.importance.workhorse <- function(y, idx1, idx2, standardize) {
+  n <- length(y[idx1])
+  ## ---------------------------------------------------------------------
+  ## regression
+  ## y is real-valued ---> mse
+  if (!is.factor(y)) {
+    ## bail out if subsetted y has zero length
+    if (n == 0) {
+      return(NA)
+    }
+    var.y <- var(y, na.rm = TRUE)
+    ## local importance 
+    if (standardize) {
+      test <- tryCatch({suppressWarnings(t.test(y[idx1],y[idx2]))},error=function(ex){NULL})
+      if (!is.null(test)) {
+        abs(as.numeric(test$stat))
+      }
+      else {
+        NA
+      }
+    }
+    ## canonical importance
+    else {
+     abs(mean(y[idx2], na.rm = TRUE) - mean(y[idx1], na.rm = TRUE)) / sqrt(var.y)   
+    }
+  }
+  ## ---------------------------------------------------------------------
+  ## classification
+  ## y is a factor --> get "all" performance and J-class performance, a J+1 vector
+  else {
+    ## number of class labels
+    J <- length(levels(y))
+    ## bail out if subsetted y has zero length
+    if (n == 0) {
+      rep(NA, 1 + J)
+    }
+    ## frequency counts
+    y <- as.numeric(y)
+    f1 <- tapply(y[idx1], y[idx1], length) 
+    f2 <- tapply(y[idx2], y[idx2], length) 
+    frq1 <- frq2 <- rep(0, J)
+    names(frq1) <- names(frq2) <- 1:J
+    ## local importance 
+    if (standardize) {
+      ## build frequencies for all cells, but keep track of 0/0 cells
+      frq1[names(f1)] <- f1 
+      frq2[names(f2)] <- f2
+      nonzero <- frq1>0 | frq2>0
+      frq1 <- frq1[nonzero]
+      frq2 <- frq2[nonzero]
+      J.nonzero <- length(nonzero)
+      ## over-all test
+      test <- tryCatch({suppressWarnings(chisq.test(rbind(frq1, frq2)))},error=function(ex){NULL})
+      if (!is.null(test)) {
+        perf.all <- sqrt(test$stat/(max(1, J.nonzero-1)))
+      }
+      else {
+        perf.all <- NA
+      }
+      ## class-specific test
+      perf.class <- sapply(1:J.nonzero, function(j) {
+        counts <- matrix(c(frq1[j], frq2[j], sum(frq1) - frq1[j], sum(frq2) - frq2[j]), nrow = 2)
+        test.j <- tryCatch({suppressWarnings(prop.test(counts))},error=function(ex){NULL})
+        if (!is.null(test.j)) {
+          sqrt(test.j$stat)
+        }
+        else {
+          NA
+        }
+      })
+    }
+    ## canonical importance
+    else {
+      ## conditional probability calculations
+      prb1 <- prb2 <- rep(0, J)
+      names(prb1) <- names(prb2) <- 1:J
+      prb1[names(f1)] <- f1 / length(y[idx1])
+      prb2[names(f2)] <- f2 / length(y[idx2])
+      perf.all <- mean(abs(prb2 - prb1), na.rm = TRUE)
+      perf.class <- abs(prb2 - prb1)
+      majority.class <- resample(which(perf.class == max(perf.class)), 1)
+      perf.class[-majority.class] <- 0
+    }
+    ## return the performance
+    c(perf.all, perf.class)
   }
 }

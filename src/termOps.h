@@ -11,4 +11,7 @@ void stackCompMultiClassOuter(Terminal *tTerm, unsigned int xReleaseCount);
 void stackCompMultiClassInner(Terminal *tTerm, unsigned int xReleaseIndx);
 void stackOobMultiClass(Terminal *tTerm);
 void unstackMultiClassTerm(Terminal *tTerm);
+void stackCompMortalityOuter(Terminal *tTerm, unsigned int xReleaseCount);
+void unstackMortalityTerm(Terminal *tTerm);
+void restoreTerminalNodeOutcomesVarPro(uint treeID, Terminal *term);
 #endif 

@@ -9,57 +9,47 @@
 
 #include "stackMembershipVectors.h"
 #include "nrutil.h"
-void stackMembershipVectors(uint observationSize,
-                            uint identityMembershipIndexSize,
+void stackMembershipVectors(uint size,
                             char **bootMembershipFlag,
                             char **oobMembershipFlag,
                             uint **bootMembershipCount,
                             uint **ibgMembershipIndex,
-                            uint **oobMembershipIndex,
-                            uint **bootMembershipIndex) {
+                            uint **oobMembershipIndex) {
   if(bootMembershipFlag != NULL) {
-    *bootMembershipFlag = cvector(1, observationSize);
+    *bootMembershipFlag = cvector(1, size);
   }
   if(oobMembershipFlag != NULL) {
-    *oobMembershipFlag = cvector(1, observationSize);
+    *oobMembershipFlag = cvector(1, size);
   }
   if(bootMembershipCount != NULL) {
-    *bootMembershipCount = uivector(1, observationSize);
+    *bootMembershipCount = uivector(1, size);
   }
   if(ibgMembershipIndex != NULL) {
-    *ibgMembershipIndex = uivector(1, observationSize);
+    *ibgMembershipIndex = uivector(1, size);
   }
   if(oobMembershipIndex != NULL) {
-    *oobMembershipIndex = uivector(1, observationSize);
-  }
-  if(bootMembershipIndex != NULL && identityMembershipIndexSize > 0) {
-    *bootMembershipIndex = uivector(1, identityMembershipIndexSize);  
+    *oobMembershipIndex = uivector(1, size);
   }
 }
-void unstackMembershipVectors(uint observationSize,
-                              uint identityMembershipIndexSize,
+void unstackMembershipVectors(uint size,
                               char *bootMembershipFlag,
                               char *oobMembershipFlag,
                               uint *bootMembershipCount,
                               uint *ibgMembershipIndex,
-                              uint *oobMembershipIndex,
-                              uint *bootMembershipIndex) {
+                              uint *oobMembershipIndex) {
   if(bootMembershipFlag != NULL) {
-    free_cvector(bootMembershipFlag, 1, observationSize);
+    free_cvector(bootMembershipFlag, 1, size);
   }
   if(oobMembershipFlag != NULL) {
-    free_cvector(oobMembershipFlag, 1, observationSize);
+    free_cvector(oobMembershipFlag, 1, size);
   }
   if(bootMembershipCount != NULL) {
-    free_uivector(bootMembershipCount, 1, observationSize);
+    free_uivector(bootMembershipCount, 1, size);
   }
   if(ibgMembershipIndex != NULL) {
-    free_uivector(ibgMembershipIndex, 1, observationSize);
+    free_uivector(ibgMembershipIndex, 1, size);
   }
   if(oobMembershipIndex != NULL) {
-    free_uivector(oobMembershipIndex, 1, observationSize);
-  }
-  if(bootMembershipIndex != NULL && identityMembershipIndexSize > 0) {
-    free_uivector(bootMembershipIndex, 1, identityMembershipIndexSize);
+    free_uivector(oobMembershipIndex, 1, size);
   }
 }

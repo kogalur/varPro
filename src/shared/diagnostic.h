@@ -3,7 +3,7 @@
 #include "splitInfo.h"
 #include "nodeBase.h"
 #include "terminalBase.h"
-void getSplitObjectInfo(SplitInfo *info);
+void getSplitObjectInfo(SplitInfoMax *info);
 void getNodeBaseInfo(NodeBase *nodePtr);
 void getTerminalBaseInfo(TerminalBase *termPtr);
 void printTreeInfo(uint treeID, NodeBase *parent);

@@ -57,7 +57,7 @@ get.outcome.target <- function(family, yvar.names, outcome.target) {
 }
 get.rf.cores <- function () {
   if (is.null(getOption("rf.cores"))) {
-    if(!is.na(as.numeric(Sys.getenv("RF_CORES")))) {
+    if (!is.na(as.numeric(Sys.getenv("RF_CORES")))) {
       options(rf.cores = as.integer(Sys.getenv("RF_CORES")))
     }
   }
@@ -217,6 +217,7 @@ get.varpro.strength <- function(object,
                                 max.rules.tree = 150,
                                 max.tree = 150,
                                 membership = FALSE,
+                                y.external = NULL,
                                 seed = NULL)
 {
   ## ------------------------------------------------------------------------
@@ -239,12 +240,21 @@ get.varpro.strength <- function(object,
       if (o$family == "surv") {
         ## "convert" the survival forest to a regression forest to trick varpro.strength
         o$family <- "regr"
-        o$y <- object$predicted
-        o$yvar.names <- "y"
+        if (is.null(y.external)) {
+          y <- object$predicted
+        }
+        else {
+          y <- y.external
+        }
       }
       ## regression, class, mv-regr
       else if (o$family == "regr" | o$family == "class" | o$family == "regr+") {
-        o$y <- object$yvar
+        if (is.null(y.external)) {
+          y <- object$yvar
+        }
+        else {
+          y <- y.external
+        }
       }
       ## unsupervised
       else if (o$family == "unsupv") {
@@ -261,7 +271,7 @@ get.varpro.strength <- function(object,
     o <- object$rf
     o$x <- object$x
     o$xvar.names <- object$xvar.names
-    o$y <- object$y
+    y <- object$y
   }
   ## ------------------------------------------------------------------------
   ##
@@ -282,7 +292,7 @@ get.varpro.strength <- function(object,
   o$max.rules.tree <- max.rules.tree
   o$max.tree <- max.tree
   o$strengthArray <- vp.strength.o$strengthArray
-  o$results <- get.varpro.strengthArray(vp.strength.o$strengthArray, o$family, o$y)
+  o$results <- get.varpro.strengthArray(vp.strength.o$strengthArray, o$family, y)
   o$oobMembership <- vp.strength.o$oobMembership
   o$compMembership <- vp.strength.o$compMembership
   class(o) <- "varpro"

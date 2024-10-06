@@ -3,12 +3,14 @@
 typedef struct terminal Terminal;
 struct terminal {
   struct terminalBase base;
+  unsigned int   xReleaseCount;
   double       **compMeanResponse;
   double        *oobMeanResponse;
-  unsigned int   xReleaseCount;
   unsigned int ***complementMCP;
-  unsigned int  **oobMCP;
   double         **complementMaxClass;
+  unsigned int  **oobMCP;
   double         *oobMaxClass;
+  double       *complementMortality;
+  double        oobMortality;
 };
 #endif

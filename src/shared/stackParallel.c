@@ -11,97 +11,62 @@
 #include "nrutil.h"
 #ifdef _OPENMP
 void stackLocksOpenMP(char mode) {
+  uint growSize, predSize;
   uint i;
   omp_init_lock(&RF_lockEnsbUpdtCount);
   omp_init_lock(&RF_lockPerf);
-  char  potentiallyMixedMultivariate = FALSE;
-  if (RF_rTargetFactorCount > 0) {
-    omp_lock_t   **lockDENptr;
-    uint obsSize;  
-    char oobFlag, fullFlag;
-    oobFlag = fullFlag = FALSE;
-    switch (mode) {
-    case RF_PRED:
-      if (RF_opt & OPT_FENS) {
-        fullFlag = TRUE;
-      }
-      break;
-    default:
-      if (RF_opt & OPT_OENS) {
-        oobFlag = TRUE;
-      }
-      if (RF_opt & OPT_IENS) {
-        fullFlag = TRUE;
-      }
-      break;
+  if (RF_statusIndex > 0) {
+    if (RF_startTimeIndex > 0) {
+      growSize = RF_subjSize;
+      predSize = RF_subjSize; 
     }
-    while ((oobFlag == TRUE) || (fullFlag == TRUE)) {
-      if (oobFlag == TRUE) {
-        lockDENptr = &RF_lockDENoens;
-        obsSize = RF_observationSize;
-      }
-      else {
-        lockDENptr = &RF_lockDENfens;
-        obsSize = (mode == RF_PRED) ? RF_fobservationSize : RF_observationSize;
-      }
-      if (!potentiallyMixedMultivariate) {
-        *lockDENptr = ompvector(1, obsSize);
-        for (i = 1; i <= obsSize; i++) {
-          omp_init_lock(&((*lockDENptr)[i]));
-        }
-      }
-      if (oobFlag == TRUE) {
-        oobFlag = FALSE;
-      }
-      else {
-        fullFlag = FALSE;
-      }
+    else {
+      growSize = RF_observationSize;
+      predSize = RF_fobservationSize;
     }
-    potentiallyMixedMultivariate = TRUE;
   }
-  if (RF_rTargetNonFactorCount > 0) {
-    omp_lock_t   **lockDENptr;
-    uint obsSize;  
-    char oobFlag, fullFlag;
-    oobFlag = fullFlag = FALSE;
-    switch (mode) {
-    case RF_PRED:
-      if (RF_opt & OPT_FENS) {
-        fullFlag = TRUE;
-      }
-      break;
-    default:
-      if (RF_opt & OPT_OENS) {
-        oobFlag = TRUE;
-      }
-      if (RF_opt & OPT_IENS) {
-        fullFlag = TRUE;
-      }
-      break;
+  else {
+      growSize = RF_observationSize;
+      predSize = RF_fobservationSize;
+  }
+  omp_lock_t   **lockDENptr;
+  uint size;  
+  char oobFlag, fullFlag;
+  oobFlag = fullFlag = FALSE;
+  switch (mode) {
+  case RF_PRED:
+    if (RF_opt & OPT_FENS) {
+      fullFlag = TRUE;
     }
-    while ((oobFlag == TRUE) || (fullFlag == TRUE)) {
-      if (oobFlag == TRUE) {
-        lockDENptr = &RF_lockDENoens;
-        obsSize = RF_observationSize;
-      }
-      else {
-        lockDENptr = &RF_lockDENfens;
-        obsSize = (mode == RF_PRED) ? RF_fobservationSize : RF_observationSize;
-      }
-      if (!potentiallyMixedMultivariate) {
-        *lockDENptr = ompvector(1, obsSize);
-        for (i = 1; i <= obsSize; i++) {
-          omp_init_lock(&((*lockDENptr)[i]));
-        }
-      }
-      if (oobFlag == TRUE) {
-        oobFlag = FALSE;
-      }
-      else {
-        fullFlag = FALSE;
-      }
+    break;
+  default:
+    if (RF_opt & OPT_OENS) {
+      oobFlag = TRUE;
     }
-    potentiallyMixedMultivariate = TRUE;
+    if (RF_opt & OPT_IENS) {
+      fullFlag = TRUE;
+    }
+    break;
+  }
+  while ((oobFlag == TRUE) || (fullFlag == TRUE)) {
+    if (oobFlag == TRUE) {
+      lockDENptr = &RF_lockDENoens;
+      size = growSize;
+    }
+    else {
+      lockDENptr = &RF_lockDENfens;
+      size = (mode == RF_PRED) ? predSize : growSize;
+    }
+    *lockDENptr = ompvector(1, size);
+    for (i = 1; i <= size; i++) {
+      omp_init_lock(&((*lockDENptr)[i]));
+    }
+    if (oobFlag == TRUE) {
+      oobFlag = FALSE;
+    }
+    else {
+      fullFlag = FALSE;
+    }
   }
 }
 #else
@@ -109,97 +74,62 @@ void stackLocksOpenMP(char mode) { }
 #endif
 #ifdef _OPENMP
 void unstackLocksOpenMP(char mode) {
+  uint growSize, predSize;
   uint i;
   omp_destroy_lock(&RF_lockEnsbUpdtCount);
   omp_destroy_lock(&RF_lockPerf);
-  char  potentiallyMixedMultivariate = FALSE;
-  if (RF_rTargetFactorCount > 0) {
-    omp_lock_t   *lockDENptr;
-    uint obsSize;  
-    char oobFlag, fullFlag;
-    oobFlag = fullFlag = FALSE;
-    switch (mode) {
-    case RF_PRED:
-      if (RF_opt & OPT_FENS) {
-        fullFlag = TRUE;
-      }
-      break;
-    default:
-      if (RF_opt & OPT_OENS) {
-        oobFlag = TRUE;
-      }
-      if (RF_opt & OPT_IENS) {
-        fullFlag = TRUE;
-      }
-      break;
+  if (RF_statusIndex > 0) {
+    if (RF_startTimeIndex > 0) {
+      growSize = RF_subjSize;
+      predSize = RF_subjSize; 
     }
-    while ((oobFlag == TRUE) || (fullFlag == TRUE)) {
-      if (oobFlag == TRUE) {
-        lockDENptr = RF_lockDENoens;
-        obsSize = RF_observationSize;
-      }
-      else {
-        lockDENptr = RF_lockDENfens;
-        obsSize = (mode == RF_PRED) ? RF_fobservationSize : RF_observationSize;
-      }
-      if (!potentiallyMixedMultivariate) {
-        for (i = 1; i <= obsSize; i++) {
-          omp_destroy_lock(&(lockDENptr[i]));
-        }
-        free_ompvector(lockDENptr, 1, obsSize);
-      }
-      if (oobFlag == TRUE) {
-        oobFlag = FALSE;
-      }
-      else {
-        fullFlag = FALSE;
-      }
+    else {
+      growSize = RF_observationSize;
+      predSize = RF_fobservationSize;
     }
-    potentiallyMixedMultivariate = TRUE;
   }
-  if (RF_rTargetNonFactorCount > 0) {
-    omp_lock_t   *lockDENptr;
-    uint obsSize;  
-    char oobFlag, fullFlag;
-    oobFlag = fullFlag = FALSE;
-    switch (mode) {
-    case RF_PRED:
-      if (RF_opt & OPT_FENS) {
-        fullFlag = TRUE;
-      }
-      break;
-    default:
-      if (RF_opt & OPT_OENS) {
-        oobFlag = TRUE;
-      }
-      if (RF_opt & OPT_IENS) {
-        fullFlag = TRUE;
-      }
-      break;
+  else {
+    growSize = RF_observationSize;
+    predSize = RF_fobservationSize;
+  }
+  omp_lock_t   *lockDENptr;
+  uint size;  
+  char oobFlag, fullFlag;
+  oobFlag = fullFlag = FALSE;
+  switch (mode) {
+  case RF_PRED:
+    if (RF_opt & OPT_FENS) {
+      fullFlag = TRUE;
     }
-    while ((oobFlag == TRUE) || (fullFlag == TRUE)) {
-      if (oobFlag == TRUE) {
-        lockDENptr = RF_lockDENoens;
-        obsSize = RF_observationSize;
-      }
-      else {
-        lockDENptr = RF_lockDENfens;
-        obsSize = (mode == RF_PRED) ? RF_fobservationSize : RF_observationSize;
-      }
-      if (!potentiallyMixedMultivariate) {
-        for (i = 1; i <= obsSize; i++) {
-          omp_destroy_lock(&(lockDENptr[i]));
-        }
-        free_ompvector(lockDENptr, 1, obsSize);
-      }
-      if (oobFlag == TRUE) {
-        oobFlag = FALSE;
-      }
-      else {
-        fullFlag = FALSE;
-      }
+    break;
+  default:
+    if (RF_opt & OPT_OENS) {
+      oobFlag = TRUE;
     }
-    potentiallyMixedMultivariate = TRUE;
+    if (RF_opt & OPT_IENS) {
+      fullFlag = TRUE;
+    }
+    break;
+  }
+  while ((oobFlag == TRUE) || (fullFlag == TRUE)) {
+    if (oobFlag == TRUE) {
+      lockDENptr = RF_lockDENoens;
+      size = growSize;
+    }
+    else {
+      lockDENptr = RF_lockDENfens;
+      size = (mode == RF_PRED) ? predSize : growSize;
+    }
+    for (i = 1; i <= size; i++) {
+      omp_destroy_lock(&(lockDENptr[i]));
+    }
+    free_ompvector(lockDENptr, 1, size);
+    if (oobFlag == TRUE) {
+      oobFlag = FALSE;
+    }
+    else {
+      fullFlag = FALSE;
+    }
   }
 }
 #else

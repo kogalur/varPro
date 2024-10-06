@@ -73,14 +73,6 @@ unsupv.varpro(data,
   Min Lu and Hemant Ishwaran
 }
 
-\references{
-
-  Lu M. and Ishwaran H. (2022).  Model-Independent Variable Selection
-  via the Rule-based Variable Priority (VarPro).
-
-
-}
-
 \seealso{
   \command{\link{predict.unsupv}}
   \command{\link{varpro}}

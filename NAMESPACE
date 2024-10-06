@@ -21,7 +21,8 @@ importFrom("stats", "as.formula", "coef", "median", "qnorm",
            "na.omit", "sd", "model.matrix", "prcomp",
            "loess", "loess.control", "lowess",
            "lm", "supsmu", "predict.lm",
-           "rnorm", "ecdf", "qt", "glm")
+           "rnorm", "ecdf", "qt", "glm",
+           "t.test", "chisq.test", "prop.test")
 
 importFrom("utils", "combn", "capture.output")
 

@@ -34,8 +34,7 @@ data(glioma, package = "varPro")
 o <- varpro(y~., glioma, nodesize=2, max.tree=250)
 
 ## obtain importance values
-## use cutoff of 0.5 standard deviation
-imp <- importance(o, cutoff = .5)
+imp <- importance(o)
 
 ## print the (unconditional) importance
 print(head(imp$unconditional))

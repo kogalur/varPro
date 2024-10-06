@@ -25,6 +25,7 @@ struct nodeBase {
   int *mpSign;
   int *fmpSign;
   struct splitInfo *splitInfo;
+  struct splitInfoMax *splitInfoMax;
   unsigned int *repMembrIndx;
   unsigned int *allMembrIndx;
   unsigned int  repMembrSizeAlloc;

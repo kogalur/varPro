@@ -281,7 +281,52 @@ void writeStrengthArray(uint     *strengthTreeID,
   uint      row;
   Terminal *parent;
   row = 0;
-  if(RF_rNonFactorCount > 0) {
+  if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
+    double    mortalityResponse;
+    double    oobResponse;
+    double    compResponse;
+    for(b = 1; b <= strengthTreeCount; b++) {
+      for(j = 1; j <= branchCount[b]; j++) {
+        parent = (Terminal *) RF_tTermList[strengthTreeID[b]][branchID[b][j]];
+        for(k = 1; k <= xReleaseCount[b][j]; k++) {
+          row++;
+          treeID[row]           = strengthTreeID[b];
+          nodeID[row]           = branchID[b][j];
+          xReleaseID[row]       = xReleaseIDArray[b][j][k];
+          ((uint *) oobCT)[row] = oobCount[b][j];
+          oobResponse = parent -> oobMortality;
+          compResponse = (parent -> complementMortality)[k];
+          mortalityResponse = 0.0;
+          if (!(VP_opt & (VP_OPT_CMP | VP_OPT_OOB))) {
+            if(RF_nativeIsNaN(compResponse) || RF_nativeIsNaN(oobResponse)) {
+              mortalityResponse = RF_nativeNaN;
+            }
+            else {
+              mortalityResponse = fabs(compResponse - oobResponse);
+            }
+          }
+          else if ((VP_opt & VP_OPT_CMP) && !(VP_opt & VP_OPT_OOB)) {
+            if(RF_nativeIsNaN(compResponse)) {
+              mortalityResponse = RF_nativeNaN;
+            }
+            else {
+              mortalityResponse = compResponse;
+            }
+          }
+          else if ((VP_opt & VP_OPT_OOB) && !(VP_opt & VP_OPT_CMP)) {
+            if(RF_nativeIsNaN(oobResponse)) {
+              mortalityResponse = RF_nativeNaN;              
+            }
+            else {
+              mortalityResponse = oobResponse;
+            }
+          }
+          ((double **) releaseStat)[1][row] = mortalityResponse;
+        }
+      }
+    }
+  }
+  else if(RF_rNonFactorCount > 0) {
     double    meanResponse;
     double    oobResponse;
     double    compResponse;

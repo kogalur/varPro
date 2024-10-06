@@ -19,7 +19,7 @@
 ### FROM THE AUTHOR.
 ###
 ############################################################################
-varpro <- function(f, data, nvar = 30, ntree = 500, y = NULL,
+varpro <- function(f, data, nvar = 30, ntree = 500, 
                    split.weight = TRUE, split.weight.method = NULL, sparse = TRUE,
                    nodesize = NULL, max.rules.tree = 150, max.tree = min(150, ntree),
                    parallel = TRUE, cores = get.number.cores(),
@@ -34,30 +34,21 @@ varpro <- function(f, data, nvar = 30, ntree = 500, y = NULL,
   ##
   ## ------------------------------------------------------------------------
   ## formula must be a formula
-  f <- as.formula(f)
+  f.org <- f <- as.formula(f)
   ## data must be a data frame
   data <- data.frame(data)
   ## droplevels
   data <- droplevels(data)
   ## initialize the seed
   seed <- get.seed(seed)
-  ## run a stumpy tree as a quick way to extract  x, y and determine family
-  ## this also cleans up missing data 
+  ## run a stumpy tree as a quick way to determine family
+  ## use the stumped tree to acquire x and y
+  ## save original y - needed for coherent treatment of survival
+  ## this also cleans up missing data
   stump <- get.stump(f, data)
   family <- stump$family
   yvar.names <- stump$yvar.names
-  if (!is.null(y)) {
-    if (family == "surv" && !is.null(dim(y)) && dim(y)[2] > 1) {
-      stop("external y must be real valued for survival families")
-    }
-    if (family == "surv") {
-      family == "regr"
-      yvar.names <- paste(yvar.names, collapse=".")
-    }
-  }    
-  if (is.null(y)) {
-    y <- stump$yvar
-  }
+  y <- stump$yvar
   y.org <- data.frame(y)
   colnames(y.org) <- stump$yvar.names
   x <- stump$xvar
@@ -105,7 +96,6 @@ varpro <- function(f, data, nvar = 30, ntree = 500, y = NULL,
   use.rfq <- hidden$use.rfq
   iratio.threshold <- hidden$iratio.threshold
   rmst <- hidden$rmst
-  use.coxnet <- hidden$use.coxnet
   maxit <- hidden$maxit
   split.weight.only <- hidden$split.weight.only
   split.weight.tolerance <- hidden$split.weight.tolerance
@@ -163,44 +153,36 @@ varpro <- function(f, data, nvar = 30, ntree = 500, y = NULL,
       cat("detected a survival family, using external estimator ...\n")
     }  
     ## survival forest used to calculate external estimator
-    if (!use.coxnet) {
-      o.external <- rfsrc(f, data,
-                          sampsize = sampsize,
-                          ntree = ntree.external,
-                          nodesize = nodesize.external,
-                          ntime = ntime.external,
-                          save.memory = TRUE,
-                          perf.type = "none")
-      ## use mortality for y
-      if (is.null(rmst)) {
-        y <- as.numeric(randomForestSRC::get.mv.predicted(o.external, oob = FALSE))
-      }
-      ## use rmst if user requests
-      else {
-        y <- get.rmst(o.external, rmst)
-      }
-      ## we now have regression
-      if (!is.matrix(y)) {
-        family <- "regr"
-        yvar.names <- yfkname
-        f <- as.formula(paste0(yfkname, "~."))
-      }
-      ## rmst is a vector --> we now have multivariate regression
-      if (is.matrix(y)) {
-        family <- "regr+"
-        colnames(y) <- yvar.names <- paste0(yfkname, ".", 1:ncol(y))
-        f <- randomForestSRC::get.mv.formula(yvar.names)
-      }
+    o.external <- rfsrc(f, data,
+                        sampsize = sampsize,
+                        ntree = ntree.external,
+                        nodesize = nodesize.external,
+                        ntime = ntime.external,
+                        save.memory = TRUE,
+                        perf.type = "none")
+    ## use mortality for y
+    if (is.null(rmst)) {
+      y <- as.numeric(randomForestSRC::get.mv.predicted(o.external, oob = FALSE))
+    }
+    ## use rmst if user requests
+    else {
+      y <- get.rmst(o.external, rmst)
+    }
+    ## we now have regression
+    if (!is.matrix(y)) {
+      family <- "regr"
+      yvar.names <- yfkname
+      f <- as.formula(paste0(yfkname, "~."))
+    }
+    ## rmst is a vector --> we now have multivariate regression
+    if (is.matrix(y)) {
+      family <- "regr+"
+      colnames(y) <- yvar.names <- paste0(yfkname, ".", 1:ncol(y))
+      f <- randomForestSRC::get.mv.formula(yvar.names)
+    }
     if (verbose) {
       cat("external estimation completed\n")
     }  
-    }
-    ## external estimation is over-riden
-    ## therefore we use coxnet downstream in split weight calculation
-    else {
-      y <- cbind(time = y.org[, 1], status = y.org[, 2])
-      split.weight <- use.lasso <- TRUE
-    }
   }
   ## ------------------------------------------------------------------------
   ##
@@ -231,7 +213,7 @@ varpro <- function(f, data, nvar = 30, ntree = 500, y = NULL,
   ## ------------------------------------------------------------------------
   ##
   ##
-  ## final assembly of the data (does not apply to coxnet)
+  ## final assembly of the data
   ##
   ##
   ## ------------------------------------------------------------------------
@@ -246,14 +228,14 @@ varpro <- function(f, data, nvar = 30, ntree = 500, y = NULL,
   ##
   ## ------------------------------------------------------------------------
   ## custom user setting
-  if ((split.weight || split.weight.only) && !is.null(split.weight.method) && !use.coxnet) {
+  if ((split.weight || split.weight.only) && !is.null(split.weight.method)) {
     use.lasso <- any(grepl("lasso", split.weight.method))
     use.tree <- any(grepl("tree", split.weight.method))
     use.vimp <- any(grepl("vimp", split.weight.method))
   }
   ## default setting
   else {
-    use.lasso <- hidden$use.lasso | use.coxnet
+    use.lasso <- hidden$use.lasso 
     use.vimp <- set.use.vimp(n, p, dots$use.vimp)
     use.tree <- !use.vimp
   }
@@ -282,7 +264,6 @@ varpro <- function(f, data, nvar = 30, ntree = 500, y = NULL,
     ## lasso split weight calculation
     ## now allows factors by hot-encoding
     ## by default, lasso coefficients use 1 standard error rule
-    ## exception made for coxnet
     ##
     ##---------------------------------------------------------
     if (use.lasso) {
@@ -329,26 +310,6 @@ varpro <- function(f, data, nvar = 30, ntree = 500, y = NULL,
             beta <- do.call(cbind, lapply(coef(o.glmnet), function(o) {o[-1,]}))
             xvar.wt[rownames(beta)] <- rowMeans(abs(beta), na.rm = TRUE)
           }
-        }
-      }
-      ## survival: external rsf estimation was over-ridden ---> now we apply coxnet
-      else if (family == "surv") {
-        o.glmnet <- tryCatch(
-               {suppressWarnings(cv.glmnet(scale(data.matrix(x)), y,
-                    nfolds = nfolds, parallel = parallel, maxit = maxit, family = "cox"))}, error=function(ex){NULL})
-        if (!is.null(o.glmnet)) {
-          beta <- coef(o.glmnet, s=o.glmnet$lambda.min)[,]
-          xvar.wt[names(beta)] <-  abs(beta)
-          ## map y to external continuous estimator and treat the problem as regression
-          family <- "regr"
-          yvar.names <- yfkname
-          f <- as.formula(paste0(yfkname, "~."))
-          y <- c(scale(data.matrix(x)) %*% beta)
-          data <- data.frame(y, x)
-          colnames(data) <- c(yvar.names, xvar.names)
-        }
-        else {
-          stop("survival family external estimation cannot be implemented due to 'coxnet' failing")
         }
       }
       ## something is wrong
@@ -518,8 +479,10 @@ varpro <- function(f, data, nvar = 30, ntree = 500, y = NULL,
   ## ------------------------------------------------------------------------
   ##
   ##
-  ## model based rule generation
+  ## model based rule generation: uses original y and original formula - true rules
   ## sampsize is not deployed since this can non-intuitively slow calculations
+  ##
+  ## TBD TBD proper handling of survival TBD TBD
   ##
   ## ------------------------------------------------------------------------
   if (verbose) {
@@ -527,6 +490,7 @@ varpro <- function(f, data, nvar = 30, ntree = 500, y = NULL,
   }  
   if (split.weight || split.weight.custom) {
     object <- rfsrc(f, data,
+                    #f.org, data.frame(y.org, data[, xvar.names, drop=FALSE]),
                     splitrule = if (imbalanced.flag) "auc" else NULL,
                     xvar.wt = xvar.wt,
                     ntree = ntree,
@@ -536,8 +500,8 @@ varpro <- function(f, data, nvar = 30, ntree = 500, y = NULL,
                     seed = seed)
   }
   else {
-    object <- rfsrc(f,
-                    data,
+    object <- rfsrc(f, data,
+                    #f.org, data.frame(y.org, data[, xvar.names, drop=FALSE]),
                     splitrule = if (imbalanced.flag) "auc" else NULL,
                     mtry = if (is.null(dots$mtry)) Inf else dots$mtry,
                     ntree = ntree,
@@ -555,12 +519,12 @@ varpro <- function(f, data, nvar = 30, ntree = 500, y = NULL,
   ## ------------------------------------------------------------------------
   if (verbose) {
     cat("acquiring rules...\n")
-  }  
-  var.strength <- varpro.strength(object = object,
-                                  max.rules.tree = max.rules.tree,
-                                  max.tree = max.tree)$strengthArray
-  ## process the strength array
-  var.strength <- get.varpro.strengthArray(var.strength, family, y)
+  }
+  ## for survival y.external --> external estimator
+  var.strength <- get.varpro.strength(object = object,
+                         max.rules.tree = max.rules.tree,
+                         max.tree = max.tree,
+                         y.external = data[, yvar.names])$results
   if (verbose) {
     cat("done!\n")
   }
@@ -582,7 +546,7 @@ varpro <- function(f, data, nvar = 30, ntree = 500, y = NULL,
     yvar.names = yvar.names,
     x = x,
     y = y,
-    y.org = y.org,
+    y.org = y.org[, ncol(y.org)],
     family = family)
   class(rO) <- "varpro"
   return(rO)

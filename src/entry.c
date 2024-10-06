@@ -260,7 +260,7 @@ SEXP varProStrength(SEXP traceFlag,
     RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
     RF_nativeExit();
   }
-  if (result) {
+  if (result && (RF_stackCount > 0)) {
     VP_cpuTime_[1] = (double) (clock() - cpuTimeStart) / CLOCKS_PER_SEC;
     R_ReleaseObject(RF_sexpVector[RF_OUTP_ID]);
     R_ReleaseObject(RF_sexpVector[RF_STRG_ID]);

@@ -51,4 +51,9 @@ char unstackTestDataArraysWithPass (char mode,
                                     uint ntree,
                                     double ***fresponse,
                                     double ***fobservation);
+void updateTimeIndexArray(uint    allMembrSize,
+                          double *startTime,
+                          double *time,
+                          uint   *startMasterTimeIndex,
+                          uint   *masterTimeIndex);
 #endif

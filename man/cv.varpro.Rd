@@ -7,7 +7,7 @@
 
 \usage{
 cv.varpro(f, data, nvar = 30, ntree = 150,
-       zcut = seq(0.1, 2, length = 50), nblocks = 10,
+       local.std = TRUE, zcut = seq(0.1, 2, length = 50), nblocks = 10,
        split.weight = TRUE, split.weight.method = NULL, sparse = TRUE,
        nodesize = NULL, max.rules.tree = 150, max.tree = min(150, ntree), 
        papply = mclapply, verbose = FALSE, seed = NULL,
@@ -24,6 +24,8 @@ cv.varpro(f, data, nvar = 30, ntree = 150,
 
   \item{ntree}{Number of trees to grow.}
 
+  \item{local.std}{Use locally standardized importance?}
+  
   \item{zcut}{Grid of positive pre-specified cutoff values.}
 
   \item{nblocks}{This is like the number of folds used in M-fold
@@ -104,8 +106,9 @@ cv.varpro(f, data, nvar = 30, ntree = 150,
 }
 
 \references{
-  Lu M. and Ishwaran H. (2022).  Model-Independent Variable Selection
-  via the Rule-based Variable Priority (VarPro).
+
+  Lu, M. and Ishwaran, H., (2024). Model-independent variable selection
+  via the rule-based variable priority. arXiv e-prints, pp.arXiv-2409.
 
 
   O'Brien R. and Ishwaran H. (2019).  A random forests quantile
@@ -120,6 +123,7 @@ cv.varpro(f, data, nvar = 30, ntree = 150,
 }
 
 \examples{
+\donttest{
 ## ------------------------------------------------------------
 ## van de Vijver microarray breast cancer survival data
 ## high dimensional example
@@ -167,7 +171,6 @@ print(get.vimp(o, pretty = FALSE))
 
 print(cv.varpro(Species~., iris))
 
-\donttest{
 ## ------------------------------------------------------------
 ## friedman 1
 ## ------------------------------------------------------------
@@ -235,6 +238,5 @@ print(cv.varpro(SalePrice~., housing2, fast = TRUE, ntree = 50, nodesize = 150))
 print(cv.varpro(SalePrice~., housing2, fast = TRUE, ntree = 50, nodesize = 150, sampsize = 250))
 
 }
-
 }
 \keyword{cv.varpro}

@@ -4,7 +4,7 @@
 # - Run with automatic detection: `R CMD INSTALL {pkg}`
 #
 
-AC_INIT([varPro], [0.0.43], [ubk@kogalur.com], [varPro], [https://github.com/kogalur/varPro])
+AC_INIT([varPro], [0.0.47], [ubk@kogalur.com], [varPro], [https://github.com/kogalur/varPro])
 
 AC_PREREQ([2.62])
 

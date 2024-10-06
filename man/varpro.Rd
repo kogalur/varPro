@@ -8,7 +8,7 @@ for Regression, Classification and Survival.
 }
 
 \usage{
-varpro(f, data, nvar = 30, ntree = 500, y = NULL,
+varpro(f, data, nvar = 30, ntree = 500, 
        split.weight = TRUE, split.weight.method = NULL, sparse = TRUE,
        nodesize = NULL, max.rules.tree = 150, max.tree = min(150, ntree),
        parallel = TRUE, cores = get.number.cores(),
@@ -25,12 +25,6 @@ varpro(f, data, nvar = 30, ntree = 500, y = NULL,
 
   \item{ntree}{Number of trees to grow.}
 
-  \item{y}{Users can replace the original response value with their own
-  custom designed response: for example this can be the predicted value
-  from a machine learning method.  Used to study which variables are
-  important in the user's predictor.  The supplied \code{y} must match
-  the dimension of the data.} 
-  
   \item{split.weight}{Use guided tree-splitting?  Features selected to
   split a tree node are selected with probability according to a
   split-weight value, the latter by default being acquired in a
@@ -120,10 +114,11 @@ varpro(f, data, nvar = 30, ntree = 500, y = NULL,
   lasso only for determining the split-weight, whereas "lasso tree" or
   "lasso vimp" uses lasso in combination with shallow trees or lasso in
   combination with permutation importance.  See the examples below.
-  
-  Selection of variables is based on a preset cutoff value set using the
-  \code{importance} function.  There is a cross-validation (CV) method
-  to automate this.  See \command{cv.varpro}.
+
+  Variables are selected on the basis of the size of their importance
+  values, with larger values indicating more infuential variables.
+  Cross-validation can be used to determine an appropriate cutoff value
+  for setting the threshold.  See \command{cv.varpro} for details.
   
   Run times can be improved by using smaller values of \code{ntree} and
   larger values of \code{nodesize}.  Other options are also available.
@@ -153,8 +148,8 @@ varpro(f, data, nvar = 30, ntree = 500, y = NULL,
 }
 
 \references{
-  Lu M. and Ishwaran H. (2022).  Model-Independent Variable Selection
-  via the Rule-based Variable Priority (VarPro).
+  Lu, M. and Ishwaran, H., (2024). Model-independent variable selection
+  via the rule-based variable priority. arXiv e-prints, pp.arXiv-2409.
 
   O'Brien R. and Ishwaran H. (2019).  A random forests quantile
   classifier for class imbalanced data. \emph{Pattern Recognition},
@@ -413,26 +408,11 @@ cat("custom split-weight\n")
 print(swt)
   
 ## call varpro with the custom split-weights
-o <- varpro(medv~.,Boston,split.weight.custom=swt,verbose=T,sparse=F)
+o <- varpro(medv~.,Boston,split.weight.custom=swt,verbose=TRUE,sparse=FALSE)
 cat("varpro result\n")
 print(importance(o))
 print(get.vimp(o, pretty=FALSE))
 print(get.orgvimp(o, pretty=FALSE))
-
-
-## ------------------------------------------------------------
-## user supplied y 
-## ------------------------------------------------------------
-
-## load the data
-data(BostonHousing, package = "mlbench")
-
-## train your ML method here - we use misspecified linear model
-y <- lm(medv~lstat+b, BostonHousing)$fitted
-
-## varpro with user specified y
-o <- varpro(medv~., BostonHousing, y=y)
-print(importance(o))
 
 
 

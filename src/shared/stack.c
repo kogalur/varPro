@@ -66,6 +66,11 @@ char stackTrainingDataArraysWithPass(char      mode,
             (*masterTimeIndex)[i] = masterTimeIndexIn;
           }
         }
+        updateTimeIndexArray(observationSize,
+                             (startTimeIndex == 0) ? NULL : responseIn[startTimeIndex],
+                             responseIn[timeIndex],
+                             (startTimeIndex == 0) ? NULL : startMasterTimeIndexIn,
+                             masterTimeIndexIn);
         *status = (double **) new_vvector(1, ntree, NRUTIL_DPTR);
         for (i = 1 ; i <= ntree; i++) {
           (*status)[i] = responseIn[statusIndex];
@@ -174,3 +179,53 @@ char stackTestDataArraysWithoutPass    (char mode){
 char unstackTestDataArraysWithoutPass    (char mode){
   return TRUE;
 }
+void updateTimeIndexArray(uint    allMembrSize,
+                          double *startTime,
+                          double *time,
+                          uint   *startMasterTimeIndex,
+                          uint   *masterTimeIndex) {
+  uint *membrIndx;
+  char idxFoundFlag;
+  uint i,k;
+  membrIndx = uivector(1, allMembrSize);
+  for (i = 1; i <= allMembrSize; i++) {
+    membrIndx[i] = i;
+  }
+  for (i = 1; i <= allMembrSize; i++) {
+    idxFoundFlag = FALSE;
+    k = 1;
+    while (k <= RF_masterTimeSize) {
+      if (time[membrIndx[i]] == RF_masterTime[k]) {
+        masterTimeIndex[membrIndx[i]] = k;
+        idxFoundFlag = TRUE;
+        k = RF_masterTimeSize;
+      }
+      k++;
+    }
+    if (idxFoundFlag == FALSE) {
+      RF_nativeError("\nRF-SRC:  *** ERROR *** ");
+      RF_nativeError("\nRF-SRC:  Invalid event time encountered for individual:  %10d, %12.4f", i, time[membrIndx[i]]);
+      RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
+      RF_nativeExit();
+    }
+    if (RF_startMasterTimeIndex != NULL) {
+      idxFoundFlag = FALSE;
+      k = 1;
+      while (k <= RF_masterTimeSize) {
+        if (startTime[membrIndx[i]] == RF_masterTime[k]) {
+          startMasterTimeIndex[membrIndx[i]] = k;
+          idxFoundFlag = TRUE;
+          k = RF_masterTimeSize;
+        }
+        k++;
+      }
+      if (idxFoundFlag == FALSE) {
+        RF_nativeError("\nRF-SRC:  *** ERROR *** ");
+        RF_nativeError("\nRF-SRC:  Invalid event time encountered for individual:  %10d, %12.4f", i, time[membrIndx[i]]);
+        RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
+        RF_nativeExit();
+      }
+    }
+  }
+  free_uivector(membrIndx, 1, allMembrSize);
+}  

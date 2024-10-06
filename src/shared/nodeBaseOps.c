@@ -46,6 +46,7 @@ void initNodeBase(NodeBase *parent, unsigned int xSize) {
   parent -> mean                 = RF_nativeNaN;
   parent -> depth                = 0;
   parent -> splitInfo = NULL;
+  parent -> splitInfoMax = NULL;
   parent -> repMembrIndx = NULL;
   parent -> allMembrIndx = NULL;
   parent -> repMembrSizeAlloc = parent -> repMembrSize = 0;
@@ -78,6 +79,10 @@ void deinitNodeBase(NodeBase *parent) {
   if (parent -> splitInfo != NULL) {
     freeSplitInfo(parent -> splitInfo);
     parent -> splitInfo = NULL;
+  }
+  if (parent -> splitInfoMax != NULL) {
+    freeSplitInfoMax(parent -> splitInfoMax);
+    parent -> splitInfoMax = NULL;
   }
   if (parent -> repMembrSizeAlloc > 0) {
     if (parent -> repMembrIndx != NULL) {

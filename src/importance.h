@@ -13,4 +13,10 @@ void getMultiClassProb(uint       treeID,
                        uint       membershipSize,
                        uint       xReleaseIndx,
                        char       oob);
+void getMortality(uint       treeID,
+                  Terminal  *parent,
+                  uint      *membershipIndex,
+                  uint       membershipSize,
+                  uint       xReleaseIndx,
+                  char       oob);
 #endif

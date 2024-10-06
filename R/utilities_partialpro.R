@@ -85,14 +85,17 @@ bart.learner <- function(o, ...) {
   }
   ## bart call
   invisible(capture.output(mybartlearner <- wbart(x.train = o$x[, o$xvar.names, drop = FALSE],
-                                  y.train = o$y, ...)))
+                                  y.train = o$y)))
+  ## user allowed options
+  dots <- list(...)
+  mc.cores <- if (is.null(dots$mc.cores)) getOption("mc.cores") else dots$mc.cores
   function(x) {
     if (missing(x)) {
       mybartlearner$yhat.train.mean
     }
     else {
       invisible(capture.output(yhat <- predict.wbart(mybartlearner,
-          x[, o$xvar.names, drop = FALSE], mc.cores = detectCores())))
+      x[, o$xvar.names, drop = FALSE], mc.cores = mc.cores)))
       colMeans(yhat, na.rm = TRUE)
     }
   }
@@ -124,6 +127,7 @@ gbm.learner <- function(o, ...) {
   shrinkage <- if (is.null(dots$shrinkage)) 0.1 else dots$shrinkage
   interaction.depth <- if (is.null(dots$interaction.depth)) 3 else dots$interaction.depth
   cv.folds <- if (is.null(dots$cv.folds)) 5 else dots$cv.folds
+  n.cores  <- if (is.null(dots$n.cores)) getOption("mc.cores") else dots$n.cores
   ## gbm call
   gbm.dta <- data.frame(y = o$y, o$x[, o$xvar.names, drop = FALSE])
   suppressWarnings(mygbmlearner <- gbm(y~., data = gbm.dta,
@@ -136,7 +140,8 @@ gbm.learner <- function(o, ...) {
                                 train.fraction = 0.5,  
                                 n.minobsinnode = min(10, nrow(gbm.dta)/2),
                                 keep.data = TRUE,
-                                verbose = FALSE))
+                                verbose = FALSE,
+                                n.cores = n.cores))
   best.iter <- gbm.perf(mygbmlearner, plot.it = FALSE, method = "cv")
   ## construct the learner function
   if (o$family == "regr") {
