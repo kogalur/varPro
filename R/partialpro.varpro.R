@@ -12,7 +12,7 @@ partialpro.varpro <- function(object,
   ## incoming object must be a varpro object: extract relevant parameters
   ##
   ## ------------------------------------------------------------------------
-  if (!inherits(object, "varpro", TRUE)) {
+  if (!inherits(object, "varpro")) {
     stop("object must be a varpro object")
   }
   ## set xvar.names here

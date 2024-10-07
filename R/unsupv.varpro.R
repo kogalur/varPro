@@ -65,7 +65,7 @@ unsupv.varpro <- function(data,
     user.provided.varpro.flag <- TRUE
     o <- dots$object
     ## over-ride the supplied data if this is a varpro object
-    if (inherits(o, "varpro", TRUE)) {
+    if (inherits(o, "varpro")) {
       data <- o$x[, o$xvar.names, drop = FALSE]
     }
   }

@@ -211,7 +211,10 @@ void unstackMortalityTerm(Terminal *tTerm) {
   TerminalSurvival *parent;
   parent = ((TerminalBase *) tTerm) -> survivalBase;
   if (parent != NULL) {
-    free_dvector(tTerm -> complementMortality, 1, tTerm -> xReleaseCount);
+    if (tTerm -> complementMortality != NULL) {
+      free_dvector(tTerm -> complementMortality, 1, tTerm -> xReleaseCount);
+      tTerm -> complementMortality = NULL;
+    }
   }
 }
 void restoreTerminalNodeOutcomesVarPro(uint treeID, Terminal *term) {

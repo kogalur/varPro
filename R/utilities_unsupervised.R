@@ -64,7 +64,7 @@ get.beta.entropy <- function(o,
                              thresh=1e-3,
                              glm.thresh=10) {
   ## input value must be an unusupervised varpro object
-  if (!inherits(o, "unsupv", TRUE)) {
+  if (!inherits(o, "unsupv")) {
     stop("this wrapper only applies to unsupervised varpro")
   }
   ## get topvars, filter x
@@ -243,7 +243,7 @@ cv.matrix <- cv.matrix.performance
 ####################################################################
 cv.unsupv.varpro <- function(object, K = 10, plot.it = FALSE, tol = 1e-10) {
   ## input value must be a varpro object
-  if (!inherits(object, "varpro", TRUE)) {
+  if (!inherits(object, "varpro")) {
     stop("object must be a varpro object")
   }
   if (object$family != "unsupv") {

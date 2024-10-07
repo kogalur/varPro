@@ -1,6 +1,6 @@
 predict.varpro <- function(object, newdata, ...) {
   ## check coherence: failure is fatal
-  if (!inherits(object, "varpro", TRUE)) {
+  if (!inherits(object, "varpro")) {
     stop("object must be a varpro object")
   }
   ## if test data missing revert to original data

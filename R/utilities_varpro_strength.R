@@ -158,7 +158,7 @@ get.terminal.quants.restore.bits <- function(incoming.flag) {
 }
 get.varpro.strengthArray <- function(var.strength, family, y) {
   ## regression (survival) case
-  if (family == "regr") {
+  if (family == "regr" || family == "surv") {
     ## assign new column names
     colnames(var.strength) <-  c("tree",
                                  "branch",
@@ -225,7 +225,7 @@ get.varpro.strength <- function(object,
   ## incoming object must be an rfsrc or varpro object
   ## 
   ## ------------------------------------------------------------------------
-  if (!inherits(object, "varpro", TRUE)) {
+  if (!inherits(object, "varpro")) {
     if (sum(inherits(object, c("rfsrc", "grow"), TRUE) == c(1, 2)) != 2) {
       stop("This function only works for objects of class 'varpro' or `(rfsrc, grow)'")
     }
@@ -236,19 +236,8 @@ get.varpro.strength <- function(object,
       attr(x, "hotencode") <- FALSE
       o$x <- x
       o$xvar.names <- object$xvar.names
-      ## survival
-      if (o$family == "surv") {
-        ## "convert" the survival forest to a regression forest to trick varpro.strength
-        o$family <- "regr"
-        if (is.null(y.external)) {
-          y <- object$predicted
-        }
-        else {
-          y <- y.external
-        }
-      }
-      ## regression, class, mv-regr
-      else if (o$family == "regr" | o$family == "class" | o$family == "regr+") {
+      ## allowed supervised families
+      if (o$family == "regr" || o$family == "surv" || o$family == "class" || o$family == "regr+") {
         if (is.null(y.external)) {
           y <- object$yvar
         }
@@ -262,7 +251,7 @@ get.varpro.strength <- function(object,
       }
       ## something's wrong
       else  {
-        stop("family not supported")
+        stop("family currently not supported")
       }
     }
   }

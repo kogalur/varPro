@@ -9,7 +9,7 @@ isopro.varpro <- function(object,
   ##
   ## ------------------------------------------------------------------------
   ## must be a varpro object
-  if (is.null(formula) && is.null(data) && !inherits(object, "varpro", TRUE)) {
+  if (is.null(formula) && is.null(data) && !inherits(object, "varpro")) {
     stop("object must be a varpro object")
   }
   ## convert data to a data fram

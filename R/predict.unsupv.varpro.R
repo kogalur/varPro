@@ -1,6 +1,6 @@
 predict.unsupv.varpro <- function(object, newdata, ...) {
   ## check coherence: failure is fatal
-  if (!inherits(object, "unsupv", TRUE)) {
+  if (!inherits(object, "unsupv")) {
     stop("object must be an 'unsupv' varpro object")
   }
   if (object$rf$family != "regr+") {

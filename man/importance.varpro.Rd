@@ -119,6 +119,38 @@ imp <- importance(o, plot.it = TRUE)
 print(imp)
 
 
+## ------------------------------------------------------------
+## illustrates y-external: regression example
+## ------------------------------------------------------------
+
+## friedman1 - standard application of varpro
+d <- data.frame(mlbench:::mlbench.friedman1(250),noise=matrix(runif(250*10,-1,1),250))
+o <- varpro(y~.,d)
+print(importance(o))
+
+## importance using external rf predictor
+print(importance(o,y.external=randomForestSRC::rfsrc(y~.,d)$predicted.oob))
+
+## importance using external lm predictor
+print(importance(o,y.external=lm(y~.,d)$fitted))
+
+## importance using external randomized predictor
+print(importance(o,y.external=runif(nrow(o$x),-1,1)))
+
+## ------------------------------------------------------------
+## illustrates y-external: classification example
+## ------------------------------------------------------------
+
+## iris - standard application of varpro
+o <- varpro(Species~.,iris)
+print(importance(o))
+
+## importance using  external rf predictor
+print(importance(o,y.external=randomForestSRC::rfsrc(Species~.,iris)$class.oob))
+
+## importance using  external randomized predictor
+print(importance(o,y.external=sample(o$y)))
+
 }
 }
 \keyword{varpro}

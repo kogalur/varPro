@@ -13,14 +13,14 @@ get.splitweight.custom <- function(f, data, namedvec = NULL) {
 }
 get.orgvimp <- function(o, papply = mclapply, pretty = TRUE, local.std = TRUE) {
   ## input value must be a varpro, cv.varpro or unsupv object
-  if (!(inherits(o, "varpro", TRUE) ||
-        inherits(o, "cv.varpro", TRUE) ||
-        inherits(o, "unsupv", TRUE) ))  {
+  if (!(inherits(o, "varpro") ||
+        inherits(o, "cv.varpro") ||
+        inherits(o, "unsupv")))  {
     stop("object must be a varpro, cv.varpro or unsupv object")
   }
   ## first deal with cv.varpro since it's already encoded for original variables
   ## (to get hot-encoded importance we use get.vimp()
-  if (inherits(o, "cv.varpro", TRUE)) {
+  if (inherits(o, "cv.varpro")) {
     ## nothing to do unless pretty = FALSE
     if (pretty) {
       return(o)
@@ -97,7 +97,7 @@ get.orgvimp <- function(o, papply = mclapply, pretty = TRUE, local.std = TRUE) {
 ## extract names of signal variables from varpro analysis
 get.topvars <- function(o, papply = mclapply, local.std = TRUE) {
   ## input value must be a varpro or unsupv object
-  if (!(inherits(o, "varpro", TRUE) || inherits(o, "unsupv", TRUE))) {
+  if (!(inherits(o, "varpro") || inherits(o, "unsupv"))) {
     stop("object must be a varpro or unsupv object")
   }
   ## extract the vimp and names
@@ -116,13 +116,13 @@ get.topvars <- function(o, papply = mclapply, local.std = TRUE) {
 ## extract vimp
 get.vimp <- function(o, papply = mclapply, pretty = TRUE, local.std = TRUE) {
   ## input value must be a varpro, cv.varpro or unsupv object
-  if (!(inherits(o, "varpro", TRUE) ||
-        inherits(o, "cv.varpro", TRUE) ||
-        inherits(o, "unsupv", TRUE) ))  {
+  if (!(inherits(o, "varpro") ||
+        inherits(o, "cv.varpro") ||
+        inherits(o, "unsupv")))  {
     stop("object must be a varpro, cv.varpro or unsupv object")
   }
   ## varpro, unsupv object
-  if (inherits(o, "varpro", TRUE) || inherits(o, "unsupv", TRUE)) {
+  if (inherits(o, "varpro") || inherits(o, "unsupv")) {
     ## extract the vimp and names
     vmp <- importance(o, papply = papply, local.std = local.std)
     ## mv-regression

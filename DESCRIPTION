@@ -1,6 +1,6 @@
 Package: varPro
-Version: 0.0.47
-Date: 2024-10-06
+Version: 0.0.48
+Date: 2024-10-07
 Title: Model-Independent Variable Selection via the Rule-Based Variable Priority (VarPro)
 Author: Min Lu <luminwin@gmail.com>, Aster Shear <aster.shear@gmail.com>, Udaya B. Kogalur <ubk@kogalur.com>, Hemant Ishwaran <hemant.ishwaran@gmail.com>
 Maintainer: Udaya B. Kogalur <ubk@kogalur.com>

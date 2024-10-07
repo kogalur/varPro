@@ -482,15 +482,15 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
   ## model based rule generation: uses original y and original formula - true rules
   ## sampsize is not deployed since this can non-intuitively slow calculations
   ##
-  ## TBD TBD proper handling of survival TBD TBD
+  ## survival families are now properly handled
   ##
   ## ------------------------------------------------------------------------
   if (verbose) {
     cat("model based rule generation ...\n")
   }  
   if (split.weight || split.weight.custom) {
-    object <- rfsrc(f, data,
-                    #f.org, data.frame(y.org, data[, xvar.names, drop=FALSE]),
+    object <- rfsrc(if (family=="regr+") f else f.org,
+                    if (family=="regr+") data else data.frame(y.org, data[, xvar.names, drop=FALSE]),
                     splitrule = if (imbalanced.flag) "auc" else NULL,
                     xvar.wt = xvar.wt,
                     ntree = ntree,
@@ -500,8 +500,8 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
                     seed = seed)
   }
   else {
-    object <- rfsrc(f, data,
-                    #f.org, data.frame(y.org, data[, xvar.names, drop=FALSE]),
+    object <- rfsrc(if (family=="regr+") f else f.org,
+                    if (family=="regr+") data else data.frame(y.org, data[, xvar.names, drop=FALSE]),
                     splitrule = if (imbalanced.flag) "auc" else NULL,
                     mtry = if (is.null(dots$mtry)) Inf else dots$mtry,
                     ntree = ntree,

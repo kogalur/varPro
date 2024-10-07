@@ -77,7 +77,7 @@ myunique <- function(x, npts, alpha = .05, nfactor = 10) {
 predict.wbart <- utils::getFromNamespace("predict.wbart", "BART")
 bart.learner <- function(o, ...) {
   ## input value must be a varpro object
-  if (!inherits(o, "varpro", TRUE)) {
+  if (!inherits(o, "varpro")) {
     stop("object must be a varpro object")
   }
   if (!(o$family == "regr")) {
@@ -107,7 +107,7 @@ bart.learner <- function(o, ...) {
 ##---------------------------------------------------------------
 gbm.learner <- function(o, ...) {
   ## input value must be a varpro object
-  if (!inherits(o, "varpro", TRUE)) {
+  if (!inherits(o, "varpro")) {
     stop("object must be a varpro object")
   }
   if (!(o$family == "regr" || o$family == "class")) {
@@ -173,7 +173,7 @@ gbm.learner <- function(o, ...) {
 ##---------------------------------------------------------------
 rf.learner <- function(o, ...) {
   ## input value must be a varpro object
-  if (!inherits(o, "varpro", TRUE)) {
+  if (!inherits(o, "varpro")) {
     stop("object must be a varpro object")
   }
   ## custom defined xvar.wt - much gentler than the sparse varpro value

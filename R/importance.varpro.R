@@ -22,10 +22,10 @@ importance.varpro <- function(o, local.std = TRUE, y.external = NULL,
   ## coherence of incoming object 
   ##
   ## ------------------------------------------------------------------------
-  if (!(inherits(o, "varpro", TRUE) || inherits(o, "unsupv", TRUE))) {
+  if (!(inherits(o, "varpro") || inherits(o, "unsupv"))) {
     stop("this function only works for varpro, unsupv objects")
   }
-  if (inherits(o, "unsupv", TRUE)) {
+  if (inherits(o, "unsupv")) {
     local.std <- FALSE
     y.external <- NULL
   }
