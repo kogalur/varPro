@@ -43,20 +43,13 @@ importance.varpro <- function(o, local.std = TRUE, y.external = NULL,
     if (missing(max.tree)) {
       max.tree <- o$max.tree
     }
-    ## externally supplied y?
-    if (!is.null(y.external)) {
-      y <- y.external
-    }
-    else {
-      y <- o$y
-    }
     ## call varpro strength
     oo <- get.varpro.strength(object = o,
                       max.rules.tree = max.rules.tree,
                       max.tree = max.tree,
                       membership = TRUE)
     ## updated results
-    results <- get.varpro.strengthArray(oo$strengthArray, o$family, y)
+    results <- get.varpro.strengthArray(oo$strengthArray, o$family, o$y)
     ## obtain updated varpro statistic
     if (local.std) {
       ## over-write original importance values
@@ -70,8 +63,16 @@ importance.varpro <- function(o, local.std = TRUE, y.external = NULL,
         ## membership lists 
         oobMembership <- oo$oobMembership
         compMembership <- oo$compMembership
-        ## keep track of which variable is released for a rule
-        xreleaseId <- oo$strengthArray$xReleaseID
+        ## add attributes to y - used for importance calculations
+        y <- o$y
+        if (!is.null(y.external)) {
+          y <- y.external
+          attr(y, "y.org") <- y.external
+        }
+        else {
+          attr(y, "y.org") <- o$y.org
+        }
+        attr(y, "family") <- o$family
         ## locally standardized importance values
         if (length(keep.rules) > 0) {
           imp <- papply(keep.rules, function(i) {

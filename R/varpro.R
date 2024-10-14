@@ -546,8 +546,8 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
     yvar.names = yvar.names,
     x = x,
     y = y,
-    y.org = y.org[, ncol(y.org)],
-    family = family)
+    y.org = y.org[, 1:ncol(y.org)],
+    family = object$family)
   class(rO) <- "varpro"
   return(rO)
 }

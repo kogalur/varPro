@@ -135,7 +135,7 @@ print(importance(o,y.external=randomForestSRC::rfsrc(y~.,d)$predicted.oob))
 print(importance(o,y.external=lm(y~.,d)$fitted))
 
 ## importance using external randomized predictor
-print(importance(o,y.external=runif(nrow(o$x),-1,1)))
+print(importance(o,y.external=sample(o$y)))
 
 ## ------------------------------------------------------------
 ## illustrates y-external: classification example
@@ -150,6 +150,20 @@ print(importance(o,y.external=randomForestSRC::rfsrc(Species~.,iris)$class.oob))
 
 ## importance using  external randomized predictor
 print(importance(o,y.external=sample(o$y)))
+
+## ------------------------------------------------------------
+## illustrates y-external: survival
+## ------------------------------------------------------------
+data(pbc, package = "randomForestSRC")
+o <- varpro(Surv(days, status)~., pbc)
+print(importance(o))
+
+## importance using  external rsf predictor
+print(importance(o,y.external=randomForestSRC::rfsrc(Surv(days, status)~., pbc)$predicted.oob))
+
+## importance using  external randomized predictor
+print(importance(o,y.external=sample(o$y)))
+
 
 }
 }

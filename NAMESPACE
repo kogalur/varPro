@@ -22,11 +22,16 @@ importFrom("stats", "as.formula", "coef", "median", "qnorm",
            "loess", "loess.control", "lowess",
            "lm", "supsmu", "predict.lm",
            "rnorm", "ecdf", "qt", "glm",
-           "t.test", "chisq.test", "prop.test")
+           "t.test", "chisq.test", "prop.test",
+           "binomial", "logLik", "pchisq")
+
+importFrom("survival", "survdiff", "Surv")
 
 importFrom("utils", "combn", "capture.output")
 
 importFrom("umap", "umap")
+
+
 
 export(
        beta.varpro,
