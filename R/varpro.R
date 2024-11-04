@@ -1,6 +1,7 @@
 ############################################################################
 ###
-### variable priority (varPro) for regression, classification and survival
+### variable priority (varPro)
+### regression, mv-regression, classification and survival
 ###
 ### ------------------------------------------------------------------------
 ### Written by:
@@ -56,8 +57,8 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
   rm(stump)
   gc()
   ## coherence check
-  if (!(family == "regr" || family == "class" || family == "surv")) {
-    stop("this function only works for regression, classification and survival")
+  if (!(family == "regr" || family == "regr+" || family == "class" || family == "surv")) {
+    stop("this function only works for regression, mv-regression, classification and survival")
   }
   ## check if "y" is used as a name for one of the x features
   if (any(colnames(x) == "y")) {
@@ -515,12 +516,12 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
   ##
   ## obtain varpro strength using direct C call via varpro.strength()
   ##
+  ## note: for survival y.external --> external estimator
   ##
   ## ------------------------------------------------------------------------
   if (verbose) {
     cat("acquiring rules...\n")
   }
-  ## for survival y.external --> external estimator
   var.strength <- get.varpro.strength(object = object,
                          max.rules.tree = max.rules.tree,
                          max.tree = max.tree,

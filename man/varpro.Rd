@@ -4,7 +4,7 @@
 \title{Model-Independent Variable Selection via the Rule-based Variable Priority (VarPro)}
 \description{
 Model-Independent Variable Selection via the Rule-based Variable Priority (VarPro)
-for Regression, Classification and Survival.
+for Regression, Multivariate Regression, Classification and Survival.
 }
 
 \usage{
@@ -88,7 +88,7 @@ varpro(f, data, nvar = 30, ntree = 500,
   \code{ntree} trees and a random subset of branches,
   \code{max.rules.tree}, are chosen from each tree.  These rules are
   used for forming the VarPro estimator of importance.  Applies to
-  regression, multiclass and survival data.
+  regression, multivariate regression, multiclass and survival data.
 
   Guided tree-splitting encourages the rules harvested from a tree to
   favor potentially strong features.  Therefore option
@@ -251,6 +251,18 @@ x <- matrix(rnorm(100 * 50), 100, 50)
 y <- rnorm(100)
 o <- varpro(y~., data.frame(y = y, x = x))
 print(importance(o))
+
+## ------------------------------------------------------------
+## multivariate regression example: boston housing
+## ------------------------------------------------------------
+
+data(BostonHousing, package = "mlbench")
+
+## using rfsrc multivariate formula call
+importance(varpro(Multivar(lstat, nox) ~., BostonHousing))
+
+## using cbind multivariate formula call
+importance(varpro(cbind(lstat, nox) ~., BostonHousing))
 
 \donttest{
 ##----------------------------------------------------------------

@@ -46,12 +46,12 @@ get.orgvimp <- function(o, papply = mclapply, pretty = TRUE, local.std = TRUE) {
   }
   ## pull original xvar names 
   xvar.org.names <- o$xvar.org.names
-  ## we are finished if the data was not hotencoded
-  if (!attr(o$x, "hotencode")) {
+  ## we are finished if: i) data not hotencoded; and (ii) not a regr+ family
+  if (!attr(o$x, "hotencode") && o$family != "regr+") {
     vars <- rownames(vmp)
     vars.z <- vmp$z
   }
-  ## data was hotencoded, so we need to map names appropriately
+  ## data was hotencoded or family is regr+ ... so we need to map names appropriately
   else {
     ## we only need the rownames for vimp from the varpro object hereafter
     o <- rownames(vmp)
@@ -104,7 +104,7 @@ get.topvars <- function(o, papply = mclapply, local.std = TRUE) {
   vmp <- importance(o, papply = papply, local.std = local.std)
   ## mv-regression
   if (o$family == "regr+") {
-      vmp <- do.call(rbind, vmp)
+    return(unique(unlist(lapply(vmp, function(o){rownames(o)}))))
   }
   ## classification
   if (o$family == "class") {
@@ -123,60 +123,101 @@ get.vimp <- function(o, papply = mclapply, pretty = TRUE, local.std = TRUE) {
   }
   ## varpro, unsupv object
   if (inherits(o, "varpro") || inherits(o, "unsupv")) {
-    ## extract the vimp and names
+    ## extract vimp + names
     vmp <- importance(o, papply = papply, local.std = local.std)
     ## mv-regression
     if (o$family == "regr+") {
-      vmp <- do.call(rbind, vmp)
+      vmp <- do.call(rbind, lapply(1:length(vmp), function (j) {
+        data.frame(vmp[[j]], names=rownames(vmp[[j]]), outcome=j)
+      }))
     }
-    ## classification
-    if (o$family == "class") {
-    vmp <- vmp$unconditional
+    ## other families
+    else {
+      if (o$family == "class") {
+        vmp <- vmp$unconditional
+      }
+      vmp$names <- rownames(vmp)
+      vmp$outcome <- 1
     }
     ##return the goodies
     if (pretty) {
       z <- vmp$z
-      names(z) <- rownames(vmp)
+      names(z) <- vmp$names
       z[is.na(z)] <- 0
-      z
+      if (o$family == "regr+") {
+        split(z, vmp$outcome)
+      }
+      else {
+        z
+      }
     }
-    else {
-      ## not seleted is mapped to 0
-      z <- rep(0, ncol(o$x))
-      names(z) <- colnames(o$x)
-      z[rownames(vmp)] <- vmp$z
-      z[is.na(z)] <- 0
-      z
+    else {## not seleted variables are mapped to 0
+      zO <- lapply(split(vmp, vmp$outcome), function(v) {
+        z <- rep(0, ncol(o$x))
+        names(z) <- colnames(o$x)
+        z[v$names] <- v$z
+        z[is.na(z)] <- 0
+        z
+      })
+      if (length(zO) == 1) {
+        zO[[1]]
+      }
+      else {
+        zO
+      }
     }
   }
   ## cv.varpro object
   else {
     ## pull the original vimp
     vmp <- attr(o, "imp.org")   
+    ## mv-regression
     if (attr(o, "family") == "regr+") {
-      vmp <- do.call(rbind, vmp)
+      vmp <- do.call(rbind, lapply(1:length(vmp), function (j) {
+        data.frame(vmp[[j]], names=rownames(vmp[[j]]), outcome=j)
+      }))
     }
-    if (attr(o, "family") == "class") {
-      vmp <- vmp$unconditional
+    ## other families
+    else {
+      if (attr(o, "family") == "class") {
+        vmp <- vmp$unconditional
+      }
+      vmp$names <- rownames(vmp)
+      vmp$outcome <- 1
     }
     ## threshold using cv zcut values
-    v.min <- vmp[vmp$z >= o$zcut,, drop = FALSE]
-    v.conserve <- vmp[vmp$z >= o$zcut.conserve,, drop = FALSE]
-    v.liberal <- vmp[vmp$z >= o$zcut.liberal,, drop = FALSE]
-    ## return the goodies
-    if (pretty) {
-      list(imp = v.min,
-           imp.conserve = v.conserve,
-           imp.liberal = v.liberal)
+    zO <- lapply(split(vmp, vmp$outcome), function(v) {
+      v$outcome <- NULL
+      rownames(v) <- v$names
+      if (pretty) {
+        v$names <- NULL
+      }
+      v.min <- v[v$z >= o$zcut,, drop = FALSE]
+      v.conserve <- v[v$z >= o$zcut.conserve,, drop = FALSE]
+      v.liberal <- v[v$z >= o$zcut.liberal,, drop = FALSE]
+      ## return the goodies
+      if (pretty) {        
+        list(imp = v.min,
+             imp.conserve = v.conserve,
+             imp.liberal = v.liberal)
+      }
+      else {
+        nms <- attr(o, "xvar.names")
+        z.min <- z.conserve <- z.liberal <- rep(0, length(nms))
+        names(z.min) <- names(z.conserve) <- names(z.liberal) <- nms
+        z.min[v.min$names] <- v.min$z
+        z.conserve[v.conserve$names] <- v.conserve$z
+        z.liberal[v.liberal$names] <- v.liberal$z
+        data.frame(imp=na.omit(z.min),
+                   imp.conserve=na.omit(z.conserve),
+                   imp.liberal=na.omit(z.liberal))
+      }
+    })
+    if (length(zO) == 1) {
+      zO[[1]]
     }
     else {
-      nms <- attr(o, "xvar.names")
-      z.min <- z.conserve <- z.liberal <- rep(0, length(nms))
-      names(z.min) <- names(z.conserve) <- names(z.liberal) <- nms
-      z.min[rownames(na.omit(v.min))] <- na.omit(v.min)$z
-      z.conserve[rownames(na.omit(v.conserve))] <- na.omit(v.conserve)$z
-      z.liberal[rownames(na.omit(v.liberal))] <- na.omit(v.liberal)$z
-      data.frame(imp=z.min, imp.conserve=z.conserve, imp.liberal=z.liberal)
+      zO
     }
   }
 }

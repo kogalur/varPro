@@ -166,6 +166,14 @@ print(get.orgvimp(o, pretty = FALSE))
 print(get.vimp(o, pretty = FALSE))
 
 ## ------------------------------------------------------------
+## multivariate regression example: boston housing
+## vimp is collapsed across the outcomes
+## ------------------------------------------------------------
+
+data(BostonHousing, package = "mlbench")
+print(cv.varpro(cbind(lstat, nox) ~., BostonHousing))
+
+## ------------------------------------------------------------
 ## iris
 ## ------------------------------------------------------------
 
@@ -205,6 +213,17 @@ if (library("caret", logical.return = TRUE)) {
   print(cv.varpro(f, d))
 
 }
+
+
+## ------------------------------------------------------------
+## pbc survival with rmst vector
+## note that vimp is collapsed across the rmst values
+## similar to mv-regression
+## ------------------------------------------------------------
+
+data(pbc, package = "randomForestSRC")
+print(cv.varpro(Surv(days, status)~., pbc, rmst = c(500, 1000)))
+
 
 ## ------------------------------------------------------------
 ## peak VO2 with cutoff selected using fast option
