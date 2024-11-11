@@ -252,6 +252,7 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
   ##
   ##
   ## ------------------------------------------------------------------------
+  split.weight.raw <- list()
   if (split.weight || split.weight.only) {
     ## verbose output
     if (verbose) {
@@ -326,6 +327,8 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
       nullO <- myUnRegister(parallel)
       ## assign missing values NA
       xvar.wt[is.na(xvar.wt)] <- 0
+      ## store split-weight information (expert mode)
+      split.weight.raw$lasso <- xvar.wt
       ## scale the weights using sparse dimension.index
       pt <- xvar.wt > 0
       if (sum(pt) > 0) {
@@ -344,52 +347,48 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
     ##
     ##---------------------------------------------------------
     if (use.vimp) {
-      if (sum(xvar.wt != 0) > 0) {
-        ## regression
-        if (family == "regr") {
-          vmp <- rfsrc(f, data[, c(yvar.names, xvar.names)],
-                       ntree = ntree,
-                       nodesize = nodesize.reduce,
-                       importance = "permute",
-                       seed = seed)$importance 
-        }
-        ## mv-regression
-        else if (family == "regr+") {
-          vmp <- rowMeans(randomForestSRC::get.mv.vimp(rfsrc(f, data[, c(yvar.names, xvar.names)],
-                ntree = ntree,
-                nodesize = nodesize.reduce,
-                importance = "permute",
-                seed = seed)), na.rm = TRUE)
-        } 
-        ## classification
-        ## for class imbalanced scenarios switch to rfq/gmean
-        else {
-          vmp <- rfsrc(f, data[, c(yvar.names, xvar.names)],
-                       rfq = if (imbalanced.flag) TRUE else NULL,
-                       perf.type = if (imbalanced.flag) "gmean" else NULL,
-                       splitrule = if (imbalanced.flag) "auc" else NULL,
-                       ntree = ntree,
-                       nodesize = nodesize.reduce,
-                       importance = "permute",
-                       seed = seed)$importance[, 1]
-        }
-        ## scale the weights using dimension.index
-        pt <- vmp > 0
-        if (sum(pt) > 0) {
-          if (sparse) {
-            vmpsc <- (vmp[vmp > 0]) ^ dimension.index(sum(pt))
-          }
-          else {
-            vmpsc <- (vmp[vmp > 0]) ^ dimension.index(1)
-          }
-          xvar.wt[pt] <- xvar.wt[pt] + vmpsc
-          xvar.wt <- xvar.wt / max(xvar.wt, na.rm = TRUE)
+      ## regression
+      if (family == "regr") {
+        vmp <- rfsrc(f, data[, c(yvar.names, xvar.names)],
+                     ntree = ntree,
+                     nodesize = nodesize.reduce,
+                     importance = "permute",
+                     seed = seed)$importance 
+      }
+      ## mv-regression
+      else if (family == "regr+") {
+        vmp <- rowMeans(randomForestSRC::get.mv.vimp(rfsrc(f, data[, c(yvar.names, xvar.names)],
+                                                                ntree = ntree,
+                                                                nodesize = nodesize.reduce,
+                                                                importance = "permute",
+                                                                seed = seed)), na.rm = TRUE)
+      } 
+      ## classification
+      ## for class imbalanced scenarios switch to rfq/gmean
+      else {
+        vmp <- rfsrc(f, data[, c(yvar.names, xvar.names)],
+                     rfq = if (imbalanced.flag) TRUE else NULL,
+                     perf.type = if (imbalanced.flag) "gmean" else NULL,
+                     splitrule = if (imbalanced.flag) "auc" else NULL,
+                     ntree = ntree,
+                     nodesize = nodesize.reduce,
+                     importance = "permute",
+                     seed = seed)$importance[, 1]
+      }
+      ## store split-weight information (expert mode)
+      split.weight.raw$vimp <- vmp
+      ## scale the weights using dimension.index
+      pt <- vmp > 0
+      if (sum(pt) > 0) {
+        if (sparse) {
+          xvar.wt[pt] <- (xvar.wt[pt] +
+                 (vmp[pt] / max(vmp[pt], na.rm = TRUE))  ^ dimension.index(sum(pt)))
         }
         else {
-          use.vimp <- FALSE
+          xvar.wt[pt] <- (xvar.wt[pt] +
+                 (vmp[pt] / max(vmp[pt], na.rm = TRUE))  ^ dimension.index(1))
         }
       }
-      ## failed: we need to run shallow trees 
       else {
         use.vimp <- FALSE
       }
@@ -409,6 +408,8 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
                          nsplit = 100,
                          var.used = "all.trees",
                          perf.type = "none")$var.used[xvar.names]
+      ## store split-weight information (expert mode)
+      split.weight.raw$tree <- xvar.used
       ## update the weights
       pt <- xvar.used >= set.xvar.cut(xvar.used, n)
       if (sum(pt) > 0) {
@@ -539,6 +540,7 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
   rO <- list(
     rf = object,
     split.weight = if (split.weight || split.weight.custom) xvar.wt else NULL,
+    split.weight.raw = split.weight.raw,
     max.rules.tree = max.rules.tree,
     max.tree = max.tree,
     results = var.strength,
