@@ -32,9 +32,10 @@ typedef struct terminalSurvival TerminalSurvival;
 struct terminalSurvival {
   struct terminalBase *base;
   unsigned int eTypeSize;  
-  unsigned int mTimeSize;
-  unsigned int sTimeSize;
   unsigned int eTimeSize;
+  unsigned int mTimeSize;
+  unsigned int aeTimeSize;
+  unsigned int sTimeSize;
   unsigned int *atRiskCount;
   double *atRiskTime;
   unsigned int **eventCount;
@@ -43,9 +44,11 @@ struct terminalSurvival {
   double *localSurvival;
   double *localNelsonAalen;
   double *localHazard;
-  double *survival;
+  double *allNelsonAalen;
+  double *allHazard;
   double *nelsonAalen;
   double *hazard;
+  double *survival;
   double *outcome;
 };
 typedef struct terminalCompetingRisk TerminalCompetingRisk;

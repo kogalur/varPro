@@ -6,6 +6,7 @@ void preInitTerminalBase(TerminalBase *parent);
 void initTerminalBase(TerminalBase *parent,
                       uint  eTypeSize,
                       uint  mTimeSize,
+                      uint  aeTimeSize,
                       uint  sTimeSize,
                       uint  rnfCount,
                       uint *rnfIndex,
@@ -14,18 +15,22 @@ void initTerminalBase(TerminalBase *parent,
                       uint *rfSize);
 TerminalRegression     *makeRegressionBase(uint rnfCount, uint *rnfIndex, uint *dummy);
 TerminalClassification *makeClassificationBase(uint rfCount, uint *rfIndex, uint *rfSize);
-TerminalSurvival       *makeSurvivalBase(uint dummy, uint mTimeSize, uint sTimeSize);
+TerminalSurvival       *makeSurvivalBase(uint dummy, uint mTimeSize, uint aeTimeSize, uint sTimeSize);
 TerminalCompetingRisk  *makeCompetingRiskBase(uint eTypeSize, uint mTimeSize, uint sTimeSize);
 void stackMeanResponse(TerminalRegression *tTerm);
 void unstackMeanResponse(TerminalRegression *tTerm);
 void stackMultiClassProb(TerminalClassification *tTerm);
 void unstackMultiClassProb(TerminalClassification *tTerm);
-void stackSurvival(TerminalSurvival *tTerm);
-void unstackSurvival(TerminalSurvival *tTerm);
+void stackAllNelsonAalen(TerminalSurvival *tTerm);
+void unstackAllNelsonAalen(TerminalSurvival *tTerm);
 void stackNelsonAalen(TerminalSurvival *tTerm);
 void unstackNelsonAalen(TerminalSurvival *tTerm);
+void stackAllHazard(TerminalSurvival *tTerm);
+void unstackAllHazard(TerminalSurvival *tTerm);
 void stackHazard(TerminalSurvival *tTerm);
 void unstackHazard(TerminalSurvival *tTerm);
+void stackSurvival(TerminalSurvival *tTerm);
+void unstackSurvival(TerminalSurvival *tTerm);
 void stackSurvivalOutcome(TerminalSurvival *tTerm);
 void unstackSurvivalOutcome(TerminalSurvival *tTerm);
 void stackCSH(TerminalCompetingRisk *tTerm);

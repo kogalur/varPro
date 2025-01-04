@@ -72,6 +72,7 @@ void restoreTree(char mode, uint treeID, NodeBase *parent) {
     initTerminalBase(termBasePtr,
                      RF_eventTypeSize,
                      RF_masterTimeSize,
+                     0,
                      RF_sortedTimeInterestSize,
                      RF_rNonFactorCount,
                      RF_rNonFactorIndex,
