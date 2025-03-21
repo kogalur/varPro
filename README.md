@@ -22,7 +22,7 @@ Variable Priority (VarPro) works by utilizing rules without the need to generate
 Install the development version into your R environment using the `devtools` package:
 ```{r}
 install.packages("devtools") # If you don't have it.
-devtools::install_github{"kogalur/varpro"}
+devtools::install_github("kogalur/varpro")
 ```
 ## References
 
