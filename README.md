@@ -1,13 +1,11 @@
 varPro - Model independent variable selection via rule based variable priority
 ========================================================
 <!-- badges: start -->
-[![DOI](https://doi.org/10.48550/arXiv.2409.09003)](https://doi.org/10.48550/arXiv.2409.09003)
-[![cranlogs](http://cranlogs.r-pkg.org/badges/varpro)](http://cranlogs.r-pkg.org/badges/varpro)
 
+[![cranlogs](http://cranlogs.r-pkg.org/badges/varpro)](http://cranlogs.r-pkg.org/badges/varpro)
 [![CRAN_Status_Badge](http://www.r-pkg.org/badges/version/varpro)](https://cran.r-project.org/package=varpro)
+
 [![active](http://www.repostatus.org/badges/latest/active.svg)](http://www.repostatus.org/badges/latest/active.svg)
-[![R-CMD-check](https://github.com/kogalur/varpro/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/kogalur/varpro/actions/workflows/R-CMD-check.yaml)
-[![Codecov test coverage](https://codecov.io/gh/kogalur/varpro/graph/badge.svg)](https://app.codecov.io/gh/kogalur/varpro)
 [![R-CMD-check](https://github.com/kogalur/varPro/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/kogalur/varPro/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
