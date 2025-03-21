@@ -1,4 +1,4 @@
-varPro - Model independant variable selection via rule based variable priority
+varPro - Model independent variable selection via rule based variable priority
 ========================================================
 <!-- badges: start -->
 [![DOI](https://doi.org/10.48550/arXiv.2409.09003)](https://doi.org/10.48550/arXiv.2409.09003)
@@ -7,10 +7,11 @@ varPro - Model independant variable selection via rule based variable priority
 [![CRAN_Status_Badge](http://www.r-pkg.org/badges/version/varpro)](https://cran.r-project.org/package=varpro)
 [![active](http://www.repostatus.org/badges/latest/active.svg)](http://www.repostatus.org/badges/latest/active.svg)
 [![R-CMD-check](https://github.com/kogalur/varpro/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/kogalur/varpro/actions/workflows/R-CMD-check.yaml)
-
 [![Codecov test coverage](https://codecov.io/gh/kogalur/varpro/graph/badge.svg)](https://app.codecov.io/gh/kogalur/varpro)
+[![R-CMD-check](https://github.com/kogalur/varPro/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/kogalur/varPro/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
+A new framework of variable selection, which instead of generating artificial covariates such as permutation importance and knockoffs, creates release rules to examine the affect on the response for each covariate where the conditional distribution of the response variable can be arbitrary and unknown.
 
 While achieving high prediction accuracy is a fundamental goal in machine learning, an equally important task is finding a small number of features with high explanatory power. One popular selection technique is permutation importance, which assesses a variable’s impact by measuring the change in prediction error after permuting the variable. 
 
