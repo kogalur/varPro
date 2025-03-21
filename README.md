@@ -1,7 +1,7 @@
 varPro - Model independant variable selection via rule based variable priority
 ========================================================
 <!-- badges: start -->
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.11526.svg)](https://doi.org/10.5281/zenodo.11526)
+[![DOI](https://doi.org/10.48550/arXiv.2409.09003)](https://doi.org/10.48550/arXiv.2409.09003)
 [![cranlogs](http://cranlogs.r-pkg.org/badges/varpro)](http://cranlogs.r-pkg.org/badges/varpro)
 
 [![CRAN_Status_Badge](http://www.r-pkg.org/badges/version/varpro)](https://cran.r-project.org/package=varpro)
@@ -17,4 +17,6 @@ While achieving high prediction accuracy is a fundamental goal in machine learni
 Variable Priority (VarPro) works by utilizing rules without the need to generate artificial data or evaluate prediction error. The method only requires the calculation of sample averages of simple statistics, and can be applied to many data settings, including regression, classification, and survival.
 
 
+## References
 
+Lu M., Ishwaran H. Model-independent variable selection via the rule-based variable priority [arXiv:2409.09003 ](https://arxiv.org/abs/2409.09003) **[stat.ML]**
