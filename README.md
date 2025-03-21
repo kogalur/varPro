@@ -17,7 +17,13 @@ While achieving high prediction accuracy is a fundamental goal in machine learni
 
 Variable Priority (VarPro) works by utilizing rules without the need to generate artificial data or evaluate prediction error. The method only requires the calculation of sample averages of simple statistics, and can be applied to many data settings, including regression, classification, and survival.
 
+## Installation
 
+Install the development version into your R environment using the `devtools` package:
+```{r}
+install.packages("devtools") # If you don't have it.
+devtools::install_github{"kogalur/varpro"}
+```
 ## References
 
 Lu M., Ishwaran H. Model-independent variable selection via the rule-based variable priority [arXiv:2409.09003 ](https://arxiv.org/abs/2409.09003) **[stat.ML]**
