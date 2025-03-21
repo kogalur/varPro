@@ -32,8 +32,10 @@ jobs:
     steps:
     
       - if: runner.os == 'macOS'
-          run: brew install checkbashisms
-          run: brew install --cask xquartz
+          run: |
+            brew install checkbashisms
+            brew install --cask xquartz
+          
       - uses: actions/checkout@v4
 
       - uses: r-lib/actions/setup-pandoc@v2
