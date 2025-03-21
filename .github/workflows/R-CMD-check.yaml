@@ -26,7 +26,8 @@ jobs:
           - {os: ubuntu-latest,   r: 'oldrel-1'}
           
     if: runner.os == 'macOS'
-    run: brew install checkbashisms
+      run: brew install checkbashisms
+      run: brew install --cask xquartz
     
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
