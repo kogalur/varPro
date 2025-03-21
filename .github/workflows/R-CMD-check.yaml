@@ -32,7 +32,7 @@ jobs:
     steps:
     
       - if: runner.os == 'macOS'
-          run: |
+        run: |
             brew install checkbashisms
             brew install --cask xquartz
           
