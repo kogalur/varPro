@@ -1,29 +1,46 @@
 varpro.strength <- function(object,
+                            newdata,
                             m.target = NULL,
                             max.rules.tree = 150,
                             max.tree = 150,
-                            stat = c("importance", "complement", "oob"),
+                            stat = c("importance", "complement", "oob", "none"),
                             membership = FALSE,
                             seed = NULL,
-                            do.trace = FALSE)
+                            do.trace = FALSE,
+                            ...)
 {
   ## only applies to rfsrc grow objects
   if (sum(inherits(object, c("rfsrc", "grow"), TRUE) == c(1, 2)) != 2) {
     stop("This function only works for objects of class `(rfsrc, grow)'")
   }
+  ## get any hidden options
+  user.option <- list(...)
+  experimental.bits <- get.experimental.bits(user.option$experimental.bits)
   if(max.rules.tree > 2^31 - 1) {
       stop("max.rules.tree must be less than 2^31 - 1:  ", max.rules.tree)
   }
   if(max.tree > 2^31 - 1) {
       stop("max.tree must be less than 2^31 - 1:  ", max.tree)
   }
-  stat <- match.arg(stat, c("importance", "complement", "oob"))
+  stat <- match.arg(stat, c("importance", "complement", "oob", "none"))
   stat.bits = get.stat.bits(stat)
+  ## set restore.mode and the ensemble option
+  if (missing(newdata)) {##restore: no data
+    restore.mode <- TRUE
+  }
+  else {##not restore: test data present
+    restore.mode <- FALSE
+    stat <- "none"
+    membership <- TRUE
+  }
   ## check if this is an anonymous object
   ## coerce values as necessary
   ## graceful return if restore.mode = TRUE which is not allowed for anonymous
   if (inherits(object, "anonymous")) {
     anonymize.bits <- 2^26
+    if (restore.mode) {
+      stop("in order to predict with anonymous forests please provide a test data set")
+    }
   }
   else {
     anonymize.bits <- 0
@@ -70,6 +87,31 @@ varpro.strength <- function(object,
   ## Outcome will always equal train.
   ## Data conversion for y-training data.
   yvar <- as.matrix(data.matrix(data.frame(object$yvar)))
+  ##--------------------------------------------------------
+  ##
+  ## process x and y: test data is present
+  ##
+  ##--------------------------------------------------------
+  if (!restore.mode) {
+    ## obtain the dimension
+    n.newdata <- nrow(newdata)
+    ## restrict xvar to the training xvar.names
+    xvar.newdata <- newdata[, xvar.names, drop=FALSE]
+    ## extract test yvar (if present)
+    yvar.present <- sum(is.element(yvar.names, names(newdata))) > 0
+    if (yvar.present) {
+      yvar.newdata <- as.matrix(newdata[, yvar.names, drop = FALSE])
+    }
+    else {
+      yvar.newdata <-  NULL
+    }
+  }
+  else {    
+    ## There cannot be test data in restore mode
+    ## The native code switches based on n.newdata being zero (0).  Be careful.
+    n.newdata <- 0
+    xvar.newdata <- yvar.newdata <- NULL
+  }
   ## Respect the training options related to bootstrapping:
   sampsize <- round(object$sampsize(n))
   case.wt <- object$case.wt
@@ -119,9 +161,15 @@ varpro.strength <- function(object,
                                              terminal.qualts.bits +
                                              terminal.quants.bits +
                                              data.pass.bits),          ## high option byte
-                                  as.integer(stat.bits),               ## varpro option byte
+                                  as.integer(stat.bits + experimental.bits), ## varpro option byte
                                   as.integer(ntree),
                                   as.integer(n),
+                                  list(as.integer(length(case.wt)),
+                                       if (is.null(case.wt)) NULL else as.double(case.wt),
+                                       as.integer(sampsize),
+                                       if (is.null(samp)) NULL else as.integer(samp)),
+                                  list(if (is.null(m.target.idx)) as.integer(0) else as.integer(length(m.target.idx)),
+                                       if (is.null(m.target.idx)) NULL else as.integer(m.target.idx)),
                                   list(as.integer(length(yvar.types)),
                                        if (is.null(yvar.types)) NULL else as.character(yvar.types),
                                        if (is.null(yvar.types)) NULL else as.integer(yvar.nlevels),
@@ -151,12 +199,11 @@ varpro.strength <- function(object,
                                              function(nn) {as.integer(xvar.numeric.levels[[nn]])})
                                   },
                                   as.double(as.vector(xvar)),
-                                  list(as.integer(length(case.wt)),
-                                       if (is.null(case.wt)) NULL else as.double(case.wt),
-                                       as.integer(sampsize),
-                                       if (is.null(samp)) NULL else as.integer(samp)),
                                   list(if(is.null(event.info$time.interest)) as.integer(0) else as.integer(length(event.info$time.interest)),
                                        if(is.null(event.info$time.interest)) NULL else as.double(event.info$time.interest)),
+                                  as.integer(n.newdata),
+                                  if (is.null(yvar.newdata)) NULL else as.double(as.vector(yvar.newdata)),
+                                  if (is.null(xvar.newdata)) NULL else as.double(as.vector(data.matrix(xvar.newdata))),
                                   as.integer(object$totalNodeCount),
                                   as.integer(object$leafCount),
                                   list(as.integer(object$seed)),
@@ -173,8 +220,14 @@ varpro.strength <- function(object,
                                   as.integer((object$nativeFactorArray)$mwcpPT)),
                                   as.integer(object$nativeArrayTNDS$tnRMBR),
                                   as.integer(object$nativeArrayTNDS$tnAMBR),
+                                  as.integer(object$nativeArrayTNDS$tnOMBR),
+                                  as.integer(object$nativeArrayTNDS$tnIMBR),
                                   as.integer(object$nativeArrayTNDS$tnRCNT),
                                   as.integer(object$nativeArrayTNDS$tnACNT),
+                                  as.integer(object$nativeArrayTNDS$tnOCNT),
+                                  as.integer(object$nativeArrayTNDS$tnICNT),
+                                  as.integer(object$nativeArrayTNDS$oobSZ),
+                                  as.integer(object$nativeArrayTNDS$ibgSZ),
                                   as.double((object$nativeArrayTNDS$tnSURV)),
                                   as.double((object$nativeArrayTNDS$tnMORT)),
                                   as.double((object$nativeArrayTNDS$tnNLSN)),
@@ -182,14 +235,12 @@ varpro.strength <- function(object,
                                   as.double((object$nativeArrayTNDS$tnCIFN)),
                                   as.double((object$nativeArrayTNDS$tnREGR)),
                                   as.integer((object$nativeArrayTNDS$tnCLAS)),
-                                  list(if (is.null(m.target.idx)) as.integer(0) else as.integer(length(m.target.idx)),
-                                       if (is.null(m.target.idx)) NULL else as.integer(m.target.idx)),
                                   as.integer(max.rules.tree),
                                   as.integer(max.tree),
                                   as.integer(get.tree),
-                                  as.integer(get.rf.cores()))}, error = function(e) {
-                                    print(e)
-                                    NULL})
+                                  as.integer(get.rf.cores()))},
+                           error = function(e) {NULL}
+                           )
   ## Stop the C external timer.
   ctime.external.stop <- proc.time()
   ## check for error return condition in the native code
@@ -201,8 +252,23 @@ varpro.strength <- function(object,
   strengthArray <- as.data.frame(cbind(nativeOutput$treeID[1:strengthArraySize],
                                        nativeOutput$nodeID[1:strengthArraySize],
                                        nativeOutput$xReleaseID[1:strengthArraySize],
-                                       nativeOutput$complementCT[1:strengthArraySize]))
+                                       nativeOutput$cmpCT[1:strengthArraySize]))
+  strengthTreeID  <- nativeOutput$strengthTreeID
+  if (!restore.mode) {
+      testCaseTermID  <- matrix(nativeOutput$testCaseTermID, nrow = n.newdata)
+  }
+  else {
+      testCaseTermID  <- NULL
+  }
+  #####################################################################
+  ##
+  ## !!!!!!!!!!! DO NOT CHANGE THE NAMES OF THESE COLUMNS !!!!!!!!!!!!
+  ##
+  ##
   strengthArrayHeader <- c("treeID", "nodeID", "xReleaseID", "compCT")
+  ##
+  ##
+  #####################################################################
   ## We consider "R", "I", and "C" outcomes.  The outcomes are grouped
   ## by type and sequential.  That is, the first "C" encountered in the
   ## response type vector is in position [[1]] in the classification output
@@ -224,7 +290,7 @@ varpro.strength <- function(object,
   regr.count <- length(regr.index)
   if(family == "surv") {
       strengthArray <- as.data.frame(cbind(strengthArray,
-                                           nativeOutput$oobCT[1:strengthArraySize]))
+                                           nativeOutput$brmCT[1:strengthArraySize]))
       strengthArrayHeader <- c(strengthArrayHeader, "oobCT")
       if(stat == "importance") {
           strengthArray = as.data.frame(cbind(strengthArray,
@@ -236,15 +302,15 @@ varpro.strength <- function(object,
                                               nativeOutput$statComplement[1:strengthArraySize]))
           strengthArrayHeader <- c(strengthArrayHeader, "mortalityComplement")
       }
-      else if(stat == "oob") {
+      else if(stat == "branch") {
           strengthArray = as.data.frame(cbind(strengthArray,
-                                              nativeOutput$statOOB[1:strengthArraySize]))
+                                              nativeOutput$statBranch[1:strengthArraySize]))
           strengthArrayHeader <- c(strengthArrayHeader, "mortalityOOB")
       }
   }
   else if(family == "regr") {
       strengthArray <- as.data.frame(cbind(strengthArray,
-                                           nativeOutput$oobCT[1:strengthArraySize]))
+                                           nativeOutput$brmCT[1:strengthArraySize]))
       strengthArrayHeader <- c(strengthArrayHeader, "oobCT")
       if(stat == "importance") {
           strengthArray = as.data.frame(cbind(strengthArray,
@@ -256,15 +322,15 @@ varpro.strength <- function(object,
                                               nativeOutput$statComplement[1:strengthArraySize]))
           strengthArrayHeader <- c(strengthArrayHeader, "meanComplement")
       }
-      else if(stat == "oob") {
+      else if(stat == "branch") {
           strengthArray = as.data.frame(cbind(strengthArray,
-                                              nativeOutput$statOOB[1:strengthArraySize]))
+                                              nativeOutput$statBranch[1:strengthArraySize]))
           strengthArrayHeader <- c(strengthArrayHeader, "meanOOB")
       }
   }
   else if (family == "regr+") {
       strengthArray <- as.data.frame(cbind(strengthArray,
-                                           nativeOutput$oobCT[1:strengthArraySize]))
+                                           nativeOutput$brmCT[1:strengthArraySize]))
       strengthArrayHeader <- c(strengthArrayHeader, "oobCT")
       if(stat == "importance") {
           ## From the native code:
@@ -296,12 +362,12 @@ varpro.strength <- function(object,
       }
       else if(stat == "oob") {
           ## From the native code:
-          ##   "statOOB"
+          ##   "statBranch"
           ## -> of dim [regr.count] x [strengthArraySize]
           ## To the R code:
           ## -> of dim  [strengthArraySize] x [regr.count]
           strengthArray = as.data.frame(cbind(strengthArray,
-                                              array(nativeOutput$statOOB, c(strengthArraySize, regr.count))))
+                                              array(nativeOutput$statBranch, c(strengthArraySize, regr.count))))
           impArrayHeader <- NULL
           ## We don't support targets yet.
           impArrayHeader <- yvar.names[regr.index]
@@ -321,12 +387,12 @@ varpro.strength <- function(object,
       ## [1] x [1 + levels.count[]] x [strengthArraySize]
       offset <- 0
       strengthArray <- as.data.frame(cbind(strengthArray,
-                                           nativeOutput$oobCT[(offset + 1):(offset + strengthArraySize)]))
+                                           nativeOutput$brmCT[(offset + 1):(offset + strengthArraySize)]))
       strengthArrayHeader <- c(strengthArrayHeader, "oobCT")
       for(i in 1:yfactor$nlevels) {
           offset <- offset + strengthArraySize
           strengthArray <- as.data.frame(cbind(strengthArray,
-                                               nativeOutput$oobCT[(offset + 1):(offset + strengthArraySize)]))
+                                               nativeOutput$brmCT[(offset + 1):(offset + strengthArraySize)]))
           strengthArrayHeader <- c(strengthArrayHeader, paste("oobCT.", i, sep=""))
       }
       offset <- 0
@@ -354,12 +420,12 @@ varpro.strength <- function(object,
       }
       else if(stat == "oob") {
           strengthArray = as.data.frame(cbind(strengthArray,
-                                              nativeOutput$statOOB[(offset + 1):(offset + strengthArraySize)]))
+                                              nativeOutput$statBranch[(offset + 1):(offset + strengthArraySize)]))
           strengthArrayHeader <- c(strengthArrayHeader, "importance")
           for(i in 1:yfactor$nlevels) {
               offset <- offset + strengthArraySize
               strengthArray = as.data.frame(cbind(strengthArray,
-                                                  nativeOutput$statOOB[(offset + 1):(offset + strengthArraySize)]))
+                                                  nativeOutput$statBranch[(offset + 1):(offset + strengthArraySize)]))
               strengthArrayHeader <- c(strengthArrayHeader, paste("oobFreq.", i, sep=""))
           }
       }
@@ -367,14 +433,14 @@ varpro.strength <- function(object,
   else {
       ## Unsupervised!
       strengthArray <- as.data.frame(cbind(strengthArray,
-                                           nativeOutput$oobCT[1:strengthArraySize]))
+                                           nativeOutput$brmCT[1:strengthArraySize]))
       strengthArrayHeader <- c(strengthArrayHeader, "oobCT")
   }
   names(strengthArray) <- strengthArrayHeader
   ## -----------------------------------------------------------------
   ##
   ##
-  ## return OOB and complementary OOB membership indices for each rule
+  ## return branch and complementary membership indices for each rule
   ##
   ##
   ## -----------------------------------------------------------------
@@ -399,57 +465,57 @@ varpro.strength <- function(object,
       }
     }
     ## create and zero the maximum vector
-    countOOB = rep(0, membershipListSize)
+    countBRM = rep(0, membershipListSize)
     ## k will count the number of branches which is less than or equal to the
     ## number of records (membershipListSize) because of the different
     ## xRelease variables for each branch
     k = 0
-    ## Initialize countOOB.
+    ## Initialize countBRM.
       for(i in 1:membershipListSize) {
           if(i == 1) {
               k = k + 1
-              countOOB[k] = strengthArray$oobCT[i]
+              countBRM[k] = strengthArray$oobCT[i]
           } else {
               if((strengthArray$nodeID[i] != strengthArray$nodeID[i-1]) || (strengthArray$treeID[i] != strengthArray$treeID[i-1])) {
                   k = k + 1
-                  countOOB[k] = strengthArray$oobCT[i]
+                  countBRM[k] = strengthArray$oobCT[i]
               }
           }
       }
-    ## initialize the oob count vectors
-    countToOOB = cumsum(countOOB)
-    countFromOOB = countToOOB + 1
-    countFromOOB = c(1, countFromOOB)
-    countFromOOB = countFromOOB[-length(countFromOOB)]
-    ## create OOB membership list that will contain the OOB
+    ## initialize the branch count vectors
+    countToBRM = cumsum(countBRM)
+    countFromBRM = countToBRM + 1
+    countFromBRM = c(1, countFromBRM)
+    countFromBRM = countFromBRM[-length(countFromBRM)]
+    ## create BRM membership list that will contain the BRM
     ## members for each tree, branch, and xReleaseID
-    oobMembershipList <- vector("list", length = membershipListSize)
+    branchMembershipList <- vector("list", length = membershipListSize)
     ## j will count the number of branches
     j = 0
     for(i in 1:membershipListSize) {
       if(i == 1) {
         j = j + 1
-        if(countToOOB[j] >= countFromOOB[j]) {
-          oobMembershipList[[i]] = nativeOutput$oobMembers[countFromOOB[j]:countToOOB[j]]
+        if(countToBRM[j] >= countFromBRM[j]) {
+          branchMembershipList[[i]] = nativeOutput$branchMembers[countFromBRM[j]:countToBRM[j]]
         } else {
-          oobMembershipList[[i]] = list(NULL)
+          branchMembershipList[[i]] = list(NULL)
         }
       } else {
         if((strengthArray$nodeID[i] == strengthArray$nodeID[i-1]) && (strengthArray$treeID[i] == strengthArray$treeID[i-1])) {
-          oobMembershipList[[i]] = oobMembershipList[[i - 1]]
+          branchMembershipList[[i]] = branchMembershipList[[i - 1]]
         } else {
           j = j + 1
-          if(countToOOB[j] >= countFromOOB[j]) {
-            oobMembershipList[[i]] = nativeOutput$oobMembers[countFromOOB[j]:countToOOB[j]]
+          if(countToBRM[j] >= countFromBRM[j]) {
+            branchMembershipList[[i]] = nativeOutput$branchMembers[countFromBRM[j]:countToBRM[j]]
           } else {
-            oobMembershipList[[i]] = list(NULL)
+            branchMembershipList[[i]] = list(NULL)
           }
         }
       }
     }
     ## clean up the lists
-    oobMembershipList <- lapply(1:length(oobMembershipList), function(j) {
-      unlist(oobMembershipList[[j]])
+    branchMembershipList <- lapply(1:length(branchMembershipList), function(j) {
+      unlist(branchMembershipList[[j]])
     })
     compMembershipList <- lapply(1:length(compMembershipList), function(j) {
       unlist(compMembershipList[[j]])
@@ -457,16 +523,17 @@ varpro.strength <- function(object,
   }
   ## return NULL otherwise
   else {
-    oobMembershipList <- compMembershipList <- NULL
+    branchMembershipList <- compMembershipList <- NULL
   }
   ## make the output object
-  varproOutput <- list(
+  list(
     call = match.call(),
     strengthArray = strengthArray,
-    oobMembership = oobMembershipList,
+    strengthTreeID = strengthTreeID,
+    testCaseTermID = testCaseTermID,
+    oobMembership = branchMembershipList,
     compMembership = compMembershipList,
     ctime.internal = nativeOutput$cTimeInternal,
     ctime.external = ctime.external.stop - ctime.external.start
   )
-  return(varproOutput)
 }

@@ -133,6 +133,12 @@ void *stackAndProtect(AuxiliaryDimensionConstants *dimConst,
     auxiliaryDim[i] = va_arg(list, int);
   }
   va_end(list);
+  if (!(size > 0)) {
+    RF_nativeError("\nRF-SRC:  *** ERROR *** ");
+    RF_nativeError("\nRF-SRC:  SEXP vector element is of size zero (0) and of aux dimensionality:  %20d", auxiliaryDimSize);
+    RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
+    RF_nativeExit();
+  }
   switch(sexpType) {
   case NATIVE_TYPE_NUMERIC:
     thisVector = PROTECT(allocVector(REALSXP, size));

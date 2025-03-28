@@ -148,7 +148,7 @@ varpro(f, data, nvar = 30, ntree = 500,
 }
 
 \references{
-  Lu, M. and Ishwaran, H., (2024). Model-independent variable selection
+  Lu, M. and Ishwaran, H. (2024). Model-independent variable selection
   via the rule-based variable priority. arXiv e-prints, pp.arXiv-2409.
 
   O'Brien R. and Ishwaran H. (2019).  A random forests quantile

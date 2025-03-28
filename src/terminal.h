@@ -12,5 +12,7 @@ struct terminal {
   double         *oobMaxClass;
   double       *complementMortality;
   double        oobMortality;
+  uint repMembrCount, oobMembrCount, ibgMembrCount, allMembrCount, testMembrCount;
+  uint *repMembrIndx, *oobMembrIndx, *ibgMembrIndx, *allMembrIndx, *testMembrIndx;
 };
 #endif

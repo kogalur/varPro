@@ -1748,6 +1748,9 @@ char stackClassificationArrays(char     mode,
                                uint     observationSize,
                                double **responseIn,
                                uint    *rFactorIndex,
+                               uint     frSize,
+                               double **fresponseIn,
+                               uint     fobservationSize,
                                uint  ***rLevels,
                                uint   **classLevelSize,
                                uint  ***classLevel,
@@ -1844,15 +1847,17 @@ char stackClassificationArrays(char     mode,
     }
   }
   if (mode == RF_PRED) {
-    for (k = 1; k <= rFactorCount; k++) {
-      for (i = 1; i <= RF_fobservationSize; i++) {
-        if (!RF_nativeIsNaN(RF_fresponseIn[rFactorIndex[k]][i])) {
-          if ((uint) RF_fresponseIn[rFactorIndex[k]][i] > (*classLevelSize)[k]) {
-            RF_nativeError("\nRF-SRC: *** ERROR *** ");
-            RF_nativeError("\nRF-SRC: Inconsistent test response in factor:  compressed-index = %10d, y-index = %10d", k, rFactorIndex[k]);
-            RF_nativeError("\nRF-SRC: Level countered versus class size:  test level = %10d, class size = %10d", (uint) RF_fresponseIn[rFactorIndex[k]][i], (*classLevelSize)[k]);
-            RF_nativeError("\nRF-SRC: Please Contact Technical Support.");
-            RF_nativeExit();
+    if (frSize > 0) {
+      for (k = 1; k <= rFactorCount; k++) {
+        for (i = 1; i <= fobservationSize; i++) {
+          if (!RF_nativeIsNaN(fresponseIn[rFactorIndex[k]][i])) {
+            if ((uint) fresponseIn[rFactorIndex[k]][i] > (*classLevelSize)[k]) {
+              RF_nativeError("\nRF-SRC: *** ERROR *** ");
+              RF_nativeError("\nRF-SRC: Inconsistent test response in factor:  compressed-index = %10d, y-index = %10d", k, rFactorIndex[k]);
+              RF_nativeError("\nRF-SRC: Level countered versus class size:  test level = %10d, class size = %10d", (uint) fresponseIn[rFactorIndex[k]][i], (*classLevelSize)[k]);
+              RF_nativeError("\nRF-SRC: Please Contact Technical Support.");
+              RF_nativeExit();
+            }
           }
         }
       }

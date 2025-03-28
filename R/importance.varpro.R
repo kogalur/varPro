@@ -31,16 +31,6 @@ importance.varpro <- function(o, local.std = TRUE, y.external = NULL,
   }
   ## ------------------------------------------------------------------------
   ##
-  ## case-specific importance hidden option
-  ##
-  ## ------------------------------------------------------------------------
-  csimp.flag <- FALSE
-  csimp <- NULL
-  if (local.std && !is.null(list(...)$csimp) && list(...)$csimp==TRUE) {
-    csimp.flag <- TRUE
-  }
-  ## ------------------------------------------------------------------------
-  ##
   ## call varpro.strength?
   ## applies under various settings
   ##
@@ -60,62 +50,44 @@ importance.varpro <- function(o, local.std = TRUE, y.external = NULL,
                       membership = TRUE)
     ## updated results
     results <- get.varpro.strengthArray(oo$strengthArray, o$family, o$y)
-    ## obtain updated varpro statistic
+    ## replaces original varpro statistic with locally standardize values 
     if (local.std) {
       ## over-write original importance values
       imp.names.pt <- grepl("imp", colnames(results))
       results[, imp.names.pt] <- NA
-      ## calculate locally standardized
-      ## replaces original varpro statistic with locally standardize one
-      if (local.std) {
-        ## identify useful rules and variables at play
-        keep.rules <- which(oo$strengthArray$oobCT > 0 & oo$strengthArray$compCT > 0)
-        ## membership lists 
-        oobMembership <- oo$oobMembership
-        compMembership <- oo$compMembership
-        ## add attributes to y - used for importance calculations
-        y <- o$y
-        if (!is.null(y.external)) {
-          y <- y.external
-          attr(y, "y.org") <- y.external
-        }
-        else {
-          attr(y, "y.org") <- o$y.org
-        }
-        attr(y, "family") <- o$family
-        ## locally standardized importance values
-        if (length(keep.rules) > 0) {
-          imp <- papply(keep.rules, function(i) {
-            local.importance(y, oobMembership[[i]], compMembership[[i]])
-          })
-          if (sum(imp.names.pt) == 1) {
-            results[keep.rules, imp.names.pt] <- unlist(imp)
-          }
-          else {
-            results[keep.rules, imp.names.pt] <- do.call(rbind, imp)
-          }
-          if (csimp.flag) {
-            csimp <- papply(keep.rules, function(i) {
-              oobMembership[[i]]
-            })
-          }
-          results <- results[keep.rules,,drop=FALSE]##added 01/04/2025
-        }
-      }
+       ## identify useful rules and variables at play
+       keep.rules <- which(oo$strengthArray$oobCT > 0 & oo$strengthArray$compCT > 0)
+       ## membership lists 
+       oobMembership <- oo$oobMembership
+       compMembership <- oo$compMembership
+       ## add attributes to y - used for importance calculations
+       y <- o$y
+       if (!is.null(y.external)) {
+         y <- y.external
+         attr(y, "y.org") <- y.external
+       }
+       else {
+         attr(y, "y.org") <- o$y.org
+       }
+       attr(y, "family") <- o$family
+       ## loop for calculations
+       if (length(keep.rules) > 0) {
+         imp <- papply(keep.rules, function(i) {
+           local.importance(y, oobMembership[[i]], compMembership[[i]])
+         })
+         if (sum(imp.names.pt) == 1) {
+           results[keep.rules, imp.names.pt] <- unlist(imp)
+         }
+         else {
+           results[keep.rules, imp.names.pt] <- do.call(rbind, imp)
+         }
+         results <- results[keep.rules,,drop=FALSE]##added 01/04/2025
+       }
     }
     ## over-ride original object with updated information
     o$results <- results
     o$max.rules.tree <- max.rules.tree
     o$max.tree <- max.tree
-    o$csimp <- csimp
-  }
-  ## ------------------------------------------------------------------------
-  ##
-  ## csimp - returns a matrix or list of matrices of csvimp
-  ##
-  ## ------------------------------------------------------------------------
-  if (csimp.flag) {
-    return(csimp.varpro(o))
   }
   ## ------------------------------------------------------------------------
   ##
@@ -400,52 +372,4 @@ importance.varpro.workhorse <- function(o, cutoff, trim, plot.it, conf, sort,
   else {
     list(unconditional = rO, conditional.z = rOC.z)
   }
-}
-##################################################################
-### 
-### 
-### 
-###  case-specific importance utility and workhorse
-###  -- currently this is stealth and can only be accessed using the
-###     hidden option "csimp=TRUE"
-###
-###    
-###
-####################################################################
-csimp.varpro <- function(oo, cutoff=.79, trim=.1, sort=TRUE) {
-  if (is.null(oo$csimp)) {
-    stop("case-specific importance list of id's is missing")
-  }
-  if (oo$family == "regr+") {
-    lapply(1:ncol(oo$y), function(j) {
-      oo$results <- oo$results[, c((1:4), 4+j)]
-      csimp.varpro.workhorse(oo, cutoff=cutoff, trim=trim, sort=sort)
-    })
-  }
-  else {
-    csimp.varpro.workhorse(oo, cutoff=cutoff, trim=trim, sort=sort)
-  }
-}
-csimp.varpro.workhorse <- function(oo, cutoff, trim, sort) {
-  csimp <- do.call(rbind, mclapply(1:nrow(oo$x), function(i) {
-    pt <- sapply(oo$csimp, function(l) {is.element(i, l)})
-    imp <- rep(0, length(oo$xvar.names))
-    if (sum(pt) > 0) {
-      ooi <- oo
-      ooi$results <- oo$results[which(pt),,drop=FALSE]
-      v <- importance.varpro.workhorse(ooi,
-                                       cutoff = cutoff,
-                                       trim = trim,
-                                       sort = sort,
-                                       plot.it = FALSE,
-                                       papply = lapply,
-                                       local.std = TRUE)
-      if (oo$family=="class") {
-        v <- v$unconditional
-      }
-      names(imp) <- oo$xvar.names
-      imp[rownames(v)] <- v$z 
-    }
-    imp
-  }))
 }

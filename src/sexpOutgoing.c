@@ -11,17 +11,19 @@
     
 
 #include "sexpOutgoing.h"
-char  *VP_sexpStringOutgoing[12] = {
+char  *VP_sexpStringOutgoing[14] = {
   "cTimeInternal",     
   "treeID",            
   "nodeID",            
   "xReleaseID",        
-  "oobCT",             
+  "brmCT",             
   "statImportance",    
   "statComplement",    
-  "statOOB",           
-  "oobMembers",        
+  "statBranch",        
+  "branchMembers",     
   "complementMembers", 
-  "complementCT"       
+  "cmpCT",             
+  "testCaseTermID",    
+  "strengthTreeID",    
   "exit"               
 };

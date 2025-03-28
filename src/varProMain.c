@@ -21,6 +21,7 @@
 #include "shared/nativeUtil.h"
 #include "shared/sexpIO.h"
 #include "shared/stack.h"
+#include "varProAux.h"
 #include "stackOutput.h"
 #include "treeOps.h"
 #include "nodeOps.h"
@@ -75,6 +76,7 @@ char varProMain(char mode, int seedValue) {
                                   RF_ntree,
                                   VP_maxTree,
                                   RF_tLeafCount_,
+                                  (VP_opt & VP_OPT_EXP2) ? NULL : RF_OOB_SZ_,
                                   & VP_strengthTreeCount);
   }
   if (result) {
@@ -149,7 +151,7 @@ char varProMain(char mode, int seedValue) {
                                  &RF_ptnCount,
                                  &RF_ySizeProxy,
                                  &RF_yIndexZeroSize);
-    if (result) { 
+    if (result) {
       result = stackPreDefinedCommonArrays(mode,
                                            RF_ntree,
                                            RF_subjWeight,
@@ -193,11 +195,6 @@ char varProMain(char mode, int seedValue) {
                                            &RF_subjWeightDensitySize,
                                            &RF_identityMembershipIndexSize,
                                            &RF_identityMembershipIndex);
-      if (result) {
-        result = stackPreDefinedRestoreArrays(RF_xSize,
-                                              RF_intrPredictor,
-                                              RF_intrPredictorSize,
-                                              &RF_importanceFlag);
         if (result) {
           result = stackAndInitializeTimeAndSubjectArrays(mode,
                                                           RF_startTimeIndex,
@@ -290,6 +287,22 @@ char varProMain(char mode, int seedValue) {
                                             & RF_mPredictorFlag,
                                             & RF_mRecordSize,
                                             & RF_mRecordMap);
+            if (mode == RF_PRED) {
+              stackPreDefinedPredictArrays(RF_ntree,
+                                           RF_fobservationSize,
+                                           &RF_fidentityMembershipIndexSize,
+                                           &RF_fidentityMembershipIndex,
+                                           &RF_fnodeMembership,
+                                           &RF_ftTermMembership);
+              stackTestDataArraysWithPass(mode,
+                                          RF_frSize,
+                                          RF_ntree,
+                                          RF_fresponseIn,
+                                          RF_fobservationSize,
+                                          RF_fobservationIn,
+                                          &RF_fresponse,
+                                          &RF_fobservation);
+            }
             if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
               stackCompetingArrays(mode,
                                    RF_statusIndex,
@@ -323,6 +336,9 @@ char varProMain(char mode, int seedValue) {
                                         RF_observationSize,
                                         RF_responseIn,
                                         RF_rFactorIndex,
+                                        RF_frSize,
+                                        RF_fresponseIn,
+                                        RF_fobservationSize,
                                         &RF_rLevels,
                                         &RF_classLevelSize,
                                         &RF_classLevel,
@@ -356,96 +372,146 @@ char varProMain(char mode, int seedValue) {
             if ((RF_optHigh & OPT_MEMB_INCG) || (RF_optHigh & OPT_TERM_INCG)) {
               RF_incomingStackCount = 0;
               stackAuxiliaryInfoList(&RF_incomingAuxiliaryInfoList, 8);
-              stackTNQualitativeIncoming(mode,
-                                         RF_auxDimConsts,
-                                         RF_incomingAuxiliaryInfoList,
-                                         RF_ntree,
-                                         RF_bootstrapSize,
-                                         RF_observationSize,
-                                         RF_sexpStringIO,
-                                         RF_RMBR_ID_,
-                                         RF_AMBR_ID_,
-                                         RF_TN_RCNT_,
-                                         RF_TN_ACNT_,
-                                         &RF_incomingStackCount,
-                                         &RF_RMBR_ID_ptr,
-                                         &RF_AMBR_ID_ptr,
-                                         &RF_TN_RCNT_ptr,
-                                         &RF_TN_ACNT_ptr);
-              stackTNQuantitativeIncoming(mode,
-                                          RF_auxDimConsts,
-                                          RF_incomingAuxiliaryInfoList,
-                                          RF_ntree,
-                                          RF_sexpStringIO,
-                                          RF_timeIndex,
-                                          RF_startTimeIndex,
-                                          RF_statusIndex,
-                                          RF_rFactorCount,
-                                          RF_rNonFactorCount,
-                                          RF_eventTypeSize,
-                                          RF_sortedTimeInterestSize,
-                                          RF_tLeafCount_,
-                                          RF_TN_MORT_,
-                                          RF_TN_SURV_,
-                                          RF_TN_NLSN_,
-                                          RF_TN_CSHZ_,
-                                          RF_TN_CIFN_,
-                                          RF_TN_KHZF_,
-                                          RF_TN_REGR_,
-                                          RF_TN_CLAS_,
-                                          &RF_incomingStackCount,
-                                          &RF_TN_MORT_ptr,
-                                          &RF_TN_SURV_ptr,
-                                          &RF_TN_NLSN_ptr,
-                                          &RF_TN_CSHZ_ptr,
-                                          &RF_TN_CIFN_ptr,
-                                          &RF_TN_KHZF_ptr,
-                                          &RF_TN_REGR_ptr,
-                                          &RF_TN_CLAS_ptr);
+              if (RF_optHigh & OPT_MEMB_INCG) {
+                stackTNQualitativeIncoming(mode,
+                                           RF_auxDimConsts,
+                                           RF_incomingAuxiliaryInfoList,
+                                           RF_ntree,
+                                           RF_bootstrapSize,
+                                           RF_observationSize,
+                                           RF_sexpStringIO,
+                                           RF_RMBR_ID_,
+                                           RF_AMBR_ID_,
+                                           RF_TN_RCNT_,
+                                           RF_TN_ACNT_,
+                                           &RF_incomingStackCount,
+                                           &RF_RMBR_ID_ptr,
+                                           &RF_AMBR_ID_ptr,
+                                           &RF_TN_RCNT_ptr,
+                                           &RF_TN_ACNT_ptr);
+              }
+              else {
+                RF_nativeError("\nRF-SRC:  *** ERROR *** ");
+                RF_nativeError("\nRF-SRC:  VarPro now needs OPT_MEMB_INCG asserted, as a minimum.");
+                RF_nativeError("\nRF-SRC:  These are contained in obj$terminal.qualts.");
+                RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
+                RF_nativeExit();
+              }
+              if (RF_optHigh & OPT_TERM_INCG) {              
+                stackTNQuantitativeIncoming(mode,
+                                            RF_auxDimConsts,
+                                            RF_incomingAuxiliaryInfoList,
+                                            RF_ntree,
+                                            RF_sexpStringIO,
+                                            RF_timeIndex,
+                                            RF_startTimeIndex,
+                                            RF_statusIndex,
+                                            RF_rFactorCount,
+                                            RF_rNonFactorCount,
+                                            RF_eventTypeSize,
+                                            RF_sortedTimeInterestSize,
+                                            RF_tLeafCount_,
+                                            RF_TN_MORT_,
+                                            RF_TN_SURV_,
+                                            RF_TN_NLSN_,
+                                            RF_TN_CSHZ_,
+                                            RF_TN_CIFN_,
+                                            RF_TN_KHZF_,
+                                            RF_TN_REGR_,
+                                            RF_TN_CLAS_,
+                                            &RF_incomingStackCount,
+                                            &RF_TN_MORT_ptr,
+                                            &RF_TN_SURV_ptr,
+                                            &RF_TN_NLSN_ptr,
+                                            &RF_TN_CSHZ_ptr,
+                                            &RF_TN_CIFN_ptr,
+                                            &RF_TN_KHZF_ptr,
+                                            &RF_TN_REGR_ptr,
+                                            &RF_TN_CLAS_ptr);
+              }
             }
             else {
-              RF_incomingStackCount = 0;
-              RF_incomingAuxiliaryInfoList = NULL;
+              RF_nativeError("\nRF-SRC:  *** ERROR *** ");
+              RF_nativeError("\nRF-SRC:  VarPro now needs OPT_MEMB_INCG asserted, as a minimum.");
+              RF_nativeError("\nRF-SRC:  These are contained in obj$terminal.qualts.");
+              RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
+              RF_nativeExit();
             }
             stackStrengthObjectsPtrOnly(mode,
-                                        & VP_strengthTreeCount,                              
+                                        VP_strengthTreeCount,                              
                                         & VP_strengthTreeID,
                                         & VP_branchCount,
                                         & VP_branchID,
-                                        & VP_oobCount,
+                                        & VP_branchMemberCount,
                                         & VP_xReleaseCount,
                                         & VP_xReleaseIDArray,
                                         & VP_complementCount,
-                                        & VP_oobMembers,
+                                        & VP_branchMembers,
                                         & VP_complementMembers,
                                         & VP_proxyIndv,
                                         & VP_proxyIndvDepth);
             selectTrees(RF_ntree,
                         VP_strengthTreeCount,
                         RF_tLeafCount_,
+                        RF_OOB_SZ_,
                         VP_strengthTreeID);
             makeNode = & makeNodeDerived;
             freeNode = & freeNodeDerived;
             makeTerminal = & makeTerminalDerived;
             freeTerminal = & freeTerminalDerived;
+            stackTNQualitativeIncomingVP(mode,
+                                         RF_tLeafCount_,
+                                         RF_RMBR_ID_,
+                                         RF_OMBR_ID_,
+                                         RF_IMBR_ID_,
+                                         RF_TN_RCNT_,
+                                         RF_TN_OCNT_,
+                                         RF_TN_ICNT_,
+                                         & VP_RMBR_ID_ptr,
+                                         & VP_OMBR_ID_ptr,
+                                         & VP_IMBR_ID_ptr,
+                                         & VP_TN_RCNT_ptr,
+                                         & VP_TN_OCNT_ptr,
+                                         & VP_TN_ICNT_ptr);
 #ifdef _OPENMP
 #pragma omp parallel for num_threads(RF_numThreads)
 #endif
             for (b = 1; b <= VP_strengthTreeCount; b++) {
               acquireTree(mode, b);
             }
+            unstackTNQualitativeIncomingVP(mode,
+                                           RF_tLeafCount_,
+                                           VP_RMBR_ID_ptr,
+                                           VP_OMBR_ID_ptr,
+                                           VP_IMBR_ID_ptr,
+                                           VP_TN_RCNT_ptr,
+                                           VP_TN_OCNT_ptr,
+                                           VP_TN_ICNT_ptr);
             if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
               RF_stackCount = 9;
+              if (!(VP_opt & (VP_OPT_CMP | VP_OPT_OOB))) {
+                RF_stackCount --;
+              }
             }
             else if (RF_rNonFactorCount > 0) {
               RF_stackCount = 9;
+              if (!(VP_opt & (VP_OPT_CMP | VP_OPT_OOB))) {
+                RF_stackCount --;
+              }
             }
             else if (RF_rFactorCount > 0) {
               RF_stackCount = 9;    
+              if (!(VP_opt & (VP_OPT_CMP | VP_OPT_OOB))) {
+                RF_stackCount --;
+              }
             }
             else {
               RF_stackCount = 8;
             }
+            if (mode == RF_PRED) {
+              RF_stackCount ++;
+            }
+            RF_stackCount++;
             initProtect(RF_stackCount);
             stackAuxiliaryInfoList(&RF_snpAuxiliaryInfoList, RF_stackCount);
             VP_cpuTime_ = (double*) stackAndProtect(RF_auxDimConsts,
@@ -504,23 +570,60 @@ char varProMain(char mode, int seedValue) {
                                                      1,
                                                      VP_totalRecordCount);
             VP_xReleaseID_ --;
+            VP_strengthTreeID_ = (uint*) stackAndProtect(RF_auxDimConsts,
+                                                         mode,
+                                                         &RF_nativeIndex,
+                                                         NATIVE_TYPE_INTEGER,
+                                                         VP_STRN_TID,
+                                                         VP_strengthTreeCount,
+                                                         0,
+                                                         VP_sexpStringOutgoing,
+                                                         NULL,
+                                                         1,
+                                                         VP_strengthTreeCount);
+            VP_strengthTreeID_ --;
+            for(b = 1; b <= VP_strengthTreeCount; b++) {
+              VP_strengthTreeID_[b] = VP_strengthTreeID[b];
+            }
             uint localSize;
             uint membershipSize;
+            if (mode == RF_PRED) {
+              localSize = VP_strengthTreeCount * RF_fobservationSize;
+              VP_testCaseNodeID_ = (uint*) stackAndProtect(RF_auxDimConsts,
+                                                           mode,
+                                                           &RF_nativeIndex,
+                                                           NATIVE_TYPE_INTEGER,
+                                                           VP_TWIN_TID,
+                                                           localSize,
+                                                           0,
+                                                           VP_sexpStringOutgoing,
+                                                           &VP_testCaseNodeIDptr,
+                                                           2,
+                                                           VP_strengthTreeCount,
+                                                           RF_fobservationSize);
+              VP_testCaseNodeID_ --;
+              for (uint b = 1; b <= VP_strengthTreeCount; b++) {
+                for(uint i = 1; i <= RF_fobservationSize; i++) {
+                  VP_testCaseNodeIDptr[b][i] = RF_ftTermMembership[VP_strengthTreeID[b]][i] -> nodeID;
+                }
+              }
+            }
             if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
               localSize = VP_totalRecordCount * 1;
-              VP_oobCT_ = (uint*) stackAndProtect(RF_auxDimConsts,
+              VP_dimImpSRVptr = NULL;
+              VP_brmCT_ = (uint*) stackAndProtect(RF_auxDimConsts,
                                                   mode,
                                                   &RF_nativeIndex,
                                                   NATIVE_TYPE_INTEGER,
-                                                  VP_OOBG_CT,
+                                                  VP_BRAN_CT,
                                                   VP_totalRecordCount,
                                                   0,
                                                   VP_sexpStringOutgoing,
                                                   NULL,
                                                   1,
                                                   VP_totalRecordCount);
-              VP_oobCT_ --;
-              if (!(VP_opt & (VP_OPT_CMP | VP_OPT_OOB))) {
+              VP_brmCT_ --;
+              if ((VP_opt & VP_OPT_CMP) && (VP_opt & VP_OPT_OOB)) {
                 VP_importance_ = (double*) stackAndProtect(RF_auxDimConsts,
                                                            mode,
                                                            &RF_nativeIndex,
@@ -540,7 +643,7 @@ char varProMain(char mode, int seedValue) {
                                                                mode,
                                                                &RF_nativeIndex,
                                                                NATIVE_TYPE_NUMERIC,
-                                                               VP_STAT_COMPL,
+                                                               VP_STAT_CMP,
                                                                localSize,
                                                                0,
                                                                VP_sexpStringOutgoing,
@@ -569,31 +672,32 @@ char varProMain(char mode, int seedValue) {
                                  VP_strengthTreeCount,
                                  VP_branchID,
                                  VP_branchCount,
-                                 VP_oobCount,
+                                 VP_branchMemberCount,
                                  VP_complementCount,
                                  VP_xReleaseCount,
                                  VP_xReleaseIDArray,
                                  VP_treeID_,
                                  VP_nodeID_,
                                  VP_xReleaseID_,
-                                 VP_oobCT_,
+                                 VP_brmCT_,
                                  VP_dimImpSRVptr);
             }
             else if (RF_rNonFactorCount > 0) {
               localSize = VP_totalRecordCount * RF_rTargetNonFactorCount;
-              VP_oobCT_ = (uint*) stackAndProtect(RF_auxDimConsts,
+              VP_dimImpRGRptr = NULL;
+              VP_brmCT_ = (uint*) stackAndProtect(RF_auxDimConsts,
                                                   mode,
                                                   &RF_nativeIndex,
                                                   NATIVE_TYPE_INTEGER,
-                                                  VP_OOBG_CT,
+                                                  VP_BRAN_CT,
                                                   VP_totalRecordCount,
                                                   0,
                                                   VP_sexpStringOutgoing,
                                                   NULL,
                                                   1,
                                                   VP_totalRecordCount);
-              VP_oobCT_ --;
-              if (!(VP_opt & (VP_OPT_CMP | VP_OPT_OOB))) {
+              VP_brmCT_ --;
+              if ((VP_opt & VP_OPT_CMP) && (VP_opt & VP_OPT_OOB)) {
                 VP_importance_ = (double*) stackAndProtect(RF_auxDimConsts,
                                                            mode,
                                                            &RF_nativeIndex,
@@ -613,7 +717,7 @@ char varProMain(char mode, int seedValue) {
                                                                mode,
                                                                &RF_nativeIndex,
                                                                NATIVE_TYPE_NUMERIC,
-                                                               VP_STAT_COMPL,
+                                                               VP_STAT_CMP,
                                                                localSize,
                                                                0,
                                                                VP_sexpStringOutgoing,
@@ -642,14 +746,14 @@ char varProMain(char mode, int seedValue) {
                                  VP_strengthTreeCount,
                                  VP_branchID,
                                  VP_branchCount,
-                                 VP_oobCount,
+                                 VP_branchMemberCount,
                                  VP_complementCount,
                                  VP_xReleaseCount,
                                  VP_xReleaseIDArray,
                                  VP_treeID_,
                                  VP_nodeID_,
                                  VP_xReleaseID_,
-                                 VP_oobCT_,
+                                 VP_brmCT_,
                                  VP_dimImpRGRptr);
             }
             else if (RF_rFactorCount > 0) {
@@ -659,21 +763,22 @@ char varProMain(char mode, int seedValue) {
                   localSize += VP_totalRecordCount;
                 }
               }
-              VP_oobCT_ = (uint*) stackAndProtect(RF_auxDimConsts,
+              VP_dimImpCLSptr = NULL;
+              VP_brmCT_ = (uint*) stackAndProtect(RF_auxDimConsts,
                                                   mode,
                                                   &RF_nativeIndex,
                                                   NATIVE_TYPE_INTEGER,
-                                                  VP_OOBG_CT,
+                                                  VP_BRAN_CT,
                                                   localSize,
                                                   0,
                                                   VP_sexpStringOutgoing,
-                                                  & VP_oobCTptr,
+                                                  & VP_brmCTptr,
                                                   3,
                                                   1,
                                                   -1,
                                                   VP_totalRecordCount);
-              VP_oobCT_ --;
-              if (!(VP_opt & (VP_OPT_CMP | VP_OPT_OOB))) {
+              VP_brmCT_ --;
+              if ((VP_opt & VP_OPT_CMP) && (VP_opt & VP_OPT_OOB)) {
                 VP_importance_ = (double*) stackAndProtect(RF_auxDimConsts,
                                                            mode,
                                                            &RF_nativeIndex,
@@ -694,7 +799,7 @@ char varProMain(char mode, int seedValue) {
                                                                mode,
                                                                &RF_nativeIndex,
                                                                NATIVE_TYPE_NUMERIC,
-                                                               VP_STAT_COMPL,
+                                                               VP_STAT_CMP,
                                                                localSize,
                                                                0,
                                                                VP_sexpStringOutgoing,
@@ -725,41 +830,41 @@ char varProMain(char mode, int seedValue) {
                                  VP_strengthTreeCount,
                                  VP_branchID,
                                  VP_branchCount,
-                                 VP_oobCount,
+                                 VP_branchMemberCount,
                                  VP_complementCount,
                                  VP_xReleaseCount,
                                  VP_xReleaseIDArray,
                                  VP_treeID_,
                                  VP_nodeID_,
                                  VP_xReleaseID_,
-                                 VP_oobCTptr,
+                                 VP_brmCTptr,
                                  VP_dimImpCLSptr);
             }
             else {
-              VP_oobCT_ = (uint*) stackAndProtect(RF_auxDimConsts,
+              VP_brmCT_ = (uint*) stackAndProtect(RF_auxDimConsts,
                                                   mode,
                                                   &RF_nativeIndex,
                                                   NATIVE_TYPE_INTEGER,
-                                                  VP_OOBG_CT,
+                                                  VP_BRAN_CT,
                                                   VP_totalRecordCount,
                                                   0,
                                                   VP_sexpStringOutgoing,
                                                   NULL,
                                                   1,
                                                   VP_totalRecordCount);
-              VP_oobCT_ --;
+              VP_brmCT_ --;
               writeStrengthArray(VP_strengthTreeID,
                                  VP_strengthTreeCount,
                                  VP_branchID,
                                  VP_branchCount,
-                                 VP_oobCount,
+                                 VP_branchMemberCount,
                                  VP_complementCount,
                                  VP_xReleaseCount,
                                  VP_xReleaseIDArray,
                                  VP_treeID_,
                                  VP_nodeID_,
                                  VP_xReleaseID_,
-                                 VP_oobCT_,
+                                 VP_brmCT_,
                                  NULL);
             }
             VP_complementCT_ = (uint*) stackAndProtect(RF_auxDimConsts,
@@ -777,21 +882,24 @@ char varProMain(char mode, int seedValue) {
             membershipSize = 0;
             for (b = 1; b <= VP_strengthTreeCount; b++) {
               for(j = 1; j <= VP_branchCount[b]; j++) {
-                membershipSize += VP_oobCount[b][j];
+                membershipSize += VP_branchMemberCount[b][j];
               }
             }
-            VP_oobID_ = (uint*) stackAndProtect(RF_auxDimConsts,
-                                                mode,
-                                                &RF_nativeIndex,
-                                                NATIVE_TYPE_INTEGER,
-                                                VP_OOBG_MEM,
-                                                membershipSize,
-                                                0,
-                                                VP_sexpStringOutgoing,
-                                                NULL,
-                                                1,
-                                                VP_totalRecordCount);
-            VP_oobID_ --;
+            if (membershipSize == 0) {
+              membershipSize ++;
+            }
+            VP_branchPopID_ = (uint*) stackAndProtect(RF_auxDimConsts,
+                                                      mode,
+                                                      &RF_nativeIndex,
+                                                      NATIVE_TYPE_INTEGER,
+                                                      VP_BRAN_MEM,
+                                                      membershipSize,
+                                                      0,
+                                                      VP_sexpStringOutgoing,
+                                                      NULL,
+                                                      1,
+                                                      membershipSize);
+            VP_branchPopID_ --;
             membershipSize = 0;
             for (b = 1; b <= VP_strengthTreeCount; b++) {
               for(j = 1; j <= VP_branchCount[b]; j++) {
@@ -799,6 +907,9 @@ char varProMain(char mode, int seedValue) {
                   membershipSize += VP_complementCount[b][j][k];
                 }
               }
+            }
+            if (membershipSize == 0) {
+              membershipSize ++;
             }
             VP_complementID_ = (uint*) stackAndProtect(RF_auxDimConsts,
                                                        mode,
@@ -810,17 +921,17 @@ char varProMain(char mode, int seedValue) {
                                                        VP_sexpStringOutgoing,
                                                        NULL,
                                                        1,
-                                                       VP_totalRecordCount);
+                                                       membershipSize);
             VP_complementID_ --;
             writeMembershipArray(VP_strengthTreeCount,
                                  VP_branchCount,
-                                 VP_oobCount,
+                                 VP_branchMemberCount,
                                  VP_complementCount,
                                  VP_xReleaseCount,
-                                 VP_oobMembers,
+                                 VP_branchMembers,
                                  VP_complementMembers,
                                  VP_complementCT_,
-                                 VP_oobID_,
+                                 VP_branchPopID_,
                                  VP_complementID_);
             for (uint bb = 1; bb <= VP_strengthTreeCount; bb++) {
               if(RF_tTermList[VP_strengthTreeID[bb]] != NULL) {
@@ -828,15 +939,18 @@ char varProMain(char mode, int seedValue) {
               }
               freeLeafLinkedObjList(RF_leafLinkedObjHead[VP_strengthTreeID[bb]]);
               free_new_vvector(RF_tTermMembership[VP_strengthTreeID[bb]], 1, RF_observationSize, NRUTIL_TPTR);
+              if (mode == RF_PRED) {
+                free_new_vvector(RF_ftTermMembership[VP_strengthTreeID[bb]], 1, RF_fobservationSize, NRUTIL_TPTR);
+              }
             }
             freeStrengthBranchIDVectors(VP_strengthTreeCount,
                                         VP_branchCount,
                                         VP_branchID,
-                                        VP_oobCount,
+                                        VP_branchMemberCount,
                                         VP_xReleaseCount,
                                         VP_xReleaseIDArray,
                                         VP_complementCount,
-                                        VP_oobMembers,
+                                        VP_branchMembers,
                                         VP_complementMembers,
                                         VP_proxyIndv,
                                         VP_proxyIndvDepth);
@@ -845,11 +959,11 @@ char varProMain(char mode, int seedValue) {
                                           VP_strengthTreeID,
                                           VP_branchCount,
                                           VP_branchID,
-                                          VP_oobCount,
+                                          VP_branchMemberCount,
                                           VP_xReleaseCount,
                                           VP_xReleaseIDArray,
                                           VP_complementCount,
-                                          VP_oobMembers,
+                                          VP_branchMembers,
                                           VP_complementMembers,
                                           VP_proxyIndv,
                                           VP_proxyIndvDepth);
@@ -921,6 +1035,18 @@ char varProMain(char mode, int seedValue) {
                                               RF_startMasterTimeIndex,
                                               RF_status,
                                               RF_observation);
+            if (mode == RF_PRED) {
+              unstackPreDefinedPredictArrays(RF_ntree,
+                                             RF_fobservationSize,
+                                             RF_fidentityMembershipIndexSize,
+                                             RF_fidentityMembershipIndex,
+                                             RF_fnodeMembership,
+                                             RF_ftTermMembership);
+              unstackTestDataArraysWithPass(mode,
+                                            RF_ntree,
+                                            RF_fresponse,
+                                            RF_fobservation);
+            }
           }
           if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
             unstackTimeAndSubjectArrays(mode,
@@ -939,9 +1065,7 @@ char varProMain(char mode, int seedValue) {
                                         RF_subjCount);
           }
         }
-        unstackPreDefinedRestoreArrays(RF_xSize, RF_importanceFlag);
-      }
-      unstackPreDefinedCommonArrays(mode,
+        unstackPreDefinedCommonArrays(mode,
                                     RF_ntree,
                                     RF_timeIndex,
                                     RF_startTimeIndex,
