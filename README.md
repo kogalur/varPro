@@ -8,7 +8,6 @@ varPro - Model independent variable selection via rule based variable priority
 [![active](http://www.repostatus.org/badges/latest/active.svg)](http://www.repostatus.org/badges/latest/active.svg)
 
 [![R-CMD-check](https://github.com/ehrlinger/varPro/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/ehrlinger/varPro/actions/workflows/R-CMD-check.yaml)
-[![Codecov test coverage](https://codecov.io/gh/ehrlinger/ggRandomForests/graph/badge.svg)](https://app.codecov.io/gh/ehrlinger/ggRandomForests)
 
 <!-- badges: end -->
 
