@@ -7,19 +7,25 @@
 
 \usage{
 varpro.strength(object,
+                newdata,
                 m.target = NULL,
                 max.rules.tree = 150,
                 max.tree = 150,
-                stat = c("importance", "complement", "oob"),
+                stat = c("importance", "complement", "oob", "none"),
                 membership = FALSE,
                 seed = NULL,
-                do.trace = FALSE)
+                do.trace = FALSE, ...)
 }
 
 \arguments{
 
   \item{object}{rfsrc object}
 
+  \item{newdata}{Optional test data. If not provided the training data
+    is used and the original training forest is restored.  If in effect,
+    the output equals the branch and complementary branch membership of
+    the training data corresponding to the test data.}
+  
   \item{m.target}{Character value for multivariate families
     specifying the target outcome to be used.  If left unspecified, the
     algorithm will choose a default target.}
@@ -37,6 +43,9 @@ varpro.strength(object,
   \item{seed}{Seed for repeatability.}
 
   \item{do.trace}{Used to obtain detailed trace.}
+
+  \item{...}{Further arguments (don't even think about it).}
+  
 }
 
 \details{
@@ -59,6 +68,9 @@ o <- randomForestSRC::rfsrc(medv~., BostonHousing, ntree=100)
 
 ## call varpro.strength
 varpro.strength(object = o, max.rules.tree = 10, max.tree = 15)
+
+## call varpro.strength with test data
+varpro.strength(object = o, newdata = BostonHousing[1:3,], max.rules.tree = 10, max.tree = 15)
 
 }
 }

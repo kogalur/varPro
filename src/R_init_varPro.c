@@ -21,9 +21,11 @@ extern SEXP varProStrength(SEXP, SEXP, SEXP, SEXP, SEXP,
                            SEXP, SEXP, SEXP, SEXP, SEXP,
                            SEXP, SEXP, SEXP, SEXP, SEXP,
                            SEXP, SEXP, SEXP, SEXP, SEXP,
-                           SEXP, SEXP, SEXP, SEXP, SEXP);
+                           SEXP, SEXP, SEXP, SEXP, SEXP,
+                           SEXP, SEXP, SEXP, SEXP, SEXP,
+                           SEXP, SEXP, SEXP, SEXP);
 static const R_CallMethodDef CallEntries[] = {
-    {"varProStrength", (DL_FUNC) &varProStrength, 40},
+    {"varProStrength", (DL_FUNC) &varProStrength, 49},
     {NULL, NULL, 0}
 };
 void R_init_varPro(DllInfo *dll)

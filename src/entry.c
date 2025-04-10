@@ -24,14 +24,18 @@ SEXP varProStrength(SEXP traceFlag,
                     SEXP optVarPro,
                     SEXP ntree,
                     SEXP observationSize,
+                    SEXP sampleInfo,
+                    SEXP yTarget,
                     SEXP yInfo,
                     SEXP yLevels,
                     SEXP yData,
                     SEXP xInfo,
                     SEXP xLevels,
                     SEXP xData,
-                    SEXP sampleInfo,
                     SEXP timeInterest,
+                    SEXP fobservationSize,
+                    SEXP fyData,
+                    SEXP fxData,
                     SEXP totalNodeCount,
                     SEXP tLeafCount,
                     SEXP seedInfo,
@@ -43,8 +47,14 @@ SEXP varProStrength(SEXP traceFlag,
                     SEXP hc_zero,
                     SEXP tnRMBR,
                     SEXP tnAMBR,
+                    SEXP tnOMBR,
+                    SEXP tnIMBR,
                     SEXP tnRCNT,
                     SEXP tnACNT,
+                    SEXP tnOCNT,
+                    SEXP tnICNT,
+                    SEXP oobSZ,
+                    SEXP ibgSZ,
                     SEXP tnSURV,
                     SEXP tnMORT,
                     SEXP tnNLSN,
@@ -52,7 +62,6 @@ SEXP varProStrength(SEXP traceFlag,
                     SEXP tnCIFN,
                     SEXP tnREGR,
                     SEXP tnCLAS,
-                    SEXP yTarget,
                     SEXP maxRulesTree,
                     SEXP maxTree,
                     SEXP getTree,
@@ -174,6 +183,25 @@ SEXP varProStrength(SEXP traceFlag,
   else {
     RF_timeInterest = NULL;
   }
+  RF_fobservationSize      = INTEGER(fobservationSize)[0];
+  RF_frSize = 0;
+  RF_fresponseIn = NULL;
+  RF_fobservationIn = NULL;
+  RF_fnodeMembership = NULL;
+  if (RF_fobservationSize == 0) {
+    mode = RF_REST;  
+  }
+  else {
+    mode = RF_PRED;
+    if (fyData != R_NilValue) {    
+      RF_fresponseIn           = (double **) copy2DObject(fyData, NATIVE_TYPE_NUMERIC, TRUE, RF_ySize, RF_fobservationSize);
+      RF_frSize = RF_ySize;
+    }
+    if (fxData != R_NilValue) {
+      RF_fobservationIn      = (double **) copy2DObject(fxData, NATIVE_TYPE_NUMERIC, TRUE, RF_xSize, RF_fobservationSize);
+    }
+    VP_opt = VP_opt & (~(VP_OPT_CMP | VP_OPT_OOB));
+  }
   RF_totalNodeCount_      = INTEGER(totalNodeCount)[0];
   RF_tLeafCount_          = (uint *) INTEGER(tLeafCount); RF_tLeafCount_ --;
   RF_seed_                = (int *) INTEGER(VECTOR_ELT(seedInfo, 0)); RF_seed_ --;
@@ -183,8 +211,14 @@ SEXP varProStrength(SEXP traceFlag,
   RF_brnodeID_            = (uint *) INTEGER(brnodeID); RF_brnodeID_ --;
   RF_RMBR_ID_             = (uint *) INTEGER(tnRMBR);
   RF_AMBR_ID_             = (uint *) INTEGER(tnAMBR);
+  RF_OMBR_ID_             = (uint *) INTEGER(tnOMBR);
+  RF_IMBR_ID_             = (uint *) INTEGER(tnIMBR);  
   RF_TN_RCNT_             = (uint *) INTEGER(tnRCNT);
   RF_TN_ACNT_             = (uint *) INTEGER(tnACNT);
+  RF_TN_OCNT_             = (uint *) INTEGER(tnOCNT);
+  RF_TN_ICNT_             = (uint *) INTEGER(tnICNT);
+  RF_OOB_SZ_              = (uint *) INTEGER(oobSZ);  RF_OOB_SZ_ --;
+  RF_IBG_SZ_              = (uint *) INTEGER(ibgSZ);  RF_IBG_SZ_ --;
   RF_quantileSize = 0;
   RF_quantile = NULL;
   RF_qEpsilon = 0;
@@ -200,10 +234,6 @@ SEXP varProStrength(SEXP traceFlag,
   }
   RF_intrPredictorSize = 0;
   RF_intrPredictor = NULL;
-  RF_fobservationSize     = 0;
-  RF_frSize               = 0;
-  RF_fresponseIn          = NULL;
-  RF_fobservationIn       = NULL;
   RF_getTree = (uint *) INTEGER(getTree);  RF_getTree --;
   RF_TN_SURV_ = REAL(tnSURV);
   RF_TN_MORT_ = REAL(tnMORT);
@@ -214,8 +244,6 @@ SEXP varProStrength(SEXP traceFlag,
   RF_TN_CLAS_ = (uint *) INTEGER(tnCLAS);
   VP_maxRulesTree = INTEGER(maxRulesTree)[0];
   VP_maxTree = INTEGER(maxTree)[0];
-  processDefaultPredict();
-  mode = RF_REST;  
   stackForestObjectsAuxOnly(mode,
                             RF_ntree,
                             &RF_restoreTreeID,
@@ -231,7 +259,7 @@ SEXP varProStrength(SEXP traceFlag,
   RF_contPT_[1]              =             REAL(VECTOR_ELT(hc_zero, 1));  RF_contPT_[1]  --;
   RF_mwcpSZ_[1]              = (uint *) INTEGER(VECTOR_ELT(hc_zero, 2));  RF_mwcpSZ_[1]  --;
   RF_fsrecID_[1]             = (uint *) INTEGER(VECTOR_ELT(hc_zero, 3));  RF_fsrecID_[1] --;
-  if (VECTOR_ELT(hc_zero, 2) != R_NilValue) {
+  if (VECTOR_ELT(hc_zero, 4) != R_NilValue) {
     RF_mwcpPT_[1]            = (uint *) INTEGER(VECTOR_ELT(hc_zero, 4));  RF_mwcpPT_[1]  --;
   }
   else {
@@ -249,11 +277,19 @@ SEXP varProStrength(SEXP traceFlag,
                               RF_fsrecID_,
                               RF_mwcpPT_,
                               RF_mwcpCT);
-  free_1DObject(RF_rType, NATIVE_TYPE_CHARACTER, RF_ySize);
-  free_1DObject(RF_xType, NATIVE_TYPE_CHARACTER, RF_xSize);
+  if (RF_rType != NULL) free_1DObject(RF_rType, NATIVE_TYPE_CHARACTER, RF_ySize);
+  if (RF_xType != NULL) free_1DObject(RF_xType, NATIVE_TYPE_CHARACTER, RF_xSize);
   if (RF_responseIn != NULL) free_2DObject(RF_responseIn, NATIVE_TYPE_NUMERIC, RF_ySize > 0, RF_ySize, RF_observationSize);
   if (RF_observationIn != NULL) free_2DObject(RF_observationIn, NATIVE_TYPE_NUMERIC, TRUE, RF_xSize, RF_observationSize);
-  free_2DObject(RF_bootstrapIn, NATIVE_TYPE_INTEGER, (RF_opt & OPT_BOOT_TYP2), RF_ntree, RF_subjSize);
+  if (RF_fresponseIn != NULL) free_2DObject(RF_fresponseIn, NATIVE_TYPE_NUMERIC, TRUE, RF_ySize, RF_fobservationSize);
+  if (RF_fobservationIn != NULL) free_2DObject(RF_fobservationIn, NATIVE_TYPE_NUMERIC, TRUE, RF_xSize, RF_fobservationSize);
+  if(VECTOR_ELT(sampleInfo, 0) != R_NilValue) {
+    if(VECTOR_ELT(sampleInfo, 2) != R_NilValue) {  
+      if(VECTOR_ELT(sampleInfo, 3) != R_NilValue) {
+        free_2DObject(RF_bootstrapIn, NATIVE_TYPE_INTEGER, (RF_opt & OPT_BOOT_TYP2), RF_ntree, RF_subjSize);
+      }
+    }
+  }
   if (RF_nativeIndex != RF_stackCount) {
     RF_nativeError("\nRF-SRC:  *** ERROR *** ");
     RF_nativeError("\nRF-SRC:  Stack imbalance in PROTECT/UNPROTECT:  %10d versus %10d  ", RF_nativeIndex, RF_stackCount);

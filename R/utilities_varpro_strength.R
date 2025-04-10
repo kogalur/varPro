@@ -37,6 +37,25 @@ get.data.pass.bits <- function (data.pass) {
   }
   return (data.pass)
 }
+get.experimental.bits  <- function(experimental.bits) {
+  if (!is.null(experimental.bits)) {
+    if (experimental.bits == 0) {
+      bits  <- 0
+    }
+    else if (experimental.bits == 2) {
+        ## When zero (0) we use oob as our population.
+        ## When two (2) we use ibg as our population.
+      bits  <- 2^2
+    }
+    else {
+      bits  <- 0
+    }
+  }
+  else {
+    bits  <- 0
+  }
+  return (bits)
+}
 get.outcome.target <- function(family, yvar.names, outcome.target) {
   if (family == "regr" | family == "regr+" | family == "class" | family == "class+" | family == "mix+") {
     if (is.null(outcome.target)) {
@@ -85,13 +104,16 @@ get.seed <- function (seed) {
 }
 get.stat.bits <- function (stat) {
   if (stat == "importance") {
-    stat <- 0
+    stat <- 2^0 + 2^1
   }
   else if (stat == "complement") {
     stat <- 2^0
   }
   else if (stat == "oob") {
     stat <- 2^1
+  }
+  else if (stat == "none") {
+      stat  <- 0
   }
   else {
     stop("Invalid choice for 'stat' option:  ", stat)

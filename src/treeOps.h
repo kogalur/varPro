@@ -3,16 +3,13 @@
 #include "node.h"
 void acquireTree(char mode, uint b);
 void freeTree(uint treeID, NodeBase *parent);
-void acquireProxyIndv(uint  treeID,
+void acquireProxyIndv(char  mode,
+                      uint  treeID,
                       uint  branchID,
-                      uint *genMembership,
-                      uint  genMembershipSize,
-                      uint *ibgMembership,
-                      uint  ibgMembershipSize,
-                      uint *branchMembers,
-                      uint *branchMemberCount,
-                      uint *indv,
-                      uint *indvDepth);
+                      uint  *indv,
+                      uint  *indvDepth,
+                      uint  *branchMemberCount,
+                      uint **branchMembers);
 void acquireBranch(uint      b,
                    uint      treeID,
                    uint      branchID,    
@@ -37,4 +34,5 @@ void acquireReleasedMembership(uint      b,
                                uint     *membershipCountAlloc,
                                uint    **membershipReleased,
                                uint     *membershipReleasedCount);
+void getTestMembershipOldSchool(uint treeID, double **xArray, Node *parent, uint *testMembrIndx, uint testMembrSize, TerminalBase **ftTermMembership);
 #endif

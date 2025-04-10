@@ -30,6 +30,16 @@ void *makeTerminalDerived() {
   parent -> oobMCP             = NULL;
   parent -> complementMortality = NULL;
   parent -> oobMortality        = 0;
+  parent -> repMembrCount = 0;
+  parent -> oobMembrCount = 0;
+  parent -> ibgMembrCount = 0;
+  parent -> allMembrCount = 0;
+  parent -> testMembrCount = 0;
+  parent -> repMembrIndx  = NULL;
+  parent -> ibgMembrIndx  = NULL;
+  parent -> oobMembrIndx  = NULL;
+  parent -> allMembrIndx  = NULL;
+  parent -> testMembrIndx  = NULL;
   return parent;
 }
 void freeTerminalDerived(void *parent) {
@@ -43,6 +53,10 @@ void freeTerminalDerived(void *parent) {
     unstackMultiClassTerm((Terminal *) parent);
   }
   deinitTerminalBase((TerminalBase*) parent);
+  if (((Terminal *) parent) -> testMembrCount > 0) {
+    free_uivector(((Terminal *) parent) -> testMembrIndx, 1, ((Terminal *) parent) -> testMembrCount);
+    ((Terminal *) parent) -> testMembrCount = 0;
+  }
   free_gblock(parent, (size_t) sizeof(Terminal));
 }
 void stackCompMeanResponseOuter(Terminal *tTerm, unsigned int xReleaseCount) {

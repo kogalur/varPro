@@ -1,12 +1,16 @@
 Package: varPro
-Version: 0.0.53
-Date: 2025-01-04
+Version: 0.0.63
+Date: 2025-03-28
 Title: Model-Independent Variable Selection via the Rule-Based Variable Priority (VarPro)
-Author: Min Lu <luminwin@gmail.com>, Aster Shear <aster.shear@gmail.com>, Udaya B. Kogalur <ubk@kogalur.com>, Hemant Ishwaran <hemant.ishwaran@gmail.com>
+Authors@R: c(person("Min", "Lu", email = "luminwin@gmail.com", role = "aut"),
+  person("Aster K.", "Shear", email = "aster.shear@gmail.com", role = "aut"),
+  person("Udaya B.", "Kogalur", email = "ubk@kogalur.com", role = c("aut", "cre")),
+  person("Hemant", "Ishwaran", email = "hemant.ishwaran@gmail.com", role = "aut"))
+Author: Min Lu [aut], Aster K. Shear [aut], Udaya B. Kogalur [aut, cre], Hemant Ishwaran [aut]
 Maintainer: Udaya B. Kogalur <ubk@kogalur.com>
 BugReports: https://github.com/kogalur/varPro/issues/
-Depends: R (>= 3.6.0),
-Imports: randomForestSRC (>= 3.3.1), glmnet, parallel, foreach, gbm, BART, umap, survival
+Depends: R (>= 4.3.0),
+Imports: randomForestSRC (>= 3.3.5), glmnet, parallel, foreach, gbm, BART, umap, survival
 Suggests: mlbench, doMC, caret, MASS
 Description: A new framework of variable selection, which instead of generating artificial covariates such as permutation importance and knockoffs, creates release rules to examine the affect on the response for each covariate where the conditional distribution of the response variable can be arbitrary and unknown.
 License: GPL (>=3)

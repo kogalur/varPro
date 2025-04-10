@@ -48,6 +48,7 @@ export(
        get.iso.performance,
        importance,
        importance.varpro,
+       ivarpro,
        isopro,
        isopro.varpro,
        predict.isopro,

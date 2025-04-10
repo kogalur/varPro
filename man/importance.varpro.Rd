@@ -21,7 +21,7 @@
 
 \arguments{
   
-  \item{o}{varpro object obtained from previous call to \code{varpro}.}
+  \item{o}{VarPro object obtained from previous call to \code{varpro}.}
 
   \item{local.std}{Use locally standardized importance?}
 
