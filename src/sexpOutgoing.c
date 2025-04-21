@@ -11,7 +11,7 @@
     
 
 #include "sexpOutgoing.h"
-char  *VP_sexpStringOutgoing[14] = {
+char  *VP_sexpStringOutgoing[VP_SEXP_SIZE] = {
   "cTimeInternal",     
   "treeID",            
   "nodeID",            
@@ -25,5 +25,7 @@ char  *VP_sexpStringOutgoing[14] = {
   "cmpCT",             
   "testCaseTermID",    
   "strengthTreeID",    
+  "twinStat",          
+  "twinStatID",        
   "exit"               
 };

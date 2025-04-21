@@ -54,10 +54,10 @@ get.orgvimp <- function(o, papply = mclapply, pretty = TRUE, local.std = TRUE) {
   ## data was hotencoded or family is regr+ ... so we need to map names appropriately
   else {
     ## we only need the rownames for vimp from the varpro object hereafter
-    o <- rownames(vmp)
+    rownms <- rownames(vmp)
     ## match original variable names to varpro names which uses hot encode data
     vars <- xvar.org.names[which(unlist(lapply(xvar.org.names, function(nn) {
-      if (any(grepl(nn, o))) {
+      if (any(grepl(nn, rownms))) {
         TRUE
       }
       else {
@@ -66,9 +66,9 @@ get.orgvimp <- function(o, papply = mclapply, pretty = TRUE, local.std = TRUE) {
     })))]
     ## obtain z for mapped variables
     vars.z <- lapply(xvar.org.names, function(nn) {
-      if (any((pt <- grepl(nn, o)))) {
-        if (!all(is.na(vmp[pt, 3]))) {
-          max(vmp[pt, 3], na.rm = TRUE)
+      if (any((pt <- grepl(nn, rownms)))) {
+        if (!all(is.na(vmp[pt, "z"]))) {
+          max(vmp[pt, "z"], na.rm = TRUE)
         }
         else {
           0

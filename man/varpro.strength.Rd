@@ -13,6 +13,7 @@ varpro.strength(object,
                 max.tree = 150,
                 stat = c("importance", "complement", "oob", "none"),
                 membership = FALSE,
+                neighbor = 5,
                 seed = NULL,
                 do.trace = FALSE, ...)
 }
@@ -39,6 +40,8 @@ varpro.strength(object,
 
   \item{membership}{Return OOB and complementary OOB membership indices
     for each rule?}
+
+  \item{neighbor}{Nearest neighbor parameter.}
 
   \item{seed}{Seed for repeatability.}
 

@@ -33,60 +33,98 @@ int      *seed1AValue;
 int      *seed1BValue;
 int      *seed1CValue;
 int      *seed1DValue;
-void stackRandom(uint bSize) {
-  uint b;
-  ran1A_iy = ivector(1, bSize);
-  ran1A_iv = imatrix(1, bSize, 1, NTAB);
-  ran1B_iy = ivector(1, bSize);
-  ran1B_iv = imatrix(1, bSize, 1, NTAB);
-  ran1D_iy = ivector(1, bSize);
-  ran1D_iv = imatrix(1, bSize, 1, NTAB);
-  for (b = 1; b <= bSize; b++) {
-    ran1A_iy[b] = 0;
-    ran1B_iy[b] = 0;
-    ran1D_iy[b] = 0;
+void stackRandom(uint aSize, uint bSize, uint cSize, uint dSize) {
+  uint r;
+  if (aSize > 0) {
+    ran1A_iy = ivector(1, aSize);
+    ran1A_iv = imatrix(1, aSize, 1, NTAB);
+    seed1AValue = ivector(1, aSize);
   }
-  seed1AValue = ivector(1, bSize);
-  seed1BValue = ivector(1, bSize);
-  seed1DValue = ivector(1, bSize);
+  if (bSize > 0) {
+    ran1B_iy = ivector(1, bSize);
+    ran1B_iv = imatrix(1, bSize, 1, NTAB);
+    seed1BValue = ivector(1, bSize);
+  }
+  if (cSize > 0) {
+    ran1C_iy = ivector(1, cSize);
+    ran1C_iv = imatrix(1, cSize, 1, NTAB);
+    seed1CValue = ivector(1, cSize);
+  }
+  if (dSize > 0) {
+    ran1D_iy = ivector(1, dSize);
+    ran1D_iv = imatrix(1, dSize, 1, NTAB);
+    seed1DValue = ivector(1, dSize);
+  }
+  for (r = 1; r <= aSize; r++) {
+    ran1A_iy[r] = 0;
+  }
+  for (r = 1; r <= bSize; r++) {
+    ran1B_iy[r] = 0;
+  }
+  for (r = 1; r <= cSize; r++) {
+    ran1C_iy[r] = 0;
+  }
+  for (r = 1; r <= dSize; r++) {
+    ran1D_iy[r] = 0;
+  }
 }
-void unstackRandom(uint bSize) {
-  free_ivector(ran1A_iy, 1, bSize);
-  free_imatrix(ran1A_iv, 1, bSize, 1, NTAB);
-  free_ivector(ran1B_iy, 1, bSize);
-  free_imatrix(ran1B_iv, 1, bSize, 1, NTAB);
-  free_ivector(ran1D_iy, 1, bSize);
-  free_imatrix(ran1D_iv, 1, bSize, 1, NTAB);
-  free_ivector(seed1AValue, 1, bSize);
-  free_ivector(seed1BValue, 1, bSize);
-  free_ivector(seed1DValue, 1, bSize);
+void unstackRandom(uint aSize, uint bSize, uint cSize, uint dSize) {
+  if (aSize > 0) {  
+    free_ivector(ran1A_iy, 1, aSize);
+    free_imatrix(ran1A_iv, 1, aSize, 1, NTAB);
+    free_ivector(seed1AValue, 1, aSize);
+  }
+  if (bSize > 0) {
+    free_ivector(ran1B_iy, 1, bSize);
+    free_imatrix(ran1B_iv, 1, bSize, 1, NTAB);
+    free_ivector(seed1BValue, 1, bSize);
+  }
+  if (cSize > 0) {
+    free_ivector(ran1C_iy, 1, cSize);
+    free_imatrix(ran1C_iv, 1, cSize, 1, NTAB);
+    free_ivector(seed1CValue, 1, cSize);
+  }
+  if (dSize > 0) {
+    free_ivector(ran1D_iy, 1, dSize);
+    free_imatrix(ran1D_iv, 1, dSize, 1, NTAB);
+    free_ivector(seed1DValue, 1, dSize);
+  }
 }
-void randomSetChainParallel(uint b, int value) {
-  seed1AValue[b] = value;
+void randomSetChainParallelA(uint r, int value) {
+  seed1AValue[r] = value;
 }
-void randomSetChainParallel2(uint b, int value) {
-  seed1BValue[b] = value;
+void randomSetChainParallelB(uint r, int value) {
+  seed1BValue[r] = value;
 }
-void randomSetChainParallel3(uint p, int value) {
-  seed1DValue[p] = value;
+void randomSetChainParallelC(uint r, int value) {
+  seed1CValue[r] = value;
 }
-int randomGetChainParallel(uint b) {
-  return seed1AValue[b];
+void randomSetChainParallelD(uint r, int value) {
+  seed1DValue[r] = value;
 }
-int randomGetChainParallel2(uint b) {
-  return seed1BValue[b];
+int randomGetChainParallelA(uint r) {
+  return seed1AValue[r];
 }
-int randomGetChainParallel3(uint p) {
-  return seed1DValue[p];
+int randomGetChainParallelB(uint r) {
+  return seed1BValue[r];
 }
-float randomChainParallel(uint b) {
-  return  ran1_generic(& ran1A_iy[b], ran1A_iv[b], & seed1AValue[b]);
+int randomGetChainParallelC(uint r) {
+  return seed1CValue[r];
 }
-float randomChainParallel2(uint b) {
-  return  ran1_generic(& ran1B_iy[b], ran1B_iv[b], & seed1BValue[b]);
+int randomGetChainParallelD(uint r) {
+  return seed1DValue[r];
 }
-float randomChainParallel3(uint p) {
-  return  ran1_generic(& ran1D_iy[p], ran1D_iv[p], & seed1DValue[p]);
+float randomChainParallelA(uint r) {
+  return  ran1_generic(& ran1A_iy[r], ran1A_iv[r], & seed1AValue[r]);
+}
+float randomChainParallelB(uint r) {
+  return  ran1_generic(& ran1B_iy[r], ran1B_iv[r], & seed1BValue[r]);
+}
+float randomChainParallelC(uint r) {
+  return  ran1_generic(& ran1C_iy[r], ran1C_iv[r], & seed1CValue[r]);
+}
+float randomChainParallelD(uint r) {
+  return  ran1_generic(& ran1D_iy[r], ran1D_iv[r], & seed1DValue[r]);
 }
 float ran1_generic(int *iy, int *iv, int *idum) {
   int j, k;

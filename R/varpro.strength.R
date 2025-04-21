@@ -5,6 +5,7 @@ varpro.strength <- function(object,
                             max.tree = 150,
                             stat = c("importance", "complement", "oob", "none"),
                             membership = FALSE,
+                            neighbor = 5,
                             seed = NULL,
                             do.trace = FALSE,
                             ...)
@@ -15,7 +16,6 @@ varpro.strength <- function(object,
   }
   ## get any hidden options
   user.option <- list(...)
-  experimental.bits <- get.experimental.bits(user.option$experimental.bits)
   if(max.rules.tree > 2^31 - 1) {
       stop("max.rules.tree must be less than 2^31 - 1:  ", max.rules.tree)
   }
@@ -33,6 +33,8 @@ varpro.strength <- function(object,
     stat <- "none"
     membership <- TRUE
   }
+  ## inbag or oob?
+  oob.bits <- get.varpro.strength.bits(user.option$oob.bits, restore.mode)
   ## check if this is an anonymous object
   ## coerce values as necessary
   ## graceful return if restore.mode = TRUE which is not allowed for anonymous
@@ -105,12 +107,18 @@ varpro.strength <- function(object,
     else {
       yvar.newdata <-  NULL
     }
+    ## coherent setting for nearest neighbor
+    neighbor <- min(neighbor, n)
+    ## HACK:  Hemant, make this whatever you want, between 1, ..., n.xvar.
+    x.reduce.idx = 1:n.xvar
   }
   else {    
     ## There cannot be test data in restore mode
     ## The native code switches based on n.newdata being zero (0).  Be careful.
     n.newdata <- 0
     xvar.newdata <- yvar.newdata <- NULL
+    neighbor  <- NULL
+    x.reduce.idx  <- NULL
   }
   ## Respect the training options related to bootstrapping:
   sampsize <- round(object$sampsize(n))
@@ -161,7 +169,7 @@ varpro.strength <- function(object,
                                              terminal.qualts.bits +
                                              terminal.quants.bits +
                                              data.pass.bits),          ## high option byte
-                                  as.integer(stat.bits + experimental.bits), ## varpro option byte
+                                  as.integer(stat.bits + oob.bits), ## varpro option byte
                                   as.integer(ntree),
                                   as.integer(n),
                                   list(as.integer(length(case.wt)),
@@ -204,6 +212,9 @@ varpro.strength <- function(object,
                                   as.integer(n.newdata),
                                   if (is.null(yvar.newdata)) NULL else as.double(as.vector(yvar.newdata)),
                                   if (is.null(xvar.newdata)) NULL else as.double(as.vector(data.matrix(xvar.newdata))),
+                                  list(if (is.null(neighbor)) 0 else as.integer(neighbor),
+                                       if (is.null(x.reduce.idx)) as.integer(0) else as.integer(length(x.reduce.idx)),
+                                       if (is.null(x.reduce.idx)) NULL else as.integer(x.reduce.idx)),
                                   as.integer(object$totalNodeCount),
                                   as.integer(object$leafCount),
                                   list(as.integer(object$seed)),
@@ -256,9 +267,17 @@ varpro.strength <- function(object,
   strengthTreeID  <- nativeOutput$strengthTreeID
   if (!restore.mode) {
       testCaseTermID  <- matrix(nativeOutput$testCaseTermID, nrow = n.newdata)
+      score  <- vector("list", length = n.newdata)
+      offset  <- 0
+      for (i in 1: n.newdata) {
+          score[[i]]$stat <- nativeOutput$twinStat[(offset+1):(offset+neighbor)]
+          score[[i]]$id   <- nativeOutput$twinStatID[(offset+1):(offset+neighbor)]
+          offset  <- offset + neighbor
+      }
   }
   else {
       testCaseTermID  <- NULL
+      score           <- NULL
   }
   #####################################################################
   ##
@@ -531,6 +550,7 @@ varpro.strength <- function(object,
     strengthArray = strengthArray,
     strengthTreeID = strengthTreeID,
     testCaseTermID = testCaseTermID,
+    score          = score,
     oobMembership = branchMembershipList,
     compMembership = compMembershipList,
     ctime.internal = nativeOutput$cTimeInternal,

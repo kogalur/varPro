@@ -11,7 +11,7 @@
 }
 
 \usage{\method{partialpro}{varpro}(object, xvar.names, nvar,
-  target, learner, method = c("unsupv", "rnd", "auto"),
+  target, learner, newdata, method = c("unsupv", "rnd", "auto"),
   verbose = FALSE, papply = mclapply, ...)
 }
 
@@ -28,13 +28,17 @@
     (defaults to the last class).}
 
   \item{learner}{Optional function for passing a user's personally
-     constructed learner (see details below).}
+    constructed learner (see details below).}
+
+  \item{newdata}{Optional data frame containing x-data used for the
+    analysis.  If present, partial effects are obtained for these data
+    points.  Otherwise the default action is to use the training data.}
 
    \item{method}{Isolation forest method used for unlimited virtual
-    twins.  Choices are "unsupv" (unsupervised analysis, the default),
-    "rnd" (pure random splitting) and "auto" (auto-encoder, a type of
-    multivariate forest).  See \command{isopro} for details.}
-  
+     twins.  Choices are "unsupv" (unsupervised analysis, the default),
+     "rnd" (pure random splitting) and "auto" (auto-encoder, a type of
+     multivariate forest).  See \command{isopro} for details.}
+   
   \item{verbose}{Print verbose output?}
   
   \item{papply}{Use mclapply or lapply.}
@@ -123,6 +127,21 @@ plot((oo.boston<-partialpro(varpro(medv~.,BostonHousing),nvar=6)))
 
 ##------------------------------------------------------------------
 ##
+## Boston housing using newdata option
+##
+##
+##------------------------------------------------------------------
+
+library(mlbench)
+data(BostonHousing)
+o <- varpro(medv~.,BostonHousing)
+par(mfrow=c(2,3))
+plot(partialpro(o,nvar=3))
+## same but using newdata (set to first 6 cases of the training data)
+plot(partialpro(o,newdata=o$x[1:6,],nvar=3))
+
+##------------------------------------------------------------------
+##
 ## Boston housing with externally constructed rf learner
 ##
 ##------------------------------------------------------------------
@@ -143,7 +162,6 @@ par(mfrow=c(2,3))
 plot(pro)
 plot(mypro, ylab="external rf learner")
 
-\donttest{
 ##------------------------------------------------------------------
 ##
 ## Boston housing:  tree gradient boosting learner, bart learner
@@ -180,7 +198,6 @@ plot(pro)
 plot(mypro, ylab="external boosting learner")
 plot(mypro2, ylab="external bart learner")
 
-}
 }
 
 ##------------------------------------------------------------------

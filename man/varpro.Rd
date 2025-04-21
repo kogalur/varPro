@@ -201,6 +201,7 @@ print(get.vimp(o, pretty = FALSE))
 importance(o, plot.it = TRUE)
 
 
+\donttest{
 ## ------------------------------------------------------------
 ## regression example: boston housing illustrating hot-encoding
 ## ------------------------------------------------------------
@@ -264,7 +265,6 @@ importance(varpro(Multivar(lstat, nox) ~., BostonHousing))
 ## using cbind multivariate formula call
 importance(varpro(cbind(lstat, nox) ~., BostonHousing))
 
-\donttest{
 ##----------------------------------------------------------------
 ##  class imbalanced problem 
 ## 

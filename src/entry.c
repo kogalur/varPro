@@ -36,6 +36,7 @@ SEXP varProStrength(SEXP traceFlag,
                     SEXP fobservationSize,
                     SEXP fyData,
                     SEXP fxData,
+                    SEXP scoreInfo,
                     SEXP totalNodeCount,
                     SEXP tLeafCount,
                     SEXP seedInfo,
@@ -187,6 +188,9 @@ SEXP varProStrength(SEXP traceFlag,
   RF_frSize = 0;
   RF_fresponseIn = NULL;
   RF_fobservationIn = NULL;
+  VP_neighbourSize = 0;
+  VP_xReduceSize = 0;
+  VP_xReduceIndx = NULL;
   RF_fnodeMembership = NULL;
   if (RF_fobservationSize == 0) {
     mode = RF_REST;  
@@ -199,6 +203,13 @@ SEXP varProStrength(SEXP traceFlag,
     }
     if (fxData != R_NilValue) {
       RF_fobservationIn      = (double **) copy2DObject(fxData, NATIVE_TYPE_NUMERIC, TRUE, RF_xSize, RF_fobservationSize);
+    }
+    if (scoreInfo != R_NilValue) {
+      VP_neighbourSize = INTEGER(VECTOR_ELT(scoreInfo, 0))[0];
+      VP_xReduceSize   = INTEGER(VECTOR_ELT(scoreInfo, 1))[0];
+      if (VP_xReduceSize > 0) {
+        VP_xReduceIndx = (uint *) INTEGER(VECTOR_ELT(scoreInfo, 2)); VP_xReduceIndx --;
+      }
     }
     VP_opt = VP_opt & (~(VP_OPT_CMP | VP_OPT_OOB));
   }
