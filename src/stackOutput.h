@@ -142,6 +142,7 @@ void acquireTwinStat(uint strengthTreeCount,
                      uint xSize,
                      uint i,
                      uint neighbourSize,
+                     char *xReduceFlag,
                      double **twinStat_ptr,
                      uint   **twinStatID_ptr);
 void getMinHeap(uint twin, uint m, uint n, double *value, uint *minHeap);

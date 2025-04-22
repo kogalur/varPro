@@ -736,6 +736,7 @@ void acquireTwinStat(uint strengthTreeCount,
                      uint   xSize,
                      uint i,
                      uint neighbourSize,
+                     char *xReduceFlag,
                      double **twinStat_ptr,
                      uint   **twinStatID_ptr) {
   char *releaseFlag;
@@ -756,8 +757,10 @@ void acquireTwinStat(uint strengthTreeCount,
   for (uint b = 1; b <= strengthTreeCount; b++) {
     for (uint j = 1; j <= branchCount[b]; j++) {
       for (uint k = 1; k <= xReleaseCount[b][j]; k++) {
-        if (branchID[b][j] == testCaseNodeIDptr[b][i]) {
-          releaseFlag[xReleaseIDArray[b][j][k]] = TRUE;                        
+        if  (xReduceFlag[ xReleaseIDArray[b][j][k] ] == TRUE) {
+          if (branchID[b][j] == testCaseNodeIDptr[b][i]) {
+            releaseFlag[xReleaseIDArray[b][j][k]] = TRUE;
+          }
         }
       }
     }
@@ -780,9 +783,11 @@ void acquireTwinStat(uint strengthTreeCount,
     for (uint b = 1; b <= strengthTreeCount; b++) {
       for (uint j = 1; j <= branchCount[b]; j++) {
         for (uint k = 1; k <= xReleaseCount[b][j]; k++) {
-          if (branchID[b][j] == testCaseNodeIDptr[b][i]) {
-            for (uint p = 1; p <= complementCount[b][j][k]; p++) {
-              vtTable[ releaseIndxMap[ xReleaseIDArray[b][j][k]] ]  [ complementMembers[b][j][k][p] ] ++;
+          if  (xReduceFlag[ xReleaseIDArray[b][j][k] ] == TRUE) {
+            if (branchID[b][j] == testCaseNodeIDptr[b][i]) {
+              for (uint p = 1; p <= complementCount[b][j][k]; p++) {
+                vtTable[ releaseIndxMap[ xReleaseIDArray[b][j][k]] ]  [ complementMembers[b][j][k][p] ] ++;
+              }
             }
           }
         }

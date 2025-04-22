@@ -109,7 +109,7 @@ char varProMain(char mode, int seedValue) {
       while(seedValueLC == 0) {
         lcgenerator(&seedValueLC, FALSE);
       }
-      randomSetChainC(b, -seedValueLC);
+      randomSetChainC(r, -seedValueLC);
     }
     result = stackIncomingArrays(mode,
                                  RF_ntree,
@@ -639,6 +639,24 @@ char varProMain(char mode, int seedValue) {
                                                      2,
                                                      RF_fobservationSize,
                                                      VP_neighbourSize);
+              char *xReduceFlag = cvector(1, RF_xSize);
+              if (VP_xReduceSize > 0) {
+                for (uint i = 1; i <= RF_xSize; i++) {
+                  xReduceFlag[i] = FALSE;
+                }
+                for (uint i = 1; i <= VP_xReduceSize; i++) {
+                  xReduceFlag[VP_xReduceIndx[i]] = TRUE;
+                }
+                RF_nativePrint("\n Reduction along x-vars:  ");
+                for (uint i = 1; i <= VP_xReduceSize; i++) {
+                  RF_nativePrint("\n %10d %10d", i, VP_xReduceIndx[i]);
+                }
+              }
+              else {
+                for (uint i = 1; i <= RF_xSize; i++) {
+                  xReduceFlag[i] = TRUE;
+                }
+              }
 #ifdef _OPENMP
 #pragma omp parallel for num_threads(RF_numThreads)
 #endif
@@ -655,9 +673,11 @@ char varProMain(char mode, int seedValue) {
                                 RF_xSize,
                                 b,
                                 VP_neighbourSize,
+                                xReduceFlag,
                                 VP_twinStat_ptr,
                                 VP_twinStatID_ptr);
               }
+              free_cvector(xReduceFlag, 1, RF_xSize);
             }
             if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
               localSize = VP_totalRecordCount * 1;

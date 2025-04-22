@@ -193,10 +193,6 @@ void acquireTree(char mode, uint b) {
     branchCount = VP_branchCount[b];
     pathPolarity           = (char **) new_vvector(1, branchCount, NRUTIL_CPTR);
     releaseFlag            = (char **) new_vvector(1, branchCount, NRUTIL_CPTR);
-    if (TRUE) {      
-    }
-    else {
-    }
     for(j = 1; j <= branchCount; j++) { 
       branchID = VP_branchID[b][j];
       uint *branchMembers;

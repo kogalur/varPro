@@ -109,8 +109,13 @@ varpro.strength <- function(object,
     }
     ## coherent setting for nearest neighbor
     neighbor <- min(neighbor, n)
-    ## HACK:  Hemant, make this whatever you want, between 1, ..., n.xvar.
-    x.reduce.idx = 1:n.xvar
+    ## reduce option
+    if (is.null(user.option$reduce)) {
+      x.reduce.idx <- 1:n.xvar
+    }
+    else {
+      x.reduce.idx <- user.option$reduce
+    }
   }
   else {    
     ## There cannot be test data in restore mode
