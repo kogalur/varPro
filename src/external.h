@@ -16,11 +16,15 @@ extern uint    *VP_complementID_;
 extern uint    *VP_complementCT_;
 extern uint    *VP_testCaseNodeID_;
 extern uint    *VP_strengthTreeID_;
+extern double  *VP_twinStat_;
+extern uint    *VP_twinStatID_;
 extern double  **VP_dimImpSRVptr;
 extern double  **VP_dimImpRGRptr;
 extern double  ***VP_dimImpCLSptr;
 extern uint    ***VP_brmCTptr;
 extern uint **VP_testCaseNodeIDptr;
+extern double **VP_twinStat_ptr;
+extern uint   **VP_twinStatID_ptr;
 extern uint     VP_strengthTreeCount;
 extern uint    *VP_strengthTreeID; 
 extern uint    *VP_branchCount;
@@ -43,6 +47,9 @@ extern double   *VP_cpuTime_;
 extern uint   VP_totalRecordCount;
 extern uint      VP_maxRulesTree;
 extern uint      VP_maxTree;
+extern uint      VP_neighbourSize;
+extern uint      VP_xReduceSize;
+extern uint     *VP_xReduceIndx;
 extern uint      VP_opt;
 
 #endif

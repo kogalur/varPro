@@ -724,3 +724,209 @@ void writeMembershipArray(uint      strengthTreeCount,
     }
   }
 }
+void acquireTwinStat(uint strengthTreeCount,
+                     uint *branchCount,
+                     uint ***complementCount,
+                     uint **xReleaseCount,
+                     uint **branchID,
+                     uint **testCaseNodeIDptr,
+                     uint   ***xReleaseIDArray,
+                     uint  ****complementMembers,
+                     uint   n,
+                     uint   xSize,
+                     uint i,
+                     uint neighbourSize,
+                     char *xReduceFlag,
+                     double **twinStat_ptr,
+                     uint   **twinStatID_ptr) {
+  char *releaseFlag;
+  uint *releaseIndx;
+  uint *releaseIndxMap;
+  uint  *vtWeight;
+  double *vtStat;
+  uint  releaseIndxCnt;
+  double ratio, prob; 
+  releaseFlag = cvector(1, xSize);
+  releaseIndx = uivector(1, xSize);
+  releaseIndxMap = uivector(1, xSize);
+  vtWeight = uivector(1, n);
+  vtStat  = dvector(1, n);
+  for (uint m = 1; m <= xSize; m++) {
+    releaseFlag[m] = FALSE;
+  }
+  for (uint b = 1; b <= strengthTreeCount; b++) {
+    for (uint j = 1; j <= branchCount[b]; j++) {
+      for (uint k = 1; k <= xReleaseCount[b][j]; k++) {
+        if  (xReduceFlag[ xReleaseIDArray[b][j][k] ] == TRUE) {
+          if (branchID[b][j] == testCaseNodeIDptr[b][i]) {
+            releaseFlag[xReleaseIDArray[b][j][k]] = TRUE;
+          }
+        }
+      }
+    }
+  }
+  releaseIndxCnt = 0;
+  for (uint m = 1; m <= xSize; m++) {
+    releaseIndxMap[m] = 0;
+    if (releaseFlag[m] == TRUE) {
+      releaseIndx[++releaseIndxCnt] = m;
+      releaseIndxMap[m] = releaseIndxCnt;
+    }
+  }
+  if (releaseIndxCnt > 0) {
+    uint **vtTable = uimatrix(1, releaseIndxCnt, 1, n);
+    for (uint m = 1; m <= releaseIndxCnt; m++) {
+      for (uint j = 1; j <= n; j++) {
+        vtTable[m][j] = 0;
+      }
+    }
+    for (uint b = 1; b <= strengthTreeCount; b++) {
+      for (uint j = 1; j <= branchCount[b]; j++) {
+        for (uint k = 1; k <= xReleaseCount[b][j]; k++) {
+          if  (xReduceFlag[ xReleaseIDArray[b][j][k] ] == TRUE) {
+            if (branchID[b][j] == testCaseNodeIDptr[b][i]) {
+              for (uint p = 1; p <= complementCount[b][j][k]; p++) {
+                vtTable[ releaseIndxMap[ xReleaseIDArray[b][j][k]] ]  [ complementMembers[b][j][k][p] ] ++;
+              }
+            }
+          }
+        }
+      }
+    }
+    for (uint j = 1; j <= n; j++) {                
+      vtWeight[j] = 0;
+      for (uint m = 1; m <= releaseIndxCnt; m++) {                
+        vtWeight[j] += vtTable[m][j];
+      }
+    }
+    for (uint j = 1; j <= n; j++) {                
+      prob = 0.0;
+      for (uint m = 1; m <= releaseIndxCnt; m++) {                
+        if (vtWeight[j] > 0) {
+          ratio = ((double) vtTable[m][j]) / vtWeight[j];
+          ratio = ratio * (1.0 - ratio);
+          prob += ratio;
+        }
+      }
+      vtStat[j] = prob / releaseIndxCnt;
+    }
+    for (uint j = 1; j <= n; j++) {
+      vtStat[j] = vtStat[j] * vtWeight[j];
+    }
+    uint *neighbourIndx = uivector(1, neighbourSize);
+    getMinHeap(i, neighbourSize, n, vtStat, neighbourIndx);
+    for (uint j = 1; j <= neighbourSize; j++) {
+      twinStat_ptr[i][j] = vtStat[neighbourIndx[neighbourSize - j + 1]];
+    }
+    for (uint j = 1; j <= neighbourSize; j++) {
+      twinStatID_ptr[i][j] = neighbourIndx[neighbourSize - j + 1];
+    }
+    free_uivector(neighbourIndx, 1, neighbourSize);    
+    free_uimatrix(vtTable, 1, releaseIndxCnt, 1, n);
+  }
+  else {
+    for (uint j = 1; j <= neighbourSize; j++) {
+      VP_twinStat_ptr[i][j] = 0;
+    }
+  }
+  free_uivector(vtWeight, 1, n);
+  free_dvector(vtStat, 1, n);
+  free_uivector(releaseIndxMap, 1, xSize);
+  free_uivector(releaseIndx, 1, xSize);
+  free_cvector(releaseFlag, 1, xSize);
+}
+void getMinHeap(uint twin, uint m, uint n, double *value, uint *minHeapIndx) {
+  double temp;
+  uint tempIndx;
+  uint iter;
+  char flip;
+  double *neighbour = dvector(1, m);
+  for (uint j = 1; j <= m; j++) {
+    iter = j;
+    neighbour[j] = value[j];
+    minHeapIndx[j] = j;
+    while(iter > 1) {
+      if (neighbour[iter] < neighbour[iter-1]) {
+        temp = neighbour[iter];
+        neighbour[iter] = neighbour[iter-1];
+        neighbour[iter-1] = temp;
+        tempIndx = minHeapIndx[iter];
+        minHeapIndx[iter] = minHeapIndx[iter-1];
+        minHeapIndx[iter-1] = tempIndx;
+        iter--;
+      }
+      else {
+        break;
+      }
+    }
+  }
+  for (uint j = m; j <= n; j++) {
+    iter = 1;
+    if (value[j] >= neighbour[1]) {
+      if (value[j] == neighbour[1]) {
+        flip = (ran1C(twin) >= 0.5);
+      }
+      else {
+        flip = TRUE;
+      }
+      if (flip) {
+        neighbour[1] = value[j];
+        minHeapIndx[1] = j;
+        while(iter < m) {
+          if (neighbour[iter] > neighbour[iter+1]) {
+            temp = neighbour[iter];
+            neighbour[iter] = neighbour[iter+1];
+            neighbour[iter+1] = temp;
+            tempIndx = minHeapIndx[iter];
+            minHeapIndx[iter] = minHeapIndx[iter+1];
+            minHeapIndx[iter+1] = tempIndx;
+            iter++;
+          }
+          else {
+            break;
+          }
+        }
+      }
+    }
+    else {
+    }
+  }
+  free_dvector(neighbour, 1, m);
+}
+void testTwinMembership() {
+  uint iter, treeID, nodeID, cellTreeID, cellNodeID;
+  for (uint ii = 1; ii <= RF_fobservationSize; ii++) {
+    for (uint bb = 1; bb <= VP_strengthTreeCount; bb++) {
+      iter = 0;
+      cellTreeID = VP_strengthTreeID_[bb];
+      cellNodeID = VP_testCaseNodeIDptr[bb][ii]; 
+      char flag = TRUE;
+      while (flag) {
+        iter ++;
+        treeID = VP_treeID_[iter];
+        nodeID = VP_nodeID_[iter];
+        if ((cellTreeID == treeID) && (cellNodeID == nodeID)) {
+        }
+        else {
+          if (treeID > cellTreeID) {
+            flag = FALSE;
+            iter --;
+          }
+          if (iter >= VP_totalRecordCount) {
+            flag = FALSE;
+          }
+        }
+      }
+    }
+  }
+}
+void testMinHeap() {
+  double *testValue = dvector(1, 20);
+  for (uint j = 1; j <= 20; j++) {
+    testValue[j] = ran1D(1) * 50;
+  }
+  uint *neighbourIndx = uivector(1, 5);
+  getMinHeap (1, 5, 20, testValue, neighbourIndx);
+  free_uivector(neighbourIndx, 1, 5);
+  free_dvector(testValue, 1, 20);
+}

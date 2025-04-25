@@ -366,6 +366,10 @@ importance.varpro.workhorse <- function(o, cutoff, trim, plot.it, conf, sort,
   ## ------------------------------------------------------------------------
   ## deprecated
   rO$zcenter <- rO$selected <- NULL
+  ## mean, std depracated for local.std
+  if (local.std) {
+    rO$mean <- rO$std <- NULL
+  }
   if (o$family != "class") {
     rO
   }

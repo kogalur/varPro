@@ -13,6 +13,7 @@ varpro.strength(object,
                 max.tree = 150,
                 stat = c("importance", "complement", "oob", "none"),
                 membership = FALSE,
+                neighbor = 5,
                 seed = NULL,
                 do.trace = FALSE, ...)
 }
@@ -21,10 +22,9 @@ varpro.strength(object,
 
   \item{object}{rfsrc object}
 
-  \item{newdata}{Optional test data. If not provided the training data
-    is used and the original training forest is restored.  If in effect,
-    the output equals the branch and complementary branch membership of
-    the training data corresponding to the test data.}
+  \item{newdata}{Optional test data. If provided, the output equals the
+    branch and complementary branch membership of the training data
+    corresponding to the test data.}
   
   \item{m.target}{Character value for multivariate families
     specifying the target outcome to be used.  If left unspecified, the
@@ -40,11 +40,14 @@ varpro.strength(object,
   \item{membership}{Return OOB and complementary OOB membership indices
     for each rule?}
 
+  \item{neighbor}{Nearest neighbor parameter.  Only applies when
+  \code{newdata} is provided.}
+
   \item{seed}{Seed for repeatability.}
 
   \item{do.trace}{Used to obtain detailed trace.}
 
-  \item{...}{Further arguments (don't even think about it).}
+  \item{...}{Further arguments.}
   
 }
 

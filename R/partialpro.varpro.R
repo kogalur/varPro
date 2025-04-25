@@ -3,6 +3,7 @@ partialpro.varpro <- function(object,
                               nvar,
                               target,
                               learner,
+                              newdata,
                               method = c("unsupv", "rnd", "auto"),
                               verbose = FALSE,
                               papply = mclapply, ...)
@@ -42,6 +43,8 @@ partialpro.varpro <- function(object,
       }
     }
   }
+  ## check to see if new data is available
+  predict.flag <- !missing(newdata)
   ## ------------------------------------------------------------------------
   ##
   ## family specific details
@@ -77,9 +80,6 @@ partialpro.varpro <- function(object,
         stop("target is specified incorrectly:", target)
       }
     }
-    ## redefine yvar to be log odds
-    phat <- as.numeric(cbind(learner())[, target])
-    yvar <- mylogodds(phat)
   }
   ## not handled (yet)
   else {
@@ -150,15 +150,33 @@ partialpro.varpro <- function(object,
     binary.variable <- nxorg == 2
     xvirtual <- myunique(xorg, nvirtual, alpha)
     nvirtual <- length(xvirtual)
-    ## draw random cases
-    smp <- sample(1:n, size = min(n, nsmp), replace = FALSE)
+    ## --------------------------------------------------------
     ## make fake partial data
-    xfake <- do.call(rbind, papply(smp, function(i) {
-      dfake <- xvar[i,, drop = FALSE]
-      dfake <- dfake[rep(1, nvirtual),, drop = FALSE]
-      dfake[, xnm] <- xvirtual
-      data.frame(case = i, train = mytrainsample(nvirtual), goodvt = 1, dfake)
-    }))
+    ## --------------------------------------------------------
+    ## default setting (using training data)
+    ## draw random cases
+    if (!predict.flag) {
+      smp <- sample(1:n, size = min(n, nsmp), replace = FALSE)
+      xfake <- do.call(rbind, papply(smp, function(i) {
+        dfake <- xvar[i,, drop = FALSE]
+        dfake <- dfake[rep(1, nvirtual),, drop = FALSE]
+        dfake[, xnm] <- xvirtual
+        data.frame(case = i, train = mytrainsample(nvirtual), goodvt = 1, dfake)
+      }))
+    }
+    ## newdata is present - use this for creating the fake data
+    else {
+      if (sum(!(colnames(xvar)  %in% colnames(newdata))) > 0) {
+        stop("x-variables in newdata does not match original data")
+      }
+      newdata <- newdata[, colnames(xvar), drop=FALSE]
+      xfake <- do.call(rbind, papply(1:nrow(newdata), function(i) {
+        dfake <- newdata[i,, drop = FALSE]
+        dfake <- dfake[rep(1, nvirtual),, drop = FALSE]
+        dfake[, xnm] <- xvirtual
+        data.frame(case = i, train = mytrainsample(nvirtual), goodvt = 1, dfake)
+      }))
+    }
     ## unlimited virtual twins step: identify bad virtual twins
     if (cut.flag) {
       howbad <- predict.isopro(o.iso, xfake)

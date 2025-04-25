@@ -80,18 +80,18 @@ char varProMain(char mode, int seedValue) {
                                   & VP_strengthTreeCount);
   }
   if (result) {
-    ran1A = &randomChainParallel;
-    ran1B = &randomChainParallel2;
-    ran1D = &randomChainParallel3;
-    randomSetChain     = &randomSetChainParallel;
-    randomSetChain2    = &randomSetChainParallel2;
-    randomSetChain3    = &randomSetChainParallel3;
-    randomGetChain     = &randomGetChainParallel;
-    randomGetChain2    = &randomGetChainParallel2;
-    randomGetChain3    = &randomGetChainParallel3;
-    stackRandom(RF_ntree);
+    ran1A = &randomChainParallelA;
+    ran1B = &randomChainParallelB;
+    ran1C = &randomChainParallelC;
+    randomSetChainA    = &randomSetChainParallelA;
+    randomSetChainB    = &randomSetChainParallelB;
+    randomSetChainC    = &randomSetChainParallelC;
+    randomGetChainA    = &randomGetChainParallelA;
+    randomGetChainB    = &randomGetChainParallelB;
+    randomGetChainC    = &randomGetChainParallelC;
+    stackRandom(RF_ntree, RF_ntree, RF_fobservationSize, 0);
     for (b = 1; b <= RF_ntree; b++) {
-      randomSetChain(b , RF_seed_[b]);
+      randomSetChainA(b , RF_seed_[b]);
     }
     seedValueLC = abs(seedValue);
     lcgenerator(&seedValueLC, TRUE);
@@ -101,15 +101,15 @@ char varProMain(char mode, int seedValue) {
       while(seedValueLC == 0) {
         lcgenerator(&seedValueLC, FALSE);
       }
-      randomSetChain2(b, -seedValueLC);
+      randomSetChainB(b, -seedValueLC);
     }
-    for (b = 1; b <= RF_ntree; b++) {
+    for (uint r = 1; r <= RF_fobservationSize; r++) {
       lcgenerator(&seedValueLC, FALSE);
       lcgenerator(&seedValueLC, FALSE);
       while(seedValueLC == 0) {
         lcgenerator(&seedValueLC, FALSE);
       }
-      randomSetChain3(b, -seedValueLC);
+      randomSetChainC(r, -seedValueLC);
     }
     result = stackIncomingArrays(mode,
                                  RF_ntree,
@@ -509,7 +509,7 @@ char varProMain(char mode, int seedValue) {
               RF_stackCount = 8;
             }
             if (mode == RF_PRED) {
-              RF_stackCount ++;
+              RF_stackCount += 3;
             }
             RF_stackCount++;
             initProtect(RF_stackCount);
@@ -603,10 +603,81 @@ char varProMain(char mode, int seedValue) {
                                                            RF_fobservationSize);
               VP_testCaseNodeID_ --;
               for (uint b = 1; b <= VP_strengthTreeCount; b++) {
-                for(uint i = 1; i <= RF_fobservationSize; i++) {
+                for (uint i = 1; i <= RF_fobservationSize; i++) {
                   VP_testCaseNodeIDptr[b][i] = RF_ftTermMembership[VP_strengthTreeID[b]][i] -> nodeID;
                 }
               }
+              if ((VP_neighbourSize < 1) || (VP_neighbourSize > RF_observationSize)) {
+                RF_nativeError("\nRF-SRC:  *** ERROR *** ");
+                RF_nativeError("\nRF-SRC:  Parameter verification failed.");
+                RF_nativeError("\nRF-SRC:  Neighbour size must be greater than zero and less than n:  %10d \n", VP_neighbourSize);
+                RF_nativeExit();
+              }
+              localSize = RF_fobservationSize * VP_neighbourSize;
+              VP_twinStat_ = (double*) stackAndProtect(RF_auxDimConsts,
+                                                       mode,
+                                                       &RF_nativeIndex,
+                                                       NATIVE_TYPE_NUMERIC,
+                                                       VP_TWIN_STAT,
+                                                       localSize,
+                                                       0,
+                                                       VP_sexpStringOutgoing,
+                                                       & VP_twinStat_ptr,
+                                                       2,
+                                                       RF_fobservationSize,
+                                                       VP_neighbourSize);
+              localSize = RF_fobservationSize * VP_neighbourSize;
+              VP_twinStatID_ = (uint*) stackAndProtect(RF_auxDimConsts,
+                                                     mode,
+                                                     &RF_nativeIndex,
+                                                     NATIVE_TYPE_INTEGER,
+                                                     VP_TWIN_STAT_ID,
+                                                     localSize,
+                                                     0,
+                                                     VP_sexpStringOutgoing,
+                                                     & VP_twinStatID_ptr,
+                                                     2,
+                                                     RF_fobservationSize,
+                                                     VP_neighbourSize);
+              char *xReduceFlag = cvector(1, RF_xSize);
+              if (VP_xReduceSize > 0) {
+                for (uint i = 1; i <= RF_xSize; i++) {
+                  xReduceFlag[i] = FALSE;
+                }
+                for (uint i = 1; i <= VP_xReduceSize; i++) {
+                  xReduceFlag[VP_xReduceIndx[i]] = TRUE;
+                }
+                RF_nativePrint("\n Reduction along x-vars:  ");
+                for (uint i = 1; i <= VP_xReduceSize; i++) {
+                  RF_nativePrint("\n %10d %10d", i, VP_xReduceIndx[i]);
+                }
+              }
+              else {
+                for (uint i = 1; i <= RF_xSize; i++) {
+                  xReduceFlag[i] = TRUE;
+                }
+              }
+#ifdef _OPENMP
+#pragma omp parallel for num_threads(RF_numThreads)
+#endif
+              for (b = 1; b <= RF_fobservationSize; b++) {
+                acquireTwinStat(VP_strengthTreeCount,
+                                VP_branchCount,
+                                VP_complementCount,
+                                VP_xReleaseCount,
+                                VP_branchID,
+                                VP_testCaseNodeIDptr,
+                                VP_xReleaseIDArray,
+                                VP_complementMembers,
+                                RF_observationSize,
+                                RF_xSize,
+                                b,
+                                VP_neighbourSize,
+                                xReduceFlag,
+                                VP_twinStat_ptr,
+                                VP_twinStatID_ptr);
+              }
+              free_cvector(xReduceFlag, 1, RF_xSize);
             }
             if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
               localSize = VP_totalRecordCount * 1;
@@ -1106,7 +1177,7 @@ char varProMain(char mode, int seedValue) {
                           RF_ySize,
                           RF_yIndex,
                           RF_yIndexZero);
-    unstackRandom(RF_ntree);
+    unstackRandom(RF_ntree, RF_ntree, RF_fobservationSize, 0);
   }
   return result;
 }

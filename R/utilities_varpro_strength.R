@@ -37,14 +37,10 @@ get.data.pass.bits <- function (data.pass) {
   }
   return (data.pass)
 }
-get.experimental.bits  <- function(experimental.bits) {
-  if (!is.null(experimental.bits)) {
-    if (experimental.bits == 0) {
-      bits  <- 0
-    }
-    else if (experimental.bits == 2) {
-        ## When zero (0) we use oob as our population.
-        ## When two (2) we use ibg as our population.
+get.varpro.strength.bits  <- function(oob.bits, restore.mode) {
+  ## 0 --> OOB = 0 , 1 --> INBAG = 2^2
+  if (!is.null(oob.bits)) {
+    if (oob.bits == 1) {
       bits  <- 2^2
     }
     else {
@@ -52,7 +48,12 @@ get.experimental.bits  <- function(experimental.bits) {
     }
   }
   else {
-    bits  <- 0
+    if (restore.mode) {
+      bits  <- 0
+    }
+    else {
+      bits <- 2^2
+    }
   }
   return (bits)
 }
