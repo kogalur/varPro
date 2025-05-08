@@ -12,37 +12,33 @@
 }
 
 \arguments{
-  
-  \item{x}{clusterpro object obtained from previous call to \code{clusterpro}.}
 
-  \item{xvar.names}{Names of the x-variables to be plotted (uses all by
-   default).  Can also be integer values.}
+  \item{x}{\code{clusterpro} object returned from a previous call to \code{clusterpro}.}
 
-  \item{shrink}{Shrink the release variable to zero?}
-  
-  \item{col}{Color the plots?}
-  
-  \item{col.names}{The default is to color each plot by the release
-   variable.  This option allows plots to be colored by the same
-   variable specified by \code{col.names}.  Can also be an integer
-   value.}
+  \item{xvar.names}{Names (or integer indices) of the x-variables to plot. Defaults to all variables.}
 
-  \item{sort}{Sort the plot by the importance of a variable?}
+  \item{shrink}{Logical. If \code{TRUE}, shrinks the release variable to zero.}
 
-  \item{cex}{Scale size of the points?}
+  \item{col}{Logical. If \code{TRUE}, colors the points in the plot.}
 
-  \item{breaks}{Number of breaks used when coloring points.}
-    
-  \item{...}{Additional options passed to plot.}
-  
+  \item{col.names}{Variable used to color the plots. Defaults to the release variable. Can also be an integer index.}
+
+  \item{sort}{Logical. If \code{TRUE}, sorts plots by variable importance.}
+
+  \item{cex}{Numeric value to scale point size.}
+
+  \item{breaks}{Number of breaks used when mapping colors to points.}
+
+  \item{...}{Additional arguments passed to \code{plot}.}
+
 }
 
 \details{
 
-  Generates a two-dimensional visualization plot using UMAP applied to
-  the enhanced data of a release variable.
+Generates a two-dimensional visualization using UMAP applied to the enhanced data corresponding to a release variable. This provides a low-dimensional representation of the clustered structure derived from the rule-based transformation of the original data.
 
 }
+
 
 \author{
 

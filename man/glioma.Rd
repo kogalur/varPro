@@ -27,21 +27,11 @@ and pathways of progression in diffuse glioma. Cell, 164, 550-563.
 }
 \examples{
 \donttest{
-## load the data
 data(glioma, package = "varPro")
-
-## varpro analysis
 o <- varpro(y~., glioma, nodesize=2, max.tree=250)
-
-## obtain importance values
 imp <- importance(o)
-
-## print the (unconditional) importance
 print(head(imp$unconditional))
-
-## print the conditional importance
 print(imp$conditional.z)
-
 }}
 
 \keyword{datasets}

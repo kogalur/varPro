@@ -647,10 +647,6 @@ char varProMain(char mode, int seedValue) {
                 for (uint i = 1; i <= VP_xReduceSize; i++) {
                   xReduceFlag[VP_xReduceIndx[i]] = TRUE;
                 }
-                RF_nativePrint("\n Reduction along x-vars:  ");
-                for (uint i = 1; i <= VP_xReduceSize; i++) {
-                  RF_nativePrint("\n %10d %10d", i, VP_xReduceIndx[i]);
-                }
               }
               else {
                 for (uint i = 1; i <= RF_xSize; i++) {

@@ -16,55 +16,46 @@ cv.varpro(f, data, nvar = 30, ntree = 150,
 
 \arguments{
 
-  \item{f}{Formula describing the model to be fit.}
+  \item{f}{Model formula specifying the outcome and predictors.}
 
-  \item{data}{Training data set (a data frame).}
+  \item{data}{Training data set (data frame).}
 
-  \item{nvar}{Upper limit to number of variables returned.}  
+  \item{nvar}{Maximum number of variables to return.}
 
   \item{ntree}{Number of trees to grow.}
 
-  \item{local.std}{Use locally standardized importance?}
-  
-  \item{zcut}{Grid of positive pre-specified cutoff values.}
+  \item{local.std}{Use locally standardized importance values?}
 
-  \item{nblocks}{This is like the number of folds used in M-fold
-    validation.}
+  \item{zcut}{Grid of positive cutoff values used for selecting top variables.}
 
-  \item{split.weight}{Use guided tree-splitting?  Features selected to
-  split a tree node are selected with probability according to a
-  split-weight value, the latter by default being acquired in a
-  preliminary lasso+tree step.}
+  \item{nblocks}{Number of blocks (folds) for cross-validation.}
 
-  \item{split.weight.method}{Optional character string (or vector)
-  specifying the method used to generate the split-weights.  If not
-  specified, defaults to a lasso+tree step.}
-  
+  \item{split.weight}{Use guided tree-splitting? Variables are selected for splitting with probability proportional to split-weights, obtained by default from a preliminary lasso+tree step.}
+
+  \item{split.weight.method}{Character string or vector specifying how split-weights are generated. Defaults to lasso+tree.}
+
   \item{sparse}{Use sparse split-weights?}
 
-  \item{nodesize}{Nodesize of trees. If not specified, value is set
-  using an internal function optimized for sample size and dimension.}
+  \item{nodesize}{Minimum terminal node size. If not specified, an internal function sets the value based on sample size and data dimension.}
 
   \item{max.rules.tree}{Maximum number of rules per tree.}
 
-  \item{max.tree}{Maximum number of trees used for extracting rules.}
+  \item{max.tree}{Maximum number of trees used for rule extraction.}
 
-  \item{papply}{Use mclapply or lapply.}
+  \item{papply}{Apply method; either \code{mclapply} or \code{lapply}.}
 
   \item{verbose}{Print verbose output?}
 
-  \item{seed}{Seed for repeatability.}
+  \item{seed}{Seed for reproducibility.}
 
-  \item{fast}{Use fast random forests, \command{rfsrc.fast}, in place of \command{rfsrc}?
-          Improves speed but may be less accurate.}
-	  
-  \item{crps}{Use CRPS (continuous rank probability score) for
-     estimating survival performance (default is to use Harrel's C-index)?
-     Only applies to survival families.}
+  \item{fast}{Use \code{rfsrc.fast} in place of \code{rfsrc}? May improve speed at the cost of accuracy.}
 
-  \item{...}{Further arguments to be passed to \command{varpro}.}
+  \item{crps}{Use CRPS (continuous ranked probability score) instead of Harrell's C-index for evaluating survival performance? Applies only to survival families.}
+
+  \item{...}{Additional arguments passed to \code{varpro}.}
 
 }
+
 
 \details{
 

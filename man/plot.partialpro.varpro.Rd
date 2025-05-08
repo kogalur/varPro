@@ -13,58 +13,42 @@
 }
 
 \arguments{
-  
-  \item{x}{partialpro object obtained from previous call to \code{partialpro}.}
 
-  \item{xvar.names}{Names of the x-variables to be plotted (uses all by
-    default). Can also be integer values.}
+  \item{x}{\code{partialpro} object returned from a previous call to \code{partialpro}.}
 
-  \item{nvar}{Number of variables to be plotted. Default is all.}
-  
-  \item{parametric}{Set this to true only if you think the partial
-    effect is a polynomial.}
+  \item{xvar.names}{Names (or integer indices) of the x-variables to plot. Defaults to all variables.}
+
+  \item{nvar}{Number of variables to plot. Defaults to all.}
+
+  \item{parametric}{Logical. Set to \code{TRUE} only if the partial effect is believed to follow a polynomial form.}
 
   \item{se}{Display standard errors?}
 
   \item{causal}{Display causal estimator?}
 
-  \item{subset}{Optional factor for conditioning the partial effects.
-  Does not apply if \code{parametric}='TRUE'.}
+  \item{subset}{Optional conditioning factor. Not applicable if \code{parametric = TRUE}. May also be a logical or integer vector to subset the analysis.}
 
-  \item{plot.it}{If \code{FALSE} no plots are generated and instead
-  partial effects values are returned.}
-  
-  \item{...}{Additional options passed to plot.}
-  
+  \item{plot.it}{If \code{FALSE}, no plot is produced; instead, partial effect values are returned.}
+
+  \item{...}{Additional arguments passed to \code{plot}.}
+
 }
+
 
 \details{
 
-  Generates a smooth partial plot for continuous variables. Smoothed
-  black lines are the partial effect and dashed red lines indicate a
-  smoothed error bar of +/- two standard errors.  Note these
-  "standard errors" are meant only to be a guide and should be
-  interpreted with caution.  For binary variables results are displayed
-  as boxplots with whiskers used to indicate the standard error.
+Generates smoothed partial effect plots for continuous variables. The solid black line represents the estimated partial effect; dashed red lines show an approximate plus-minus standard error band. These standard errors are intended as heuristic guides and should be interpreted cautiously.
 
-  Partial effects are estimated nonparametrically using locally fit
-  polynomial models.  These are the values displayed by default and
-  should be used in any setting where the partial effect is expected to
-  be nonlinear.  Use option \code{parametric} if the true effect is
-  believed to be a polynomial.
+Partial effects are estimated nonparametrically using locally fitted polynomial models. This is the default behavior and is recommended when effects are expected to be nonlinear. Use \code{parametric = TRUE} if the underlying effect is believed to follow a global polynomial form.
 
-  A causal estimator can be requested in which case the value displayed
-  is the baseline subtracted parametric local estimator.
+For binary variables, partial effects are shown as boxplots, with whiskers reflecting variability analogous to standard error.
 
-  Plots can be conditioned using option \code{subset} which takes the
-  form of a factor of length equal to the original data sample size.
-  This produces partial effects conditioned on the levels of the
-  provided factor.  \code{subset} can also be specified by a vector of
-  logical values or a vector of integer values indicating cases of
-  interest. In this scenario, the analysis is confined to the requested
-  subset of the data.
+The causal estimator, when requested, displays the baseline-subtracted parametric local effect.
+
+Conditioning is supported via the \code{subset} option. When supplied as a factor (with length equal to the original data), the plot is stratified by its levels. Alternatively, \code{subset} can be a logical or integer vector indicating the cases to include in the analysis.
 
 }
+
 
 \author{
 

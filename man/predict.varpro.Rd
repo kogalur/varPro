@@ -9,27 +9,23 @@
 \usage{\method{predict}{varpro}(object, newdata, ...)}
 
 \arguments{
-  
-  \item{object}{VarPro object obtained from previous call to \code{varpro}.}
-  
-  \item{newdata}{Test data. If not provided the training data is used.}
 
-  \item{...}{Additional options.}
+  \item{object}{VarPro object returned from a previous call to \code{varpro}.}
+
+  \item{newdata}{Optional test data. If not provided, predictions are computed using the training data (out-of-bag).}
+
+  \item{...}{Additional arguments passed to internal methods.}
 
 }
 
 \details{
 
-  
-  The VarPro method uses the rules obtained from a random forest
-  constructed by guided tree-splitting where variables are selected
-  according to a split-weight obtained in a pre-processing step.
+VarPro uses rules extracted from a random forest built using guided tree-splitting, where variables are selected based on split-weights computed in a preprocessing step.
 
-  This function returns the predicted values for this random forest on
-  the provided test data, \code{newdata} (if not provided, predicted
-  values are the out-of-bag predicted values for the training data).
-  
+This function returns predicted values for the input data. If \code{newdata} is provided, predictions are made on that data; otherwise, out-of-bag predictions for the training data are returned.
+
 }
+
 
 \author{
 

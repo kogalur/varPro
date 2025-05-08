@@ -17,75 +17,53 @@ isopro.varpro(object,
 }
 
 \arguments{
-  
-  \item{object}{VarPro object obtained from previous call.}
 
-  \item{method}{Isolation forest method to be used.  Choices are
-    "unsupv" (unsupervised analysis, the default), "rnd" (pure random
-    splitting) and "auto" (auto-encoder, a type of multivariate
-    forest).}
+  \item{object}{\code{VarPro} object returned from a previous call.}
 
-  \item{sampsize}{Function specifying the sample size used for
-    constructing a tree where sampling is without replacement.  Can also
-    be specified using a number.}
+  \item{method}{Isolation forest method. Options are \code{"unsupv"} (unsupervised analysis, default), \code{"rnd"} (pure random splitting), and \code{"auto"} (auto-encoder, a type of multivariate forest).}
 
-  \item{ntree}{Number of trees.}
+  \item{sampsize}{Function or numeric value specifying the sample size used for constructing each tree. Sampling is without replacement.}
 
-  \item{nodesize}{Minumum terminal node size.}
-  
-  \item{formula}{Formula for when supervised isolation forest is to be used.
-    Ignored if \code{object} is provided.}
+  \item{ntree}{Number of trees to grow.}
 
-  \item{data}{Data frame used for fitting isolation forest.  Ignored if
-  \code{object} is provided.}
-    
-  \item{...}{Additional options to be passed to \command{rfsrc}.}
-  
+  \item{nodesize}{Minimum terminal node size.}
+
+  \item{formula}{Formula used for supervised isolation forest. Ignored if \code{object} is provided.}
+
+  \item{data}{Data frame used to fit the isolation forest. Ignored if \code{object} is provided.}
+
+  \item{...}{Additional arguments passed to \code{rfsrc}.}
+
 }
 
 \details{
 
-  Isolation Forest (Liu et al., 2008) is a random forest procedure for
-  detecting anomalous data.  In the original method, random trees are
-  constructed using pure random splitting with each tree constructed
-  from a subsample of the data.  Typically the subsample size is much
-  smaller than 0.632, the rate used with random forests.  The idea
-  is that under random splitting, and because of extreme subsampling,
-  rare or anomalous data will tend to split early and become isolated
-  very quickly.  Because of this, the depth of an observation, defined
-  as the number of splits needed to be become a terminal node, can be
-  used to find anomalous observations:  anomalous data points are
-  those with relatively small depth values.
+Isolation Forest (Liu et al., 2008) is a random forest-based method for
+detecting anomalous observations. In its original form, trees are
+constructed using pure random splits, with each tree built from a small
+subsample of the data, typically much smaller than the standard 0.632
+fraction used in random forests. The idea is that anomalous or rare
+observations are more likely to be isolated early, requiring fewer
+splits to reach terminal nodes. Thus, observations with relatively small
+depth values (i.e., shallow nodes) are considered anomalies.
 
-  There are several ways to run the code.  The default is to provide a
-  formula and a data set via options \code{formula} and \code{data}.  In
-  the case of unsupervised analysis (which is the usual application of
-  isolation forest), the user only needs to pass in a data set using
-  \code{data}.  In this setting, the option \code{method} is applicable
-  (see above).  In the case where both a formula and data set is
-  provided, then a supervised analysis is run.  The option \code{method}
-  is no longer applicable in this case.  This is the less conventional
-  approach.
 
-  Another approach (also unconventional) is to pass a VarPro object
-  obtained from a previous call (typically this being an unsupervised
-  analysis using \code{unsupv}, but this is not the only choice).
-  Unsupervised isolation forests is then applied to the dimension
-  reduced x matrix from the VarPro call.  Therefore this results in an
-  analysis similar to using only the option \code{data}, however the
-  difference and advantage is that dimension reduction is achieved via
-  VarPro.
+There are several ways to apply the method:
 
-  Users should experiment with the type of isolation forest method used.
-  This is because while the original isolation forest performs well,
-  there are many examples where it can be improved upon.  See the
-  examples below which illustrate that the pure random splitting "rnd"
-  method may not always be the best.
+\itemize{
+  \item The default approach is to supply a \code{formula} and \code{data} to build a supervised isolation forest. If only \code{data} is provided (i.e., no response), an unsupervised analysis is performed. In this case, the \code{method} option is used to specify the type of isolation forest (e.g., \code{"unsupv"}, \code{"rnd"}, or \code{"auto"}).
+  
+  \item If both a formula and data are provided, a supervised model is fit. In this case, \code{method} is ignored. While less conventional, this approach may be useful in certain applications.
+  
+  \item Alternatively, a \code{VarPro} object may be supplied. This is typically from an unsupervised VarPro call (e.g., using \code{unsupv}), but other configurations are also supported. In this setting, isolation forest is applied to the reduced feature matrix extracted from the VarPro object. This is similar to using the \code{data} option alone but with the advantage of prior dimension reduction.
+}
 
-  Computationally "rnd" is the fastest method followed by "unsupv".  The
-  slowest is "auto" which should be used in low-dimensional problems.
+Users are encouraged to experiment with the choice of \code{method}, as the original isolation forest (\code{"rnd"}) performs well in many scenarios but can be improved upon in others. For example, in some cases, \code{"unsupv"} or \code{"auto"} may yield better detection performance.
+
+In terms of computational cost, \code{"rnd"} is the fastest, followed by \code{"unsupv"}. The slowest is \code{"auto"}, which is best suited for low-dimensional settings.
 
 }
+
 
 \author{
 

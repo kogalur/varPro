@@ -22,47 +22,43 @@ unsupv.varpro(data,
 
 \arguments{
 
-  \item{data}{Data frame containing the usupervised data.}
+  \item{data}{Data frame containing the unsupervised data.}
 
-  \item{method}{Type of forest used.  Choices are "auto" (auto-encoder),
-   "unsupv" (unsupervised analysis), and "rnd" (pure random forests).}
- 
+  \item{method}{Type of forest used. Options are \code{"auto"} (auto-encoder), \code{"unsupv"} (unsupervised analysis), and \code{"rnd"} (pure random forest).}
+
   \item{ntree}{Number of trees to grow.}
 
-  \item{nodesize}{Nodesize of trees. If not specified, value is set
-  using an internal function optimized for sample size and dimension.}
+  \item{nodesize}{Minimum terminal node size. If not specified, an internal function selects an appropriate value based on sample size and dimension.}
 
   \item{max.rules.tree}{Maximum number of rules per tree.}
 
-  \item{max.tree}{Maximum number of trees used for extracting rules.}
+  \item{max.tree}{Maximum number of trees used to extract rules.}
 
-  \item{papply}{Use mclapply or lapply.}
+  \item{papply}{Parallel apply method; typically \code{mclapply} or \code{lapply}.}
 
   \item{verbose}{Print verbose output?}
 
-  \item{seed}{Seed for repeatability.}
+  \item{seed}{Seed for reproducibility.}
 
-  \item{...}{Further arguments to be passed to \command{rfsrc}.}
+  \item{...}{Additional arguments passed to \code{rfsrc}.}
 
 }
 
 \details{
 
-  VarPro is applied to the branches of a random forest to obtain
-  importance values.  Three types of forests can be used specified by
-  the option \code{method}.  The default \code{method}="auto" runs a
-  random forest autoencoder by fitting selected variables against
-  themselves - a special type of multivariate forest.  The second is
-  \code{method}="unsupv" which runs unsupervised forests.  The third is
-  random forests using pure random splitting, \code{method}="rnd".  For
-  very large data sets the auto-encoder might be slow.  The other two
-  methods are much faster.
+VarPro is applied to the branches of a random forest to compute variable importance values. The type of forest used is controlled by the \code{method} option.
 
-  VarPro importance is measured by entropy defined in terms of
-  overall feature variance.
-  
+The default, \code{method = "auto"}, fits a random forest autoencoder by
+regressing selected variables against themselves, a specialized form of
+multivariate forest. The alternative \code{"unsupv"} uses unsupervised
+forests, and \code{"rnd"} employs pure random splitting. For large
+datasets, the autoencoder may be slower, while the other two methods are
+typically faster.
+
+VarPro importance is quantified using an entropy-based measure defined in terms of overall feature variance.
+
 }
-  
+
 \value{
 
   A VarPro object.

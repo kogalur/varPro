@@ -20,50 +20,44 @@
 }
 
 \arguments{
-  
-  \item{o}{VarPro object obtained from previous call to \code{varpro}.}
 
-  \item{local.std}{Use locally standardized importance?}
+  \item{o}{\code{VarPro} object returned from a previous call to \code{varpro}.}
 
-  \item{y.external}{User supplied external y value.  Must match the
-  dimension and be appropriate for the family.}
-  
-  \item{cutoff}{Cut-off used to highlight significant variables in the
-   importance graphical plot.  Only applies when option
-   \code{plot.it='TRUE'}.}
-    
-  \item{trim}{Used for setting windsorized trim value to robustify mean
-  and standard deviation values.}
+  \item{local.std}{Logical. If \code{TRUE}, uses locally standardized importance values.}
 
-  \item{plot.it}{Plot the importance values?}
+  \item{y.external}{Optional user-supplied response vector. Must match the expected dimension and outcome family.}
 
-  \item{conf}{Show importance values with standard errors as a boxplot
-    (thus showing an informal confidence region)?  If \code{conf='FALSE'},
-    plots standardized importance.}
+  \item{cutoff}{Threshold used to highlight significant variables in the importance plot. Applies only when \code{plot.it = TRUE}.}
 
-  \item{sort}{Sort the results in decreasing order?}
-  
-  \item{ylab}{Label used for vertical axis.}
-  
-  \item{max.rules.tree}{Optional. Maximum number of rules per tree.
-    If left unspecified, uses the value from the VarPro object.}
+  \item{trim}{Windsorization trim value used to robustify the mean and standard deviation calculations.}
 
-  \item{max.tree}{Maximum number of trees used for extracting rules.
-    If left unspecified, uses the value from the VarPro object.}
+  \item{plot.it}{Logical. If \code{TRUE}, generates a plot of importance values.}
 
-  \item{papply}{Use mclapply or lapply.}
-  
-  \item{...}{Additional options.}
-  
+  \item{conf}{Logical. If \code{TRUE}, displays importance values with standard errors as a boxplot (providing an informal confidence region). If \code{FALSE}, plots standardized importance values.}
+
+  \item{sort}{Logical. If \code{TRUE}, sorts results in decreasing order of importance.}
+
+  \item{ylab}{Character string specifying the y-axis label.}
+
+  \item{max.rules.tree}{Optional. Maximum number of rules per tree. Defaults to the value stored in the \code{VarPro} object if unspecified.}
+
+  \item{max.tree}{Optional. Maximum number of trees used for rule extraction. Defaults to the value from the \code{VarPro} object if unspecified.}
+
+  \item{papply}{Apply method for parallelization; typically \code{mclapply} or \code{lapply}.}
+
+  \item{...}{Additional arguments passed to internal methods.}
+
 }
 
 \details{
 
-  Calculates split-sample mean and standard deviation importance values
-  using the results from a previous varpro call and converts these to
-  standardized importance values from which variables are selected.
+Calculates standardized importance values for identifying and ranking
+variables. Optionally, graphical output is provided, including
+confidence-style boxplots.
+
 
 }
+
 
 \value{
 

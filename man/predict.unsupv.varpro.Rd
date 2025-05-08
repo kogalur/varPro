@@ -10,37 +10,32 @@
 \usage{\method{predict.unsupv}{varpro}(object, newdata, ...)}
 
 \arguments{
-  
-  \item{object}{Unsupervised VarPro object from previous call to
-    \code{unsupv}.  Only applies if \code{method}="auto" was used.}
-  
-  \item{newdata}{Test data. If not provided the training data
-  is used.}
 
-  \item{...}{Additional options.}
+  \item{object}{Unsupervised VarPro object from a previous call to \code{unsupv}. Only applies if \code{method = "auto"} was used.}
+
+  \item{newdata}{Optional test data. If not provided, the training data is used.}
+
+  \item{...}{Additional arguments passed to internal methods.}
 
 }
 
 \details{
 
-  Applies to unsupervised VarPro objects built using autoencoder
-  (\code{method}="auto").  The unsupervised object contains a
-  multivariate random forest which is used to predict on test data.
+Applies to unsupervised VarPro objects built using the autoencoder (\code{method = "auto"}). The object contains a multivariate random forest used to generate predictions for the test data.
 
-  Returns a matrix containing predicted values where each column is predicted
-  value for a feature (hot-encoding is applied) and with attributes:
+Returns a matrix of predicted values, where each column corresponds to a feature (with one-hot encoding applied). The result includes the following attributes:
 
-  \enumerate{
-    
-    \item \code{mse}: standardized mean-squared error averaged across
-    feature.
+\enumerate{
 
-    \item \code{mse.all}: standardized mean-squared error for each
-    feature.
+  \item \code{mse}: Standardized mean squared error averaged across features.
 
-  }
-  
+  \item \code{mse.all}: Standardized mean squared error for each individual feature.
+
 }
+
+}
+
+
 
 \author{
 

@@ -19,75 +19,59 @@ ivarpro(object,
 }
 
 \arguments{
-  
-  \item{object}{VarPro object obtained from previous call to
-  \code{varpro} or a \code{rfsrc} object.}
 
-  \item{cut}{Sequence of lambda values using for relaxing the constraint
-  region in the local linear regression model.  Calibrated so that a
-  value of 1 (one) corresponds to a one standard deviation of the
-  release coordinate.}
+  \item{object}{\code{VarPro} object from a previous call to \code{varpro}, or a \code{rfsrc} object.}
 
-  \item{nmin}{Smallest sample size allowed in a local linear regression
-  model.}
+  \item{cut}{Sequence of \eqn{lambda} values used to relax the constraint region in the local linear regression model. Calibrated so that \code{cut = 1} corresponds to one standard deviation of the release coordinate.}
 
-  \item{nmax}{Largest sample size allowed in a local linear regression
-  model.}
+  \item{nmin}{Minimum number of observations required for fitting a local linear model.}
 
-  \item{y.external}{User supplied external y value used as the dependent
-  variable in the local linear regression.  Must match the dimension and
-  be appropriate for the family.}
+  \item{nmax}{Maximum number of observations allowed for fitting a local linear model.}
 
-  \item{noise.na}{Logical indicating whether 'NA' (default) or 0 should
-  be used for the gradient for a noisy or non-signal variable.}
-  
-  \item{papply}{Use mclapply or lapply.}
+  \item{y.external}{Optional user-supplied response vector to use as the dependent variable in the local linear regression. Must match the dimension and type expected for the outcome family.}
 
-  \item{max.rules.tree}{Optional. Maximum number of rules per tree.
-    If left unspecified, uses the value from the VarPro object.}
+  \item{noise.na}{Logical. If \code{TRUE} (default), gradients for noisy or non-signal variables are set to \code{NA}; if \code{FALSE}, they are set to zero.}
 
-  \item{max.tree}{Maximum number of trees used for extracting rules.
-    If left unspecified, uses the value from the VarPro object.}
+  \item{papply}{Apply method; either \code{mclapply} or \code{lapply}.}
+
+  \item{max.rules.tree}{Optional. Maximum number of rules per tree. If unspecified, the value from the \code{VarPro} object is used.}
+
+  \item{max.tree}{Optional. Maximum number of trees used for rule extraction. If unspecified, the value from the \code{VarPro} object is used.}
+
 }
 
 \details{
 
-  Understanding the individual importance of variables is a crucial yet
-  underexplored aspect of statistical modeling and machine
-  learning. Traditional methods quantify variable effects at the
-  population level but often fail to capture heterogeneity across
-  individuals. In many applications, particularly those requiring
-  personalized decisions, it is insufficient to determine whether a
-  variable is important on average; rather, we must understand how it
-  influences specific predictions.
+Understanding individual-level variable importance is critical in
+applications where personalized decisions are required. Traditional
+variable importance methods focus on average (population-level) effects
+and often fail to capture heterogeneity across individuals. In many
+real-world problems, it is not sufficient to determine whether a
+variable is important on average, we must also understand how it affects
+individual predictions.
 
-  VarPro defines localized feature space regions using data-driven
-  splitting rules and computes importance scores from these regions. By
-  relying solely on observed data, VarPro avoids biases introduced by
-  permutations and artificial data, ensuring a more robust approach to
-  variable selection. Although VarPro addresses bias in population-level
-  importance, it does not account for individualized effects.
 
-  To bridge this gap, we propose individual variable priority (iVarPro),
-  which defines feature importance based on the local gradient of each
-  feature, providing a more interpretable measure. The gradient
-  quantifies how small perturbations in a variable influence an
-  individual's predicted outcome, serving as a natural measure of
-  sensitivity.
+The VarPro framework identifies feature-space regions through rule-based splitting and computes importance using only observed data. This avoids biases introduced by permutation or synthetic data, leading to robust, population-level importance estimates. However, VarPro does not directly capture individual-level effects.
 
-  Due to the consistency property of VarPro, the regions (R) defined by
-  VarPro rules can be used for studying meaningful variations in the
-  target function. iVarPro harnesses this property by employing a local
-  linear regression model within a region (R) to estimate the
-  gradient. However, using only observations within R is often
-  insufficient, as sample sizes within these small regions are typically
-  too limited for stable estimation.  Therefore, iVarPro leverages the
-  release region concept from the VarPro framework. Releasing (R) along a
-  coordinate (s) expands the subset of individuals considered by
-  removing constraints on (s) while preserving all other constraints
-  defining (R). This targeted expansion introduces additional variation
-  specifically along (s), which is precisely what is needed to compute
-  the directional derivative.
+To address this limitation, individual variable priority (iVarPro)
+extends VarPro by estimating the local gradient of each
+feature, quantifying how small changes in a variable influence an
+individual's predicted outcome. These gradients serve as natural
+measures of sensitivity and provide an interpretable notion of
+individualized importance.
+
+iVarPro leverages the release region concept from VarPro. A region
+\eqn{R} is first defined using VarPro rules. Since using only data
+within \eqn{R} often results in insufficient sample size for stable
+gradient estimation, iVarPro releases \eqn{R} along a coordinate
+\eqn{s}. This means the constraint on \eqn{s} is removed while all
+others are held fixed, yielding additional variation specifically in the
+\eqn{s}-direction, precisely what is needed to compute directional
+derivatives.
+
+Local gradients are then estimated via linear regression on the expanded region. The parameter \code{cut} controls the amount of constraint relaxation. A value of \code{cut = 1} corresponds to one standard deviation of the release coordinate, calibrated automatically from the data.
+
+The flexibility of this framework makes it suitable for quantifying individual-level importance in regression, classification, and survival settings.
 
 }
 

@@ -10,28 +10,25 @@
 \usage{\method{predict.isopro}{varpro}(object, newdata, quantiles = TRUE, ...)}
 
 \arguments{
-  
-  \item{object}{isopro object obtained from previous call.}
 
-  \item{newdata}{Test data. If not provided the training data
-  is used.}
+  \item{object}{\code{isopro} object returned from a previous call.}
 
-  \item{quantiles}{Return quantiles (default) or case depth values?}
+  \item{newdata}{Optional test data. If not provided, the training data is used.}
 
-  \item{...}{Additional options.}
+  \item{quantiles}{Logical. If \code{TRUE} (default), returns quantile values; if \code{FALSE}, returns case depth values.}
+
+  \item{...}{Additional arguments passed to internal methods.}
 
 }
 
 \details{
 
-  Uses previously constructed isopro object to identify anomalous
-  observations in test data.  Values returned are quantile values
-  indicating depth of test data relative to original training data.
-  Small values indicate outliers.  To return depth values, use
-  \code{quantiles}="FALSE".
+Uses a previously constructed \code{isopro} object to assess anomalous observations in the test data. By default, returns quantile values representing the depth of each test observation relative to the original training data. Smaller values indicate greater outlyingness.
 
-  
+To return raw depth values instead of quantiles, set \code{quantiles = FALSE}.
+
 }
+
 
 \author{
 

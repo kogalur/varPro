@@ -1,6 +1,7 @@
 \name{varpro.strength}
 \alias{varpro.strength}
 \title{Obtain Strength Array and Other Values from a VarPro Object}
+
 \description{
   Used to parse values from a VarPro object.
 }
@@ -20,42 +21,34 @@ varpro.strength(object,
 
 \arguments{
 
-  \item{object}{rfsrc object}
+  \item{object}{\code{rfsrc} object.}
 
-  \item{newdata}{Optional test data. If provided, the output equals the
-    branch and complementary branch membership of the training data
-    corresponding to the test data.}
-  
-  \item{m.target}{Character value for multivariate families
-    specifying the target outcome to be used.  If left unspecified, the
-    algorithm will choose a default target.}
+  \item{newdata}{Optional test data. If provided, returns branch and complementary branch membership of the training data corresponding to the test cases.}
 
-  \item{max.rules.tree}{Maximum number of rules per tree.}
+  \item{m.target}{Character string specifying the target outcome for multivariate families. If unspecified, a default is selected automatically.}
 
-  \item{max.tree}{Maximum number of trees used for extracting rules.}
+  \item{max.rules.tree}{Maximum number of rules extracted per tree.}
 
-  \item{stat}{Determines which statistic is output. Either importance,
-    complement mean, or oob mean.}
+  \item{max.tree}{Maximum number of trees used for rule extraction.}
 
-  \item{membership}{Return OOB and complementary OOB membership indices
-    for each rule?}
+  \item{stat}{Statistic to output. Options include \code{"importance"}, \code{"complement mean"}, and \code{"oob mean"}.}
 
-  \item{neighbor}{Nearest neighbor parameter.  Only applies when
-  \code{newdata} is provided.}
+  \item{membership}{Return out-of-bag and complementary membership indices for each rule?}
 
-  \item{seed}{Seed for repeatability.}
+  \item{neighbor}{Nearest neighbor parameter, used only when \code{newdata} is specified.}
 
-  \item{do.trace}{Used to obtain detailed trace.}
+  \item{seed}{Seed for reproducibility.}
 
-  \item{...}{Further arguments.}
-  
+  \item{do.trace}{Enable detailed trace output.}
+
+  \item{...}{Additional arguments.}
+
 }
 
 \details{
-  Not intended for end-user use and is primarily meant for internal
-  use by the package.
-  
+  Not intended for direct end-user use; primarily designed for internal package operations.
 }
+
 
 \examples{
   

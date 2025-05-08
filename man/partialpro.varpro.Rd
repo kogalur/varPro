@@ -16,82 +16,58 @@
 }
 
 \arguments{
-  
-  \item{object}{VarPro object obtained from previous call to \code{varpro}.}
 
-  \item{xvar.names}{Names of the x-variables to be used.}
+  \item{object}{\code{VarPro} object returned from a previous call to \code{varpro}.}
 
-  \item{nvar}{Number of variables to be used. Default is all.}
-  
-  \item{target}{For classification, an integer or character value
-    specifying the class that the partial effect is computed for
-    (defaults to the last class).}
+  \item{xvar.names}{Names of the x-variables to use.}
 
-  \item{learner}{Optional function for passing a user's personally
-    constructed learner (see details below).}
+  \item{nvar}{Number of variables to include. Defaults to all.}
 
-  \item{newdata}{Optional data frame containing x-data used for the
-    analysis.  If present, partial effects are obtained for these data
-    points.  Otherwise the default action is to use the training data.}
+  \item{target}{For classification, specifies the class for which the partial effect is computed. Can be an integer or character label. Defaults to the last class.}
 
-   \item{method}{Isolation forest method used for unlimited virtual
-     twins.  Choices are "unsupv" (unsupervised analysis, the default),
-     "rnd" (pure random splitting) and "auto" (auto-encoder, a type of
-     multivariate forest).  See \command{isopro} for details.}
-   
+  \item{learner}{Optional function specifying a user-defined prediction model. See \code{Details}.}
+
+  \item{newdata}{Optional data frame containing test features. If not provided, the training data is used.}
+
+  \item{method}{Isolation forest method used for Unlimited Virtual Twins (UVT). Options are \code{"unsupv"} (default), \code{"rnd"} (pure random splitting), and \code{"auto"} (autoencoder). See \code{isopro} for details.}
+
   \item{verbose}{Print verbose output?}
-  
-  \item{papply}{Use mclapply or lapply.}
-  
-  \item{...}{Additional hidden options: "cut", "nsmp", "nvirtual",
-    "nmin", "alpha", "df", "sampsize", "ntree", "nodesize",
-    "mse.tolerance".}
-  
+
+  \item{papply}{Parallel apply method; typically \code{mclapply} or \code{lapply}.}
+
+  \item{...}{Additional hidden options: \code{"cut"}, \code{"nsmp"}, \code{"nvirtual"}, \code{"nmin"}, \code{"alpha"}, \code{"df"}, \code{"sampsize"}, \code{"ntree"}, \code{"nodesize"}, \code{"mse.tolerance"}.}
+
 }
 
 \details{
 
-  Obtain partial effects for requested variables from a VarPro analysis.
-  Some variables will have been filtered in the VarPro analysis and in
-  such cases their partial effects cannot be obtained (as filtered
-  variables are considered to be noisy variables).
+Computes partial effects for selected variables based on a \code{VarPro} analysis. If a variable was filtered out during VarPro (e.g., due to noise), its partial effect cannot be computed.
 
-  Partial effects are obtained using predicted values from the random
-  forest object built during the VarPro analysis.  Unlimited
-  Virtual Twins (UVT) are used to restrict the prediction call to
-  partial plot data (i.e. the artificially created data used for the
-  partial effects estimation) that meet an isolation forest criteria
-  specified by the internal option \code{cut}, a small percentile
-  value which filters unlikely to occur partial data.  Isolation
-  forests are constructed via the function \command{isopro}.
-  
-  For regression, the partial effect is on the scale of the response;
-  for survival it is either mortality (default) or RMST (the latter when
-  the user specifies this in the original \link{varpro} call: see
-  examples below); for classification it is the log-odds for the
-  specified target class label (see examples below).
+Partial effects are derived using predictions from the forest built during VarPro. These predictions are restricted using Unlimited Virtual Twins (UVT), which apply an isolation forest criterion to filter unlikely combinations of partial data. The filtering threshold is governed by the internal \code{cut} parameter. Isolation forests are constructed via \code{isopro}.
 
-  Partial effects are estimated locally using polynomial linear models
-  fit to the predicted values from the learner.  Degrees of freedom of
-  the local polynomial model is set by option \code{df} (the default is
-  2 corresponding to a quadratic model).
+Interpretation of partial effects depends on the outcome type:
+\itemize{
+  \item For regression: effects are on the response scale.
+  \item For survival: effects are either on mortality (default) or RMST (if specified in the original \code{varpro} call).
+  \item For classification: effects are log-odds for the specified \code{target} class.
+}
 
-  By default, the random forest built during the VarPro analysis is used
-  for prediction, however users can provide their own predictor using
-  option \code{learner}.  The user's learner should be trained using the
-  training data used in the varpro analysis.  \code{learner} then takes
-  the form of a function whose input is a data frame containing feature
-  values and whose output is the predicted value from the user's
-  learner.  For regression and survival, the output should be a vector.
-  For classification, the output should be matrix whose columns are the
-  predicted probability for each class label given in the order of the
-  original class outcome. If the input is missing, the function should
-  return the predicted values for the original training data.  See the
-  examples below which illustrate using an external: (1) random forest
-  learner (which can sometimes be better than the random forests learner built
-  during the VarPro analysis); (2) gradient tree boosting learner; and
-  (3) BART (Bayesian Adaptive Regression Trees).
-  
+Partial effects are estimated locally using polynomial linear models fit to the predicted values. The degrees of freedom for the local model are controlled by the \code{df} option (default = 2, i.e., quadratic).
+
+By default, predictions use the forest from the VarPro object. Alternatively, users may supply a custom prediction function via \code{learner}. This function should accept a data frame of features and return:
+\itemize{
+  \item A numeric vector for regression or survival outcomes.
+  \item A matrix of class probabilities (one column per class, in original class order) for classification.
+  \item If \code{newdata} is missing, the function should return predictions on the original training data.
+}
+
+See the examples for use cases with external learners, including:
+\enumerate{
+  \item Random forest (external to VarPro),
+  \item Gradient tree boosting,
+  \item Bayesian Additive Regression Trees (BART).
+}
+
 }
 
 \author{

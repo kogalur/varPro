@@ -17,41 +17,34 @@
 
 \arguments{
 
-  \item{data}{Data frame containing the usupervised data.}
+  \item{data}{Data frame containing the unsupervised data.}
 
-  \item{method}{Type of forest used.  Choices are "auto" (auto-encoder),
-   "unsupv" (unsupervised analysis), and "rnd" (pure random forests).}
+  \item{method}{Type of forest used. Options are \code{"auto"} (auto-encoder), \code{"unsupv"} (unsupervised analysis), and \code{"rnd"} (pure random forest).}
 
   \item{ntree}{Number of trees to grow.}
 
-  \item{nodesize}{Nodesize of trees. If not specified, value is set
-  using an internal function optimized for sample size and dimension.}
+  \item{nodesize}{Minimum terminal node size. If not specified, the value is chosen by an internal function based on sample size and data dimension.}
 
   \item{max.rules.tree}{Maximum number of rules per tree.}
 
-  \item{max.tree}{Maximum number of trees used for extracting rules.}
+  \item{max.tree}{Maximum number of trees used to extract rules.}
 
-  \item{papply}{Use mclapply or lapply.}
+  \item{papply}{Parallel apply method; typically \code{mclapply} or \code{lapply}.}
 
   \item{verbose}{Print verbose output?}
 
-  \item{seed}{Seed for repeatability.}
+  \item{seed}{Seed for reproducibility.}
 
-  \item{...}{Further arguments to be passed to \command{unsupv}.}
- 
+  \item{...}{Additional arguments passed to \code{unsupv}.}
+
 }
 
 \details{
 
-  Unsupervised data visualization tool.  A two-class analysis is run for
-  a VarPro rule and its complementary region to obtain regression
-  coefficients which identify variables of interest relative to the
-  release variable.  The regression coefficients are used to scale the
-  centroids of the two regions.  Save all such pairs of scaled centroids
-  to obtain the enhanced learning data set for the release variable.
-  Off the shelf data visualization tools can then be applied to the
-  enhanced data to explore data relationships.
-  
+Unsupervised data visualization tool based on the VarPro framework. For each VarPro rule and its complementary region, a two-class analysis is performed to estimate regression coefficients that quantify variable importance relative to the release variable. These coefficients are then used to scale the centroids of the two regions.
+
+The resulting scaled centroids from all rule pairs form an enhanced learning data set for the release variable. This transformed data can be passed to standard visualization tools (e.g., UMAP or t-SNE) to explore structure and relationships in the original high-dimensional space.
+
 }
 
 \author{
