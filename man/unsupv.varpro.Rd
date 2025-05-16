@@ -46,16 +46,20 @@ unsupv.varpro(data,
 
 \details{
 
-VarPro is applied to the branches of a random forest to compute variable importance values. The type of forest used is controlled by the \code{method} option.
-
-The default, \code{method = "auto"}, fits a random forest autoencoder by
-regressing selected variables against themselves, a specialized form of
-multivariate forest. The alternative \code{"unsupv"} uses unsupervised
-forests, and \code{"rnd"} employs pure random splitting. For large
-datasets, the autoencoder may be slower, while the other two methods are
+Unsupervised variable selection and importance values are obtained by
+applying VarPro to a random forest constructed from unsupervised data. The
+type of forest is controlled by the \code{method} option. The default,
+\code{method = "auto"}, fits a random forest autoencoder by regressing
+selected variables against themselves, specialized form of multivariate
+forest. The alternative \code{"unsupv"} uses an unsupervised forest,
+while \code{"rnd"} employs purely random splitting. For large datasets,
+the autoencoder may be slower, whereas the other two methods are
 typically faster.
 
-VarPro importance is quantified using an entropy-based measure defined in terms of overall feature variance.
+VarPro importance values are computed using an entropy-based measure
+defined in terms of overall feature variance. Users may also define
+custom entropy functions to construct alternative importance measures.
+See the examples below.
 
 }
 
@@ -178,6 +182,91 @@ housing2 <- data.frame(data.matrix(housing2))
 
 ## use fewer trees and bigger nodesize
 print(importance(unsupv(housing2, ntree = 50, nodesize = 150)))
+
+## ------------------------------------------------------------
+##  custom importance
+##  OPTION 1: use hidden entropy option
+## ------------------------------------------------------------
+
+my.entropy <- function(xC, xO, ...) {
+
+  ## xC     x feature data from complementary region
+  ## xO     x feature data from original region
+  ## ...    used to pass aditional options (required)
+ 
+  ## custom importance value
+  wss <- mean(apply(rbind(xO, xC), 2, sd, na.rm = TRUE))
+  bss <- (mean(apply(xC, 2, sd, na.rm = TRUE)) +
+              mean(apply(xO, 2, sd, na.rm = TRUE)))
+  imp <- 0.5 * bss / wss
+  
+  ## entropy value must contain complementary and original membership
+  entropy <- list(comp = list(...)$compMembership,
+                  oob = list(...)$oobMembership)
+
+  ## return importance and in the second slot the entropy list 
+  list(imp = imp, entropy)
+
+}
+
+o <- unsupv(BostonHousing, entropy=my.entropy)
+print(importance(o))
+
+
+## ------------------------------------------------------------
+##  custom importance
+##  OPTION 2: direct importance without hidden entropy option
+## ------------------------------------------------------------
+
+o <- unsupv(BostonHousing, ntree=3, max.rules.tree=10)
+
+## convert original/release region into two-class problem
+## define importance as the lasso beta values 
+
+## For faster performance on Unix systems, consider using:
+## library(parallel)
+## imp <- do.call(rbind, mclapply(seq_along(o$entropy), function(j) { ... }))
+
+imp <- do.call(rbind, lapply(seq_along(o$entropy), function(j) {
+  rO <- do.call(rbind, lapply(o$entropy[[j]], function(r) {
+    xC <- o$x[r[[1]],names(o$entropy),drop=FALSE]
+    xO <- o$x[r[[2]],names(o$entropy),drop=FALSE]
+    y <- factor(c(rep(0, nrow(xC)), rep(1, nrow(xO))))
+    x <- rbind(xC, xO)
+    x <- x[, colnames(x) != names(o$entropy)[j]]
+    fit <- tryCatch(
+      suppressWarnings(glmnet::cv.glmnet(as.matrix(x), y, family = "binomial")),
+      error = function(e) NULL
+    )
+    if (!is.null(fit)) {
+      beta <- setNames(rep(0, length(o$entropy)), names(o$entropy))
+      bhat <- abs(coef(fit)[-1, 1])
+      beta[names(bhat)] <- bhat
+      beta
+    } else {
+      NULL
+    }
+  }))
+  if (!is.null(rO)) {
+    val <- colMeans(rO, na.rm = TRUE)
+    names(val) <- colnames(rO)
+    return(val)
+  } else {
+    return(NULL)
+  }
+}) |> setNames(names(o$entropy)))
+
+print(imp)
+
+
+## ------------------------------------------------------------
+##  custom importance
+##  OPTION 3: direct importance using built in lasso beta function
+## ------------------------------------------------------------
+
+my.entropy.importance <- varPro:::get.beta.entropy
+o <- unsupv(BostonHousing, ntree=3, max.rules.tree=10)
+print(my.entropy.importance(o))
 
 }}
 
