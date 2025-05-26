@@ -1,7 +1,6 @@
 \name{isopro.varpro}
 \alias{isopro.varpro}
 \alias{isopro}
-\alias{get.iso.performance}
 \title{Identify Anomalous Data}
 
 \description{

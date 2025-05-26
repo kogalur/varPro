@@ -1,6 +1,5 @@
 \name{varpro}
 \alias{varpro}
-\alias{make.vt}
 \title{Model-Independent Variable Selection via the Rule-based Variable Priority (VarPro)}
 
 \description{

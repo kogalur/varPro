@@ -14,8 +14,8 @@ unsupv.varpro <- function(data,
   ##------------------------------------------------------------------
   # set method
   method <- match.arg(method, c("auto", "unsupv", "rnd"))
-  ## data must be a data frame
-  data <- data.frame(data)
+  ## data must be a data frame without missing values
+  data <- data.frame(na.omit(data))
   ## droplevels
   data <- droplevels(data)
   ## initialize the seed

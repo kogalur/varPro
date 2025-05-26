@@ -1,10 +1,6 @@
 \name{unsupv.varpro}
 \alias{unsupv.varpro}
 \alias{unsupv}
-\alias{cv.matrix.performance}
-\alias{cv.matrix}
-\alias{cv.unsupv}
-\alias{cv.unsupv.varpro}
 \title{Unsupervised Variable Selection using Variable Priority (VarPro)}
 \description{
   Selects Variables in Unsupervised Problems using Variable Priority
@@ -264,9 +260,11 @@ print(imp)
 ##  OPTION 3: direct importance using built in lasso beta function
 ## ------------------------------------------------------------
 
-my.entropy.importance <- varPro:::get.beta.entropy
 o <- unsupv(BostonHousing, ntree=3, max.rules.tree=10)
-print(my.entropy.importance(o))
+print((beta <- get.beta.entropy(o)))
+
+## bonus: display s-dependent graph
+sdependent(beta)
 
 }}
 

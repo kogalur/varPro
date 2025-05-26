@@ -476,3 +476,87 @@ scaleM <- function(x, center = TRUE, scale = TRUE) {
   colnames(d) <- colnames(x)
   data.matrix(d)
 }
+####################################################################
+##
+## graphical plot displaying s-dependency
+##
+####################################################################
+## I: importance matrix (p x p or q x p) obtained from get.beta.entropy(o)
+## threshold: minimum importance value to retain edges in the graph
+## q.signal: quantile minimum threshold to retain signal designation 
+## directed: directed graph?
+## min.degree: minimum number of strong connections to consider a variable as signal
+## plot: whether to plot the graph using igraph
+sdependent <- function(I,
+                       threshold = .05,
+                       q.signal = .75,
+                       directed = TRUE,
+                       min.degree = NULL,
+                       title = "s-Dependent Variable Detection",
+                       plot = TRUE) {
+  if (!requireNamespace("igraph", quietly = TRUE)) {
+    stop("Package 'igraph' is required but not installed.")
+  }
+  p <- nrow(I)
+  q <- ncol(I)
+  ## Pad rows with zero if needed
+  if (q > p) {
+    rownames(I) <- if (is.null(rownames(I))) paste0("x", 1:p) else rownames(I)
+    extra.rows <- matrix(0, nrow = q - p, ncol = q)
+    rownames(extra.rows) <- setdiff(colnames(I), rownames(I))
+    I <- rbind(I, extra.rows)
+    p <- nrow(I)  
+  }
+  ## Ensure square and clean diagonal
+  diag(I) <- 0
+  colnames(I) <- rownames(I) <- colnames(I)
+  ## Compute column sums as global importance scores
+  imp.scores <- colSums(I, na.rm=TRUE)
+  ## Thresholding the matrix to construct the adjacency matrix
+  A <- (I >= threshold) * 1
+  if (directed) {
+    g <- igraph::graph_from_adjacency_matrix(A, mode = "directed", diag = FALSE)
+  }
+  else {
+    g <- igraph::graph_from_adjacency_matrix(A, mode = "undirected", diag = FALSE)
+  }
+  ## Minimum degree
+  if (is.null(min.degree)) min.degree <- if (directed) 1 else 2
+  ## Compute node degrees (number of strong influences)
+  ##
+  ## for directed graphs
+  ## out degree = row = # variables selected when variable is released
+  ## in degree = column = # number of times Xs is selected when others are released
+  if (directed) {
+    node.degrees <- igraph::degree(g, mode = "out")
+  }
+  ##
+  ## for undirected graphs, in and out distinction is irrelevant
+  ##
+  else {
+    node.degrees <- igraph::degree(g)
+  }
+  ## Identify signal variables based on degree and importance
+  signal.vars <- names(which(node.degrees >= min.degree
+          & imp.scores >= quantile(imp.scores, q.signal, na.rm=TRUE)))
+  ## Optional plotting
+  if (plot) {
+    layout <- igraph::layout_with_fr(g)
+    vertex.size <- 3 + log1p(imp.scores)
+    igraph::V(g)$degree <- node.degrees
+    igraph::plot.igraph(
+      g,
+      layout = layout,
+      vertex.size = 2  * vertex.size,
+      vertex.label.cex = 0.8,
+      vertex.label.color = "black",
+      vertex.color = ifelse(igraph::V(g)$name %in% signal.vars, "dodgerblue", "gray80"),
+      main = title
+    )
+  }
+  ## Return key values as a list, invisibly
+  invisible(list(
+    signal.vars = signal.vars,
+    importance.scores = sort(imp.scores),
+    degree = node.degrees))
+}

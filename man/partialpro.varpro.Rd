@@ -1,9 +1,6 @@
 \name{partialpro.varpro}
 \alias{partialpro.varpro}
 \alias{partialpro}
-\alias{gbm.learner}
-\alias{rf.learner}
-\alias{bart.learner}
 \title{Partial Effects for Variable(s)}
 
 \description{
