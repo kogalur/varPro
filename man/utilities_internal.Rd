@@ -3,11 +3,6 @@
 \alias{bart.learner}
 \alias{beta.varpro}
 
-\alias{cv.matrix.performance}
-\alias{cv.matrix}
-\alias{cv.unsupv}
-\alias{cv.unsupv.varpro}
-
 \alias{get.beta.entropy}
 \alias{get.iso.performance}
 \alias{get.orgvimp}

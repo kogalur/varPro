@@ -113,8 +113,8 @@ In class-imbalanced two-class settings, the algorithm automatically switches to 
   \command{\link{glioma}}
   \command{\link{importance.varpro}}
   \command{\link{predict.varpro}}  
-  \command{\link{isopro.varpro}}
-  \command{\link{unsupv.varpro}}
+  \command{\link{isopro}}
+  \command{\link{uvarpro}}
   
 }
 

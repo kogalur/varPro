@@ -109,7 +109,7 @@ cv.varpro(f, data, nvar = 30, ntree = 150,
 
 \seealso{
   \command{\link{importance.varpro}}
-  \command{\link{unsupv.varpro}}
+  \command{\link{uvarpro}}
   \command{\link{varpro}}
 }
 

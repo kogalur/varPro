@@ -37,12 +37,7 @@ export(
   bart.learner,
   beta.varpro,
   clusterpro,
-  clusterpro.varpro,
-  cv.matrix.performance,
-  cv.matrix,
   cv.varpro,
-  cv.unsupv,
-  cv.unsupv.varpro,
   get.beta.entropy,
   get.iso.performance,
   get.orgvimp,
@@ -53,38 +48,27 @@ export(
   importance.varpro,
   ivarpro,
   isopro,
-  isopro.varpro,
   make.vt,
   predict.isopro,
-  predict.isopro.varpro,
-  predict.unsupv,
-  predict.unsupv.varpro,
+  predict.uvarpro,
   predict.varpro,
   partialpro,
-  partialpro.varpro,
   plot.clusterpro,
-  plot.clusterpro.varpro,
   plot.partialpro,
-  plot.partialpro.varpro,
   rf.learner,
   sdependent,
-  unsupv.varpro,
-  unsupv,
+  uvarpro,
   varpro,
   varpro.news,
   varpro.strength)
 
 S3method(plot, clusterpro)
-S3method(plot, clusterpro.varpro)
 
 S3method(plot, partialpro)
-S3method(plot, partialpro.varpro)
 
 
 S3method(predict, isopro)
-S3method(predict, isopro.varpro)
-S3method(predict, unsupv)
-S3method(predict, unsupv.varpro)
+S3method(predict, uvarpro)
 S3method(predict, varpro)
 
 S3method(print, cv.varpro)

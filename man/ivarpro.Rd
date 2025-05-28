@@ -20,7 +20,7 @@ ivarpro(object,
 
 \arguments{
 
-  \item{object}{\code{VarPro} object from a previous call to \code{varpro}, or a \code{rfsrc} object.}
+  \item{object}{\code{varpro} object from a previous call to \code{varpro}, or a \code{rfsrc} object.}
 
   \item{cut}{Sequence of \eqn{lambda} values used to relax the constraint region in the local linear regression model. Calibrated so that \code{cut = 1} corresponds to one standard deviation of the release coordinate.}
 
@@ -34,9 +34,9 @@ ivarpro(object,
 
   \item{papply}{Apply method; either \code{mclapply} or \code{lapply}.}
 
-  \item{max.rules.tree}{Optional. Maximum number of rules per tree. If unspecified, the value from the \code{VarPro} object is used.}
+  \item{max.rules.tree}{Optional. Maximum number of rules per tree. If unspecified, the value from the \code{varpro} object is used.}
 
-  \item{max.tree}{Optional. Maximum number of trees used for rule extraction. If unspecified, the value from the \code{VarPro} object is used.}
+  \item{max.tree}{Optional. Maximum number of trees used for rule extraction. If unspecified, the value from the \code{varpro} object is used.}
 
 }
 
@@ -51,7 +51,12 @@ variable is important on average, we must also understand how it affects
 individual predictions.
 
 
-The VarPro framework identifies feature-space regions through rule-based splitting and computes importance using only observed data. This avoids biases introduced by permutation or synthetic data, leading to robust, population-level importance estimates. However, VarPro does not directly capture individual-level effects.
+The VarPro framework identifies feature-space regions through rule-based
+splitting and computes importance using only observed data. This avoids
+biases introduced by permutation or synthetic data, leading to robust,
+population-level importance estimates. However, VarPro does not directly
+capture individual-level effects.
+
 
 To address this limitation, individual variable priority (iVarPro)
 extends VarPro by estimating the local gradient of each
@@ -69,9 +74,17 @@ others are held fixed, yielding additional variation specifically in the
 \eqn{s}-direction, precisely what is needed to compute directional
 derivatives.
 
-Local gradients are then estimated via linear regression on the expanded region. The parameter \code{cut} controls the amount of constraint relaxation. A value of \code{cut = 1} corresponds to one standard deviation of the release coordinate, calibrated automatically from the data.
+Local gradients are then estimated via linear regression on the expanded
+region. The parameter \code{cut} controls the amount of constraint
+relaxation. A value of \code{cut = 1} corresponds to one standard
+deviation of the release coordinate, calibrated automatically from the
+data.
 
-The flexibility of this framework makes it suitable for quantifying individual-level importance in regression, classification, and survival settings.
+
+The flexibility of this framework makes it suitable for quantifying
+individual-level importance in regression, classification, and survival
+settings.
+
 
 }
 

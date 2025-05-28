@@ -17,7 +17,7 @@
 
 \arguments{
 
-  \item{o}{\code{VarPro} object returned from a previous call to \code{varpro}.}
+  \item{o}{\code{varpro} object returned from a previous call to \code{varpro}.}
 
   \item{local.std}{Logical. If \code{TRUE}, uses locally standardized importance values.}
 
@@ -35,9 +35,9 @@
 
   \item{ylab}{Character string specifying the y-axis label.}
 
-  \item{max.rules.tree}{Optional. Maximum number of rules per tree. Defaults to the value stored in the \code{VarPro} object if unspecified.}
+  \item{max.rules.tree}{Optional. Maximum number of rules per tree. Defaults to the value stored in the \code{varpro} object if unspecified.}
 
-  \item{max.tree}{Optional. Maximum number of trees used for rule extraction. Defaults to the value from the \code{VarPro} object if unspecified.}
+  \item{max.tree}{Optional. Maximum number of trees used for rule extraction. Defaults to the value from the \code{varpro} object if unspecified.}
 
   \item{papply}{Apply method for parallelization; typically \code{mclapply} or \code{lapply}.}
 
