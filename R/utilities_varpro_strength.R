@@ -38,7 +38,7 @@ get.data.pass.bits <- function (data.pass) {
   return (data.pass)
 }
 get.varpro.strength.bits  <- function(oob.bits, restore.mode) {
-  ## 0 --> OOB = 0 , 1 --> INBAG = 2^2
+  ## 0 --> request OOB = 0 , 1 --> request INBAG = 2^2
   if (!is.null(oob.bits)) {
     if (oob.bits == 1) {
       bits  <- 2^2
@@ -54,6 +54,26 @@ get.varpro.strength.bits  <- function(oob.bits, restore.mode) {
     else {
       bits <- 2^2
     }
+  }
+  return (bits)
+}
+get.freq.table.bits  <- function(freq.table.flag, restore.mode) {
+  ## 0 --> no table --> bit = 0, 1 --> request table --> bit = 2^3
+  if (!is.null(freq.table.flag)) {
+      if (restore.mode) {
+          bits  <- 0
+      }
+      else {
+          if (freq.table.flag == 0) {
+              bits  <- 0
+          }
+          else {
+              bits  <- 2^3
+          }
+      }
+  }
+  else {
+      bits  <- 0
   }
   return (bits)
 }

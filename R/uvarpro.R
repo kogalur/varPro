@@ -104,9 +104,7 @@ uvarpro <- function(data,
   ##
   ##------------------------------------------------------------------
   if (method == "unsupv" && !user.provided.varpro.flag) {
-    if (is.null(dots$ytry)) {
-      dots$ytry <- min(ceiling(sqrt(ncol(data))), ncol(data) - 1)
-    }
+    dots$ytry <- set.unsupervised.ytry(nrow(data), ncol(data), dots$ytry)
     o <- do.call("rfsrc", c(list(
                    data = data,
                    ntree = ntree,

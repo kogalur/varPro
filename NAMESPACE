@@ -23,7 +23,7 @@ importFrom("stats", "as.formula", "coef", "median", "qnorm",
            "lm", "supsmu", "predict.lm",
            "rnorm", "ecdf", "qt", "glm",
            "t.test", "chisq.test", "prop.test",
-           "binomial", "logLik", "pchisq")
+           "binomial", "logLik", "pchisq", "cov")
 
 importFrom("survival", "survdiff", "Surv")
 
@@ -49,6 +49,8 @@ export(
   ivarpro,
   isopro,
   make.vt,
+  outpro,
+  outpro.null,
   predict.isopro,
   predict.uvarpro,
   predict.varpro,

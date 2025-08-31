@@ -730,25 +730,42 @@ void acquireTwinStat(uint strengthTreeCount,
                      uint **xReleaseCount,
                      uint **branchID,
                      uint **testCaseNodeIDptr,
-                     uint   ***xReleaseIDArray,
-                     uint  ****complementMembers,
-                     uint   n,
-                     uint   xSize,
-                     uint i,
-                     uint neighbourSize,
-                     char *xReduceFlag,
+                     uint ***xReleaseIDArray,
+                     uint ****complementMembers,
+                     uint n,
+                     uint xSize,
+                     uint  i,
+                     uint  neighbourSize,
+                     uint  xReduceSize,
+                     uint *xReduceIndx,
+                     uint   **twinStatID_ptr,
                      double **twinStat_ptr,
-                     uint   **twinStatID_ptr) {
-  char *releaseFlag;
-  uint *releaseIndx;
-  uint *releaseIndxMap;
+                     uint  ***twinFreqTable_ptr) {
   uint  *vtWeight;
   double *vtStat;
   uint  releaseIndxCnt;
   double ratio, prob; 
-  releaseFlag = cvector(1, xSize);
-  releaseIndx = uivector(1, xSize);
-  releaseIndxMap = uivector(1, xSize);
+  char *xReduceFlag = cvector(1, xSize);
+  uint *xReduceIndxMap = uivector (1, xSize);
+  if (xReduceSize > 0) {
+    for (uint i = 1; i <= xSize; i++) {
+      xReduceFlag[i] = FALSE;
+    }
+    uint iter = 0;
+    for (uint i = 1; i <= xReduceSize; i++) {
+      xReduceFlag[xReduceIndx[i]] = TRUE;
+      xReduceIndxMap[xReduceIndx[i]] = (++iter);
+    }
+  }
+  else {
+    for (uint i = 1; i <= xSize; i++) {
+      xReduceFlag[i] = TRUE;
+      xReduceIndxMap[i] = i;      
+    }
+  }
+  char *releaseFlag = cvector(1, xSize);
+  uint *releaseIndx = uivector(1, xSize);
+  uint *releaseIndxMap = uivector(1, xSize);
   vtWeight = uivector(1, n);
   vtStat  = dvector(1, n);
   for (uint m = 1; m <= xSize; m++) {
@@ -821,6 +838,16 @@ void acquireTwinStat(uint strengthTreeCount,
     for (uint j = 1; j <= neighbourSize; j++) {
       twinStatID_ptr[i][j] = neighbourIndx[neighbourSize - j + 1];
     }
+    if (VP_opt & VP_OPT_FRQ) {
+      for (uint j = 1; j <= neighbourSize; j++) {
+        for (uint k = 1; k <= releaseIndxCnt; k++) {
+          uint xTarget = releaseIndx[k];
+          if (releaseFlag[xTarget] == TRUE) {
+            twinFreqTable_ptr[i][j][ xReduceIndxMap[xTarget] ] = vtTable[k] [neighbourIndx[neighbourSize - j + 1]];
+          }
+        }
+      }
+    }
     free_uivector(neighbourIndx, 1, neighbourSize);    
     free_uimatrix(vtTable, 1, releaseIndxCnt, 1, n);
   }
@@ -834,6 +861,8 @@ void acquireTwinStat(uint strengthTreeCount,
   free_uivector(releaseIndxMap, 1, xSize);
   free_uivector(releaseIndx, 1, xSize);
   free_cvector(releaseFlag, 1, xSize);
+  free_uivector(xReduceIndxMap, 1, xSize);
+  free_cvector(xReduceFlag, 1, xSize);
 }
 void getMinHeap(uint twin, uint m, uint n, double *value, uint *minHeapIndx) {
   double temp;

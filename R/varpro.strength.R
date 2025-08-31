@@ -35,6 +35,7 @@ varpro.strength <- function(object,
   }
   ## inbag or oob?
   oob.bits <- get.varpro.strength.bits(user.option$oob.bits, restore.mode)
+  freq.table.bits <- get.freq.table.bits(user.option$freq.table.flag, restore.mode)
   ## check if this is an anonymous object
   ## coerce values as necessary
   ## graceful return if restore.mode = TRUE which is not allowed for anonymous
@@ -174,7 +175,7 @@ varpro.strength <- function(object,
                                              terminal.qualts.bits +
                                              terminal.quants.bits +
                                              data.pass.bits),          ## high option byte
-                                  as.integer(stat.bits + oob.bits), ## varpro option byte
+                                  as.integer(stat.bits + oob.bits + freq.table.bits), ## varpro option byte
                                   as.integer(ntree),
                                   as.integer(n),
                                   list(as.integer(length(case.wt)),
@@ -278,6 +279,16 @@ varpro.strength <- function(object,
           score[[i]]$stat <- nativeOutput$twinStat[(offset+1):(offset+neighbor)]
           score[[i]]$id   <- nativeOutput$twinStatID[(offset+1):(offset+neighbor)]
           offset  <- offset + neighbor
+      }
+      if (freq.table.bits > 0) {
+          offset  <- 0
+          dim1 <- neighbor
+          dim2 <- if (is.null(x.reduce.idx)) n.xvar else length(x.reduce.idx)
+          offset.incr <- dim1 * dim2
+          for (i in 1: n.newdata) {
+              score[[i]]$freq.table <- matrix(nativeOutput$twinFreqTable[(offset+1):(offset + offset.incr)], nrow = dim1, byrow = TRUE)
+              offset  <- offset + offset.incr
+          }
       }
   }
   else {

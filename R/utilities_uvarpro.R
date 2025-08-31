@@ -27,11 +27,9 @@ get.entropy.default <- function(entropy.values, xvar.names, ...) {
 ####################################################################
 get.beta.entropy <- function(o,
                              papply=mclapply,
-                             lasso=TRUE,
                              nfolds=10,
                              maxit=2500,
-                             thresh=1e-3,
-                             glm.thresh=10) {
+                             thresh=1e-3) {
   ## input value must be an unusupervised varpro object
   if (!inherits(o, "uvarpro")) {
     stop("this wrapper only applies to unsupervised varpro")
@@ -45,11 +43,10 @@ get.beta.entropy <- function(o,
   xvars <- names(vmp)
   x <- o$x[, xvars, drop=FALSE]
   ## parse the membership values to obtain beta for each variable
-  beta <- lapply(xvars, function(releaseX) {
+  beta <- papply(xvars, function(releaseX) {
     if (sum(xvars != releaseX) > 0) {
-      bO <- do.call(rbind, papply(o$entropy[[releaseX]], function(rule) {
-        get.beta.workhorse(releaseX, rule, x,
-          lasso=lasso, nfolds=nfolds, maxit=maxit, thresh=thresh, glm.thresh=glm.thresh)
+      bO <- do.call(rbind, lapply(o$entropy[[releaseX]], function(rule) {
+        get.beta.workhorse(releaseX, rule, x, nfolds=nfolds, maxit=maxit, thresh=thresh)
       }))
       if (!is.null(bO)) {
         colMeans(bO, na.rm = TRUE)
@@ -69,11 +66,9 @@ get.beta.workhorse <- function(releaseX,
                                rule,
                                xorg,
                                parallel=FALSE,
-                               lasso=TRUE,
                                nfolds=10,
                                maxit=2500,
-                               thresh=1e-3,
-                               glm.thresh=10) {
+                               thresh=1e-3) {
   ## build the x data
   xC <- xorg[rule[[1]],]
   xO <- xorg[rule[[2]],]
@@ -89,32 +84,16 @@ get.beta.workhorse <- function(releaseX,
   p <- length(xnms)
   ## failure returns NULL
   beta <- NULL
-  ## glmnet - maybe slower but reliable
-  if (lasso) {
-    o.glmnet <- tryCatch(
-                  {suppressWarnings(cv.glmnet(as.matrix(x), class, family="binomial",
-                         nfolds=nfolds, parallel=parallel, maxit=maxit, thresh=thresh))},
-                         error=function(ex){NULL})
-    if (!is.null(o.glmnet)) {
-      bhat <- abs(coef(o.glmnet)[-1,1])
-      beta <- rep(0, p)
-      names(beta) <- xnms
-      beta[names(bhat)] <- bhat
-    }
-  }
-  ## glm - could be faster but very unreliable
-  else {
-    o.glm <- tryCatch(
-              {suppressWarnings(glm(class~., data.frame(class=class, x), family="binomial"))},
-      error=function(ex){NULL})
-    if (!is.null(o.glm)) {
-      if (max(abs(summary(o.glm)$coef[-1,1]), na.rm=TRUE) < glm.thresh) {
-        bhat <- abs(summary(o.glm)$coef[-1,3])
-        beta <- rep(NA, p)
-        names(beta) <- xnms
-        beta[names(bhat)] <- bhat
-      }
-    }
+  ## glmnet
+  o.glmnet <- tryCatch(
+  {suppressWarnings(cv.glmnet(as.matrix(x), class, family="binomial",
+                              nfolds=nfolds, parallel=parallel, maxit=maxit, thresh=thresh))},
+                              error=function(ex){NULL})
+  if (!is.null(o.glmnet)) {
+    bhat <- abs(coef(o.glmnet)[-1,1])
+    beta <- rep(0, p)
+    names(beta) <- xnms
+    beta[names(bhat)] <- bhat
   }
   beta
 }
@@ -167,7 +146,7 @@ ginvMLS <- function (y, x, tol = sqrt(.Machine$double.eps)) {
 ##
 ##
 ####################################################################
-set.unsupervised.nodesize <- function(n, p, nodesize = NULL) {
+set.legacy.unsupervised.nodesize <- function(n, p, nodesize = NULL) {
   if (is.null(nodesize)) {
     if (n <= 300 & p > n) {
       nodesize <- 2
@@ -183,6 +162,30 @@ set.unsupervised.nodesize <- function(n, p, nodesize = NULL) {
     }
   }
   nodesize
+}
+set.unsupervised.nodesize <- function(n, p, nodesize = NULL) {
+  if (is.null(nodesize)) {
+    if (n < 100) {
+      nodesize <- n / 10
+    }
+    else {
+      nodesize <- max(n / 10, 20)
+    }
+  }
+  nodesize
+}
+####################################################################
+##
+##
+## custom ytry for unsupervised setting
+##
+##
+####################################################################
+set.unsupervised.ytry <- function(n, p, ytry = NULL) {
+  if (is.null(ytry)) {
+    ytry <- min(ceiling(sqrt(p)), p - 1)
+  }
+  ytry
 }
 ####################################################################
 ##

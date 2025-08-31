@@ -25,7 +25,8 @@ char  *VP_sexpStringOutgoing[VP_SEXP_SIZE] = {
   "cmpCT",             
   "testCaseTermID",    
   "strengthTreeID",    
-  "twinStat",          
   "twinStatID",        
+  "twinStat",          
+  "twinFreqTable",     
   "exit"               
 };

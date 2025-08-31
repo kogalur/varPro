@@ -155,8 +155,8 @@ void acquireTree(char mode, uint b) {
                           RF_tLeafCount_[treeID],
                           RF_tTermMembership[treeID],
                           RF_observationSize,
-                          (VP_opt & VP_OPT_EXP2) ? RF_ibgMembershipIndex[treeID] : RF_oobMembershipIndex[treeID],
-                          (VP_opt & VP_OPT_EXP2) ? RF_ibgSize[treeID] : RF_oobSize[treeID],
+                          (VP_opt & VP_OPT_IBG) ? RF_ibgMembershipIndex[treeID] : RF_oobMembershipIndex[treeID],
+                          (VP_opt & VP_OPT_IBG) ? RF_ibgSize[treeID] : RF_oobSize[treeID],
                           & VP_branchCount[b],
                           & VP_branchID[b],
                           & VP_branchMemberCount[b],
@@ -273,7 +273,7 @@ void acquireTree(char mode, uint b) {
       uint *membrIndexStatic;
       uint *membrIndex;
       uint  subsetSize;
-      if (VP_opt & VP_OPT_EXP2) {
+      if (VP_opt & VP_OPT_IBG) {
         xArray = RF_observation[treeID];
         membrIndexStatic = RF_ibgMembershipIndex[treeID];
         membrIndex = RF_ibgMembershipIndex[treeID];
@@ -436,7 +436,7 @@ void acquireProxyIndv(char  mode,
   *indv = termPtr -> allMembrIndx[1];
   *indvDepth = ((TerminalBase *) termPtr) -> mate -> depth;
   *branchMemberCount = 0;
-  if (VP_opt & VP_OPT_EXP2) {
+  if (VP_opt & VP_OPT_IBG) {
     *branchMembers = uivector(1, termPtr -> ibgMembrCount);
     for (i = 1; i <= termPtr -> ibgMembrCount; i++) {
       (*branchMembers)[++(*branchMemberCount)] = termPtr -> ibgMembrIndx[i];

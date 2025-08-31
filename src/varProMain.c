@@ -76,7 +76,7 @@ char varProMain(char mode, int seedValue) {
                                   RF_ntree,
                                   VP_maxTree,
                                   RF_tLeafCount_,
-                                  (VP_opt & VP_OPT_EXP2) ? NULL : RF_OOB_SZ_,
+                                  (VP_opt & VP_OPT_IBG) ? NULL : RF_OOB_SZ_,
                                   & VP_strengthTreeCount);
   }
   if (result) {
@@ -510,6 +510,9 @@ char varProMain(char mode, int seedValue) {
             }
             if (mode == RF_PRED) {
               RF_stackCount += 3;
+              if (VP_opt & VP_OPT_FRQ) {
+                RF_stackCount += 1;
+              }
             }
             RF_stackCount++;
             initProtect(RF_stackCount);
@@ -614,19 +617,6 @@ char varProMain(char mode, int seedValue) {
                 RF_nativeExit();
               }
               localSize = RF_fobservationSize * VP_neighbourSize;
-              VP_twinStat_ = (double*) stackAndProtect(RF_auxDimConsts,
-                                                       mode,
-                                                       &RF_nativeIndex,
-                                                       NATIVE_TYPE_NUMERIC,
-                                                       VP_TWIN_STAT,
-                                                       localSize,
-                                                       0,
-                                                       VP_sexpStringOutgoing,
-                                                       & VP_twinStat_ptr,
-                                                       2,
-                                                       RF_fobservationSize,
-                                                       VP_neighbourSize);
-              localSize = RF_fobservationSize * VP_neighbourSize;
               VP_twinStatID_ = (uint*) stackAndProtect(RF_auxDimConsts,
                                                      mode,
                                                      &RF_nativeIndex,
@@ -639,19 +629,34 @@ char varProMain(char mode, int seedValue) {
                                                      2,
                                                      RF_fobservationSize,
                                                      VP_neighbourSize);
-              char *xReduceFlag = cvector(1, RF_xSize);
-              if (VP_xReduceSize > 0) {
-                for (uint i = 1; i <= RF_xSize; i++) {
-                  xReduceFlag[i] = FALSE;
-                }
-                for (uint i = 1; i <= VP_xReduceSize; i++) {
-                  xReduceFlag[VP_xReduceIndx[i]] = TRUE;
-                }
-              }
-              else {
-                for (uint i = 1; i <= RF_xSize; i++) {
-                  xReduceFlag[i] = TRUE;
-                }
+              localSize = RF_fobservationSize * VP_neighbourSize;
+              VP_twinStat_ = (double*) stackAndProtect(RF_auxDimConsts,
+                                                       mode,
+                                                       &RF_nativeIndex,
+                                                       NATIVE_TYPE_NUMERIC,
+                                                       VP_TWIN_STAT,
+                                                       localSize,
+                                                       0,
+                                                       VP_sexpStringOutgoing,
+                                                       & VP_twinStat_ptr,
+                                                       2,
+                                                       RF_fobservationSize,
+                                                       VP_neighbourSize);
+              if (VP_opt & VP_OPT_FRQ) {
+                localSize = RF_fobservationSize * VP_neighbourSize * VP_xReduceSize;
+                VP_twinFreqTable_ = (uint*) stackAndProtect(RF_auxDimConsts,
+                                                            mode,
+                                                            &RF_nativeIndex,
+                                                            NATIVE_TYPE_INTEGER,
+                                                            VP_TWIN_FREQ_TB,
+                                                            localSize,
+                                                            0,
+                                                            VP_sexpStringOutgoing,
+                                                            & VP_twinFreqTable_ptr,
+                                                            3,
+                                                            RF_fobservationSize,
+                                                            VP_neighbourSize,
+                                                            VP_xReduceSize);
               }
 #ifdef _OPENMP
 #pragma omp parallel for num_threads(RF_numThreads)
@@ -669,11 +674,12 @@ char varProMain(char mode, int seedValue) {
                                 RF_xSize,
                                 b,
                                 VP_neighbourSize,
-                                xReduceFlag,
+                                VP_xReduceSize,
+                                VP_xReduceIndx,
+                                VP_twinStatID_ptr,
                                 VP_twinStat_ptr,
-                                VP_twinStatID_ptr);
+                                VP_twinFreqTable_ptr);
               }
-              free_cvector(xReduceFlag, 1, RF_xSize);
             }
             if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
               localSize = VP_totalRecordCount * 1;

@@ -10,10 +10,12 @@
 #define VP_COMP_CT       10  
 #define VP_TWIN_TID      11  
 #define VP_STRN_TID      12  
-#define VP_TWIN_STAT     13  
-#define VP_TWIN_STAT_ID  14  
-#define VP_EXIT_CODE     15  
-#define VP_SEXP_SIZE     16  
+#define VP_TWIN_STAT_ID  13  
+#define VP_TWIN_STAT     14  
+#define VP_TWIN_FREQ_TB  15  
+#define VP_EXIT_CODE     16  
+#define VP_SEXP_SIZE     17  
 #define VP_OPT_CMP     0x00000001 
 #define VP_OPT_OOB     0x00000002 
-#define VP_OPT_EXP2    0x00000004 
+#define VP_OPT_IBG     0x00000004 
+#define VP_OPT_FRQ     0x00000008 
