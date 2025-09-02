@@ -246,10 +246,10 @@ custom.entropy <- function(o,
   }
   ## return values
   list(
-    info.rule         = mat.list,
-    beta.mean.mat     = beta.mean.mat,
-    lasso.mean.mat    = lasso.mean.std.mat,
-    lasso.mean.org.mat = lasso.mean.mat    
+    info.rule             = mat.list,
+    beta.mean.mat         = beta.mean.mat,
+    lasso.mean.mat        = lasso.mean.mat,
+    lasso.mean.std.mat    = lasso.mean.std.mat
   )
 }
 ## convenience function

@@ -1,6 +1,6 @@
 Package: varPro
-Version: 0.0.78
-Date: 2025-09-01
+Version: 0.0.79
+Date: 2025-09-02
 Title: Model-Independent Variable Selection via the Rule-Based Variable Priority (VarPro)
 Authors@R: c(person("Min", "Lu", email = "luminwin@gmail.com", role = "aut"),
   person("Aster K.", "Shear", email = "aster.shear@gmail.com", role = "aut"),
