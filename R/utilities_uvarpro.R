@@ -18,90 +18,271 @@ entropy.default <- function(xC, xO, alpha = .025, beta = FALSE, ...) {
 get.entropy.default <- function(entropy.values, xvar.names, ...) {
   entropy.values
 }
-####################################################################
+##################################################################
 ##
 ##
-## classification analysis for rule region versus complementary region
+## helper functions used for custom lasso entropy (below)
 ##
 ##
-####################################################################
-get.beta.entropy <- function(o,
-                             papply=mclapply,
-                             nfolds=10,
-                             maxit=2500,
-                             thresh=1e-3) {
-  ## input value must be an unusupervised varpro object
-  if (!inherits(o, "uvarpro")) {
-    stop("this wrapper only applies to unsupervised varpro")
+##################################################################
+fit.logistic.cv.beta <- function(X.cls, class, nfolds, parallel, maxit, thresh) {
+  ## !!!manual scaling!!!
+  X.cls <- scale(X.cls, center = FALSE)
+  o.cv <- tryCatch(
+    suppressWarnings(glmnet::cv.glmnet(
+      as.matrix(X.cls), class,
+      family  = "binomial",
+      nfolds  = nfolds,
+      parallel= parallel,  
+      maxit   = maxit,
+      thresh  = thresh
+    )),
+    error = function(e) NULL
+  )
+  if (is.null(o.cv)) return(NULL)
+  ## be explicit about s for robustness (same as cv.glmnet default)
+  co <- tryCatch(as.matrix(stats::coef(o.cv, s = "lambda.1se")),
+                 error = function(e) NULL)
+  if (is.null(co) || nrow(co) <= 1L) return(NULL)
+  bhat <- abs(co[-1, 1])
+  names(bhat) <- rownames(co)[-1]
+  bhat
+}
+last.lambda.coef <- function(fit) {
+  lam.last <- utils::tail(fit$lambda, 1L)
+  tryCatch(as.matrix(stats::coef(fit, s = lam.last)),
+           error = function(e) NULL)
+}
+fit.linear.lasso.at.last <- function(X, Y, add.zero = FALSE, zero.name = "ZeroColumn") {
+  ## !!!!manual scaling!!!! 
+  X <- scale(X, center = FALSE)
+  if (add.zero) {
+    X <- cbind(rep(0, nrow(X)), X)
+    colnames(X)[1] <- zero.name
   }
-  ## get topvars, filter x
-  vmp <- get.vimp(o, pretty=FALSE)
-  vmp <- vmp[vmp>0]
-  if (length(vmp)==0) {
-    return(NULL)
+  fit <- tryCatch(suppressWarnings(glmnet::glmnet(X, Y, alpha = 1)),
+                  error = function(e) NULL)
+  if (is.null(fit)) return(NULL)
+  co <- last.lambda.coef(fit)
+  if (is.null(co) || nrow(co) <= 1L) return(NULL)
+  drop.idx <- if (add.zero) c(1L, 2L) else 1L
+  v <- abs(co[-drop.idx, 1])
+  names(v) <- rownames(co)[-drop.idx]
+  v
+}
+## Generalized workhorse (can target any predictor universe)
+## - If ret.data = TRUE, returns list(beta = <vector>, dt = <matrix>, rel.col.fit = <int>)
+## - Otherwise returns just the beta vector (padded to 'predictor.universe')
+beta.workhorse <- function(releaseX,
+                           rule,
+                           xorg,
+                           predictor.universe = colnames(xorg),
+                           nfolds = 5,
+                           parallel = FALSE,
+                           maxit = 2500,
+                           thresh = 1e-3,
+                           ret.data = FALSE) {
+  if (length(predictor.universe) == 0L) return(NULL)
+  rel.col.fit <- match(releaseX, predictor.universe)
+  if (is.na(rel.col.fit)) return(NULL)  # release not in this universe
+  idx.C <- rule[[1]]
+  idx.O <- rule[[2]]
+  if (length(idx.C) == 0L || length(idx.O) == 0L) return(NULL)
+  idx <- c(idx.C, idx.O)
+  dt  <- xorg[idx, predictor.universe, drop = FALSE]
+  nC  <- length(idx.C); nO <- length(idx.O)
+  ## logistic step
+  X.cls <- dt[, -rel.col.fit, drop = FALSE]
+  class <- factor(c(rep(0, nC), rep(1, nO)))
+  bhat  <- fit.logistic.cv.beta(X.cls, class, nfolds, parallel, maxit, thresh)
+  if (is.null(bhat)) return(NULL)
+  ## embed into a vector over the predictor universe (release variable stays zero)
+  beta <- setNames(numeric(length(predictor.universe)), predictor.universe)
+  hit  <- intersect(names(bhat), predictor.universe)
+  if (length(hit)) beta[hit] <- bhat[hit]
+  if (ret.data) {
+    return(list(beta = beta, dt = dt, rel.col.fit = rel.col.fit))
+  } else {
+    return(beta)
   }
-  xvars <- names(vmp)
-  x <- o$x[, xvars, drop=FALSE]
-  ## parse the membership values to obtain beta for each variable
-  beta <- papply(xvars, function(releaseX) {
-    if (sum(xvars != releaseX) > 0) {
-      bO <- do.call(rbind, lapply(o$entropy[[releaseX]], function(rule) {
-        get.beta.workhorse(releaseX, rule, x, nfolds=nfolds, maxit=maxit, thresh=thresh)
-      }))
-      if (!is.null(bO)) {
-        colMeans(bO, na.rm = TRUE)
-      }
-      else {
-        bO
-      }
-    }
-    else {
-      NULL
-    }
-  })
-  names(beta) <- xvars
-  do.call(rbind, beta)
-}      
+}
+## Backward-compatible wrapper that preserves the original API
+## (delegates to the generalized helper over the full column set)
 get.beta.workhorse <- function(releaseX,
                                rule,
                                xorg,
-                               parallel=FALSE,
-                               nfolds=10,
-                               maxit=2500,
-                               thresh=1e-3) {
-  ## build the x data
-  xC <- xorg[rule[[1]],]
-  xO <- xorg[rule[[2]],]
-  x <- rbind(xC, xO)
-  nC <- nrow(xC)
-  nO <- nrow(xO)
-  x <- x[, colnames(x)!=releaseX]
-  x <- scale(x, center=FALSE)
-  ## define the classifier outcome
-  class <- factor(c(rep(0, nC), rep(1, nO)))
-  ##
-  xnms <- colnames(xorg)
-  p <- length(xnms)
-  ## failure returns NULL
-  beta <- NULL
-  ## glmnet
-  o.glmnet <- tryCatch(
-  {suppressWarnings(cv.glmnet(as.matrix(x), class, family="binomial",
-                              nfolds=nfolds, parallel=parallel, maxit=maxit, thresh=thresh))},
-                              error=function(ex){NULL})
-  if (!is.null(o.glmnet)) {
-    bhat <- abs(coef(o.glmnet)[-1,1])
-    beta <- rep(0, p)
-    names(beta) <- xnms
-    beta[names(bhat)] <- bhat
-  }
-  beta
+                               parallel = FALSE,
+                               nfolds = 10,
+                               maxit = 2500,
+                               thresh = 1e-3) {
+  beta.workhorse(releaseX = releaseX,
+                 rule = rule,
+                 xorg = xorg,
+                 predictor.universe = colnames(xorg),
+                 nfolds = nfolds,
+                 parallel = parallel,
+                 maxit = maxit,
+                 thresh = thresh,
+                 ret.data = FALSE)
 }
 ####################################################################
 ##
 ##
-## residuals from generalized inverse regression
-## used to obtain beta from partial coefficients
+## custom entropy
+## classification analysis for rule region versus complementary region
+##
+##
+####################################################################
+custom.entropy <- function(o,
+                           papply = mclapply,
+                           pre.filter = FALSE,
+                           second.stage = FALSE,
+                           vimp.min = 0, 
+                           nfolds = 5,
+                           maxit = 2500,
+                           thresh = 1e-3,
+                           parallel = FALSE) {
+  if (is.null(o$x) || is.null(o$entropy)) {
+    stop("Object 'o' must contain x and entropy.")
+  }
+  x.nms.all <- colnames(o$x)
+  rel.candidates <- names(o$entropy)
+  ## optional VIMP pre-filter (shrinks rows and cols)
+  if (pre.filter) {
+    vmp <- tryCatch(get.vimp(o, pretty = FALSE), error = function(e) NULL)
+    if (is.null(vmp)) {
+      x.nms.fit <- x.nms.all
+      rel.vars  <- rel.candidates
+    } else {
+      xvars <- names(vmp[vmp > vimp.min])
+      xvars <- intersect(xvars, x.nms.all)
+      rel.vars <- intersect(xvars, rel.candidates)
+      if (length(xvars) == 0L || length(rel.vars) == 0L) {
+        return(list(info.rule = list(),
+                    beta.mean.mat = NULL,
+                    lasso.mean.mat = NULL))
+      }
+      x.nms.fit <- xvars
+    }
+  } else {
+    x.nms.fit <- x.nms.all
+    rel.vars  <- rel.candidates
+  }
+  ## ------------- outer loop over release variables -------------
+  mat.list <- papply(rel.vars, function(x.release) {
+    if (length(setdiff(x.nms.fit, x.release)) == 0L) return(NULL)
+    oo <- o$entropy[[x.release]]
+    if (length(oo) == 0L) return(NULL)
+    ## ------------- inner loop over rules -------------## 
+    rO <- lapply(oo, function(rule) {
+      ## delegate logistic stage to the helper
+      res <- beta.workhorse(releaseX = x.release,
+                            rule = rule,
+                            xorg = o$x,
+                            predictor.universe = x.nms.fit,
+                            nfolds = nfolds,
+                            parallel = parallel,
+                            maxit = maxit,
+                            thresh = thresh,
+                            ret.data = second.stage)  # only return dt if we need stage 2
+      if (is.null(res)) return(NULL)
+      if (second.stage) {
+        beta <- res$beta
+        dt   <- res$dt
+        rel.col.fit <- res$rel.col.fit
+        coef.lasso <- setNames(numeric(length(x.nms.fit)), x.nms.fit)
+        nz.names <- names(beta)[beta != 0]
+        if (length(nz.names)) {
+          Y <- dt[, rel.col.fit]  # same as o$x[idx, x.release]; dt already aligned
+          if (length(nz.names) > 1L) {
+            v <- fit.linear.lasso.at.last(dt[, nz.names, drop = FALSE], Y, add.zero = FALSE)
+            if (!is.null(v)) {
+              hit2 <- intersect(names(v), x.nms.fit)
+              if (length(hit2)) coef.lasso[hit2] <- v[hit2]
+            }
+          } else {
+            v <- fit.linear.lasso.at.last(dt[, nz.names, drop = FALSE], Y, add.zero = TRUE)
+            if (!is.null(v) && nz.names %in% names(v)) {
+              coef.lasso[nz.names] <- v[nz.names]
+            }
+          }
+        }
+      } else {
+        beta <- res
+        coef.lasso <- setNames(numeric(length(x.nms.fit)), x.nms.fit)
+      }
+      list(beta = beta, lasso = coef.lasso)
+    })
+    rO <- Filter(Negate(is.null), rO)
+    if (!length(rO)) return(NULL)
+    beta.mat  <- do.call(rbind, lapply(rO, function(z) z$beta))
+    lasso.mat <- do.call(rbind, lapply(rO, function(z) z$lasso))
+    list(beta = beta.mat, lasso = lasso.mat)
+  })
+  names(mat.list) <- rel.vars
+  mat.list <- mat.list[!vapply(mat.list, is.null, logical(1))]
+  if (!length(mat.list)) {
+    return(list(info.rule = list(),
+                beta.mean.mat = NULL,
+                lasso.mean.mat = NULL))
+  }
+  ## assemble per-release matrices
+  beta.list  <- lapply(mat.list, `[[`, "beta")
+  lasso.list <- lapply(mat.list, `[[`, "lasso")
+  ## average the beta and lasso values (full precision; no rounding)
+  beta.mean.mat  <- do.call(rbind, lapply(beta.list,  function(x) colMeans(x, na.rm = TRUE)))
+  lasso.mean.mat <- do.call(rbind, lapply(lasso.list, function(x) colMeans(x, na.rm = TRUE)))
+  ## standardized lasso: divide each row by sd(Y) so entries are (SDs of Y) per 1 SD of X
+  if (!is.null(lasso.mean.mat) && nrow(lasso.mean.mat) > 0L) {
+    rel.vars <- rownames(lasso.mean.mat)
+    sd.y <- vapply(rel.vars,
+                   function(v) stats::sd(o$x[, v], na.rm = TRUE),
+                   FUN.VALUE = numeric(1))
+    ## avoid divide-by-zero or non-finite sds
+    sd.y[!is.finite(sd.y) | sd.y == 0] <- NA_real_
+    lasso.mean.std.mat <- sweep(lasso.mean.mat, 1, sd.y, "/")
+  } else {
+    lasso.mean.std.mat <- lasso.mean.mat  # NULL or 0x0 passes through
+  }
+  ## return values
+  list(
+    info.rule         = mat.list,
+    beta.mean.mat     = beta.mean.mat,
+    lasso.mean.mat    = lasso.mean.std.mat,
+    lasso.mean.org.mat = lasso.mean.mat    
+  )
+}
+## convenience function
+get.beta.entropy <- function(o,
+                             second.stage = FALSE,
+                             pre.filter = TRUE,
+                             papply = mclapply,
+                             vimp.min = 0,
+                             nfolds = 10,
+                             maxit = 2500,
+                             thresh = 1e-3,
+                             parallel = FALSE) {
+  out <- custom.entropy(o,
+                        papply = papply,
+                        pre.filter = pre.filter,
+                        second.stage = second.stage,
+                        vimp.min = vimp.min,
+                        nfolds = nfolds,
+                        maxit = maxit,
+                        thresh = thresh,
+                        parallel = parallel)
+  if (second.stage) {
+    out$lasso.mean.std.mat
+  }
+  else {
+    out$beta.mean.mat
+  }
+}
+####################################################################
+##
+##
+## generalized inverse regression
+## legacy 
 ##
 ##
 ####################################################################

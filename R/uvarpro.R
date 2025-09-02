@@ -1,7 +1,7 @@
 uvarpro <- function(data,
                     method = c("auto", "unsupv", "rnd"),
                     ntree = 200, nodesize = NULL,
-                    max.rules.tree = 50, max.tree = 200,
+                    max.rules.tree = 20, max.tree = 200,
                     papply = mclapply, verbose = FALSE, seed = NULL,
                     ...)
 {		   
