@@ -18,7 +18,7 @@ void stackLocksOpenMP(char mode) {
   if (RF_statusIndex > 0) {
     if (RF_startTimeIndex > 0) {
       growSize = RF_subjSize;
-      predSize = RF_subjSize; 
+      predSize = RF_fsubjSize; 
     }
     else {
       growSize = RF_observationSize;
@@ -81,7 +81,7 @@ void unstackLocksOpenMP(char mode) {
   if (RF_statusIndex > 0) {
     if (RF_startTimeIndex > 0) {
       growSize = RF_subjSize;
-      predSize = RF_subjSize; 
+      predSize = RF_fsubjSize; 
     }
     else {
       growSize = RF_observationSize;

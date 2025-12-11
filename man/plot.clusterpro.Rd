@@ -32,10 +32,17 @@
 
 }
 
+
 \details{
 
 Generates a two-dimensional visualization using UMAP applied to the enhanced data corresponding to a release variable. This provides a low-dimensional representation of the clustered structure derived from the rule-based transformation of the original data.
 
+}
+
+\value{
+
+  No return value, called for the purpose of generating a plot.
+  
 }
 
 

@@ -5,19 +5,24 @@
 ##
 ##
 ####################################################################
+
 entropy.ssq <- function(xC, xO) {
   wss <- mean(apply(rbind(xO, xC), 2, sd, na.rm = TRUE))
   bss <- mean(apply(xC, 2, sd, na.rm = TRUE)) + mean(apply(xO, 2, sd, na.rm = TRUE))
   0.5 * bss / wss
 }
+
 entropy.default <- function(xC, xO, alpha = .025, beta = FALSE, ...) {
   imp <- entropy.ssq(xC, xO)
   dots <- list(...)
   list(imp = imp, membership = list(comp = dots$compMembership, oob = dots$oobMembership))
 }
+
 get.entropy.default <- function(entropy.values, xvar.names, ...) {
   entropy.values
 }
+
+
 ##################################################################
 ##
 ##
@@ -25,6 +30,7 @@ get.entropy.default <- function(entropy.values, xvar.names, ...) {
 ##
 ##
 ##################################################################
+
 fit.logistic.cv.beta <- function(X.cls, class, nfolds, parallel, maxit, thresh) {
   ## !!!manual scaling!!!
   X.cls <- scale(X.cls, center = FALSE)
@@ -40,19 +46,23 @@ fit.logistic.cv.beta <- function(X.cls, class, nfolds, parallel, maxit, thresh) 
     error = function(e) NULL
   )
   if (is.null(o.cv)) return(NULL)
+
   ## be explicit about s for robustness (same as cv.glmnet default)
   co <- tryCatch(as.matrix(stats::coef(o.cv, s = "lambda.1se")),
                  error = function(e) NULL)
   if (is.null(co) || nrow(co) <= 1L) return(NULL)
+
   bhat <- abs(co[-1, 1])
   names(bhat) <- rownames(co)[-1]
   bhat
 }
+
 last.lambda.coef <- function(fit) {
   lam.last <- utils::tail(fit$lambda, 1L)
   tryCatch(as.matrix(stats::coef(fit, s = lam.last)),
            error = function(e) NULL)
 }
+
 fit.linear.lasso.at.last <- function(X, Y, add.zero = FALSE, zero.name = "ZeroColumn") {
   ## !!!!manual scaling!!!! 
   X <- scale(X, center = FALSE)
@@ -63,13 +73,16 @@ fit.linear.lasso.at.last <- function(X, Y, add.zero = FALSE, zero.name = "ZeroCo
   fit <- tryCatch(suppressWarnings(glmnet::glmnet(X, Y, alpha = 1)),
                   error = function(e) NULL)
   if (is.null(fit)) return(NULL)
+
   co <- last.lambda.coef(fit)
   if (is.null(co) || nrow(co) <= 1L) return(NULL)
+
   drop.idx <- if (add.zero) c(1L, 2L) else 1L
   v <- abs(co[-drop.idx, 1])
   names(v) <- rownames(co)[-drop.idx]
   v
 }
+
 ## Generalized workhorse (can target any predictor universe)
 ## - If ret.data = TRUE, returns list(beta = <vector>, dt = <matrix>, rel.col.fit = <int>)
 ## - Otherwise returns just the beta vector (padded to 'predictor.universe')
@@ -82,30 +95,37 @@ beta.workhorse <- function(releaseX,
                            maxit = 2500,
                            thresh = 1e-3,
                            ret.data = FALSE) {
+
   if (length(predictor.universe) == 0L) return(NULL)
   rel.col.fit <- match(releaseX, predictor.universe)
   if (is.na(rel.col.fit)) return(NULL)  # release not in this universe
+
   idx.C <- rule[[1]]
   idx.O <- rule[[2]]
   if (length(idx.C) == 0L || length(idx.O) == 0L) return(NULL)
+
   idx <- c(idx.C, idx.O)
   dt  <- xorg[idx, predictor.universe, drop = FALSE]
   nC  <- length(idx.C); nO <- length(idx.O)
+
   ## logistic step
   X.cls <- dt[, -rel.col.fit, drop = FALSE]
   class <- factor(c(rep(0, nC), rep(1, nO)))
   bhat  <- fit.logistic.cv.beta(X.cls, class, nfolds, parallel, maxit, thresh)
   if (is.null(bhat)) return(NULL)
+
   ## embed into a vector over the predictor universe (release variable stays zero)
   beta <- setNames(numeric(length(predictor.universe)), predictor.universe)
   hit  <- intersect(names(bhat), predictor.universe)
   if (length(hit)) beta[hit] <- bhat[hit]
+
   if (ret.data) {
     return(list(beta = beta, dt = dt, rel.col.fit = rel.col.fit))
   } else {
     return(beta)
   }
 }
+
 ## Backward-compatible wrapper that preserves the original API
 ## (delegates to the generalized helper over the full column set)
 get.beta.workhorse <- function(releaseX,
@@ -115,6 +135,7 @@ get.beta.workhorse <- function(releaseX,
                                nfolds = 10,
                                maxit = 2500,
                                thresh = 1e-3) {
+  
   beta.workhorse(releaseX = releaseX,
                  rule = rule,
                  xorg = xorg,
@@ -125,6 +146,8 @@ get.beta.workhorse <- function(releaseX,
                  thresh = thresh,
                  ret.data = FALSE)
 }
+
+
 ####################################################################
 ##
 ##
@@ -133,6 +156,8 @@ get.beta.workhorse <- function(releaseX,
 ##
 ##
 ####################################################################
+
+
 custom.entropy <- function(o,
                            papply = mclapply,
                            pre.filter = FALSE,
@@ -142,11 +167,14 @@ custom.entropy <- function(o,
                            maxit = 2500,
                            thresh = 1e-3,
                            parallel = FALSE) {
+
   if (is.null(o$x) || is.null(o$entropy)) {
     stop("Object 'o' must contain x and entropy.")
   }
+
   x.nms.all <- colnames(o$x)
   rel.candidates <- names(o$entropy)
+
   ## optional VIMP pre-filter (shrinks rows and cols)
   if (pre.filter) {
     vmp <- tryCatch(get.vimp(o, pretty = FALSE), error = function(e) NULL)
@@ -168,13 +196,17 @@ custom.entropy <- function(o,
     x.nms.fit <- x.nms.all
     rel.vars  <- rel.candidates
   }
+
   ## ------------- outer loop over release variables -------------
   mat.list <- papply(rel.vars, function(x.release) {
+    
     if (length(setdiff(x.nms.fit, x.release)) == 0L) return(NULL)
     oo <- o$entropy[[x.release]]
     if (length(oo) == 0L) return(NULL)
+
     ## ------------- inner loop over rules -------------## 
     rO <- lapply(oo, function(rule) {
+
       ## delegate logistic stage to the helper
       res <- beta.workhorse(releaseX = x.release,
                             rule = rule,
@@ -185,12 +217,16 @@ custom.entropy <- function(o,
                             maxit = maxit,
                             thresh = thresh,
                             ret.data = second.stage)  # only return dt if we need stage 2
+
       if (is.null(res)) return(NULL)
+
       if (second.stage) {
         beta <- res$beta
         dt   <- res$dt
         rel.col.fit <- res$rel.col.fit
+
         coef.lasso <- setNames(numeric(length(x.nms.fit)), x.nms.fit)
+
         nz.names <- names(beta)[beta != 0]
         if (length(nz.names)) {
           Y <- dt[, rel.col.fit]  # same as o$x[idx, x.release]; dt already aligned
@@ -211,27 +247,37 @@ custom.entropy <- function(o,
         beta <- res
         coef.lasso <- setNames(numeric(length(x.nms.fit)), x.nms.fit)
       }
+
       list(beta = beta, lasso = coef.lasso)
     })
+
     rO <- Filter(Negate(is.null), rO)
     if (!length(rO)) return(NULL)
+
     beta.mat  <- do.call(rbind, lapply(rO, function(z) z$beta))
     lasso.mat <- do.call(rbind, lapply(rO, function(z) z$lasso))
+
     list(beta = beta.mat, lasso = lasso.mat)
   })
+
   names(mat.list) <- rel.vars
   mat.list <- mat.list[!vapply(mat.list, is.null, logical(1))]
+
   if (!length(mat.list)) {
     return(list(info.rule = list(),
                 beta.mean.mat = NULL,
                 lasso.mean.mat = NULL))
   }
+
+
   ## assemble per-release matrices
   beta.list  <- lapply(mat.list, `[[`, "beta")
   lasso.list <- lapply(mat.list, `[[`, "lasso")
+
   ## average the beta and lasso values (full precision; no rounding)
   beta.mean.mat  <- do.call(rbind, lapply(beta.list,  function(x) colMeans(x, na.rm = TRUE)))
   lasso.mean.mat <- do.call(rbind, lapply(lasso.list, function(x) colMeans(x, na.rm = TRUE)))
+
   ## standardized lasso: divide each row by sd(Y) so entries are (SDs of Y) per 1 SD of X
   if (!is.null(lasso.mean.mat) && nrow(lasso.mean.mat) > 0L) {
     rel.vars <- rownames(lasso.mean.mat)
@@ -244,6 +290,7 @@ custom.entropy <- function(o,
   } else {
     lasso.mean.std.mat <- lasso.mean.mat  # NULL or 0x0 passes through
   }
+
   ## return values
   list(
     info.rule             = mat.list,
@@ -251,7 +298,10 @@ custom.entropy <- function(o,
     lasso.mean.mat        = lasso.mean.mat,
     lasso.mean.std.mat    = lasso.mean.std.mat
   )
+
 }
+
+
 ## convenience function
 get.beta.entropy <- function(o,
                              second.stage = FALSE,
@@ -262,6 +312,7 @@ get.beta.entropy <- function(o,
                              maxit = 2500,
                              thresh = 1e-3,
                              parallel = FALSE) {
+
   out <- custom.entropy(o,
                         papply = papply,
                         pre.filter = pre.filter,
@@ -271,13 +322,17 @@ get.beta.entropy <- function(o,
                         maxit = maxit,
                         thresh = thresh,
                         parallel = parallel)
+
   if (second.stage) {
     out$lasso.mean.std.mat
   }
   else {
     out$beta.mean.mat
   }
+  
 }
+
+
 ####################################################################
 ##
 ##
@@ -286,6 +341,7 @@ get.beta.entropy <- function(o,
 ##
 ##
 ####################################################################
+
 ginvResidual <- function (y, x, tol = sqrt(.Machine$double.eps)) {
   x <- as.matrix(cbind(1, x))
   xsvd <- svd(x)
@@ -302,6 +358,7 @@ ginvResidual <- function (y, x, tol = sqrt(.Machine$double.eps)) {
   }
   c(y - x %*% (ginv %*% y))
 }
+
 ginvMLS <- function (y, x, tol = sqrt(.Machine$double.eps)) {
   x <- as.matrix(cbind(1, x))
   xsvd <- svd(x)
@@ -319,6 +376,8 @@ ginvMLS <- function (y, x, tol = sqrt(.Machine$double.eps)) {
   ## return the MLS coefficients (remove intercept)
   c(ginv %*% y)[-1] 
 }
+
+
 ####################################################################
 ##
 ##
@@ -327,6 +386,7 @@ ginvMLS <- function (y, x, tol = sqrt(.Machine$double.eps)) {
 ##
 ##
 ####################################################################
+
 set.legacy.unsupervised.nodesize <- function(n, p, nodesize = NULL) {
   if (is.null(nodesize)) {
     if (n <= 300 & p > n) {
@@ -344,6 +404,7 @@ set.legacy.unsupervised.nodesize <- function(n, p, nodesize = NULL) {
   }
   nodesize
 }
+
 set.unsupervised.nodesize <- function(n, p, nodesize = NULL) {
   if (is.null(nodesize)) {
     if (n < 100) {
@@ -355,6 +416,8 @@ set.unsupervised.nodesize <- function(n, p, nodesize = NULL) {
   }
   nodesize
 }
+
+
 ####################################################################
 ##
 ##
@@ -362,17 +425,21 @@ set.unsupervised.nodesize <- function(n, p, nodesize = NULL) {
 ##
 ##
 ####################################################################
+
 set.unsupervised.ytry <- function(n, p, ytry = NULL) {
   if (is.null(ytry)) {
     ytry <- min(ceiling(sqrt(p)), p - 1)
   }
   ytry
 }
+
+
 ####################################################################
 ##
 ## custom scale matrix: avoids NA's due to columns being singular
 ##
 ####################################################################
+
 scaleM <- function(x, center = TRUE, scale = TRUE) {
   x <- data.matrix(x)
   d <- do.call(cbind, lapply(1:ncol(x), function(j) {
@@ -400,6 +467,7 @@ scaleM <- function(x, center = TRUE, scale = TRUE) {
   colnames(d) <- colnames(x)
   data.matrix(d)
 }
+
 ####################################################################
 ##
 ## graphical plot displaying s-dependency
@@ -412,6 +480,7 @@ scaleM <- function(x, center = TRUE, scale = TRUE) {
 ## plot: whether to plot the graph using igraph
 ##
 ####################################################################
+
 sdependent <- function(I,
                        threshold = .25,
                        layout = "grid",
@@ -420,11 +489,14 @@ sdependent <- function(I,
                        min.degree = NULL,
                        title = "s-Dependent Variable Detection",
                        plot = TRUE) {
+
   if (!requireNamespace("igraph", quietly = TRUE)) {
     stop("Package 'igraph' is required but not installed.")
   }
+
   p <- nrow(I)
   q <- ncol(I)
+  
   ## Pad rows with zero if needed
   if (q > p) {
     rownames(I) <- if (is.null(rownames(I))) paste0("x", 1:p) else rownames(I)
@@ -433,13 +505,17 @@ sdependent <- function(I,
     I <- rbind(I, extra.rows)
     p <- nrow(I)  
   }
+
   ## Ensure square and clean diagonal
   diag(I) <- 0
   colnames(I) <- rownames(I) <- colnames(I)
+
   ## Compute column sums as global importance scores
   imp.score <- colSums(I, na.rm=TRUE)
+
   ## Minimum degree
   if (is.null(min.degree)) min.degree <- if (directed) 1 else 2
+
   ## Thresholding the matrix to construct the adjacency matrix
   A <- (I >= threshold) * 1
   if (directed) {
@@ -448,6 +524,8 @@ sdependent <- function(I,
   else {
     g <- igraph::graph_from_adjacency_matrix(A, mode = "undirected", diag = FALSE)
   }
+
+ 
   ## Identify and remove isolated nodes (degree zero)
   isolated <- igraph::degree(g, mode = "all") == 0
   g <- igraph::delete_vertices(g, which(isolated))
@@ -455,10 +533,13 @@ sdependent <- function(I,
   ## update values due to removed nodes
   imp.score <- imp.score[vertex.names]
   I <- I[vertex.names, vertex.names, drop = FALSE]
+
   ## check that graph is not empty
   if (length(imp.score) == 0) {
     return("graph is null after removing isolated nodes (degree zero) - increase threshold")
   }
+
+  
   ## Compute node degrees (number of strong influences)
   ##
   ## for directed graphs
@@ -473,9 +554,13 @@ sdependent <- function(I,
   else {
     node.degrees <- igraph::degree(g)
   }
+  
+
+  
   ## Identify signal variables based on degree and importance
   signal.vars <- names(which(node.degrees >= min.degree
           & imp.score >= quantile(imp.score, q.signal, na.rm=TRUE)))
+
   ## Optional plotting
   if (plot) {
     ## layout
@@ -502,12 +587,15 @@ sdependent <- function(I,
       main = title
     )
   }
+
   ## Return key values as a list, invisibly
   invisible(list(
     signal.vars = signal.vars,
     imp.score = sort(imp.score),
     degree = node.degrees))
+
 }
+
 get.layout <- function(g, layout) {
   ## All available layout functions in igraph
   layout_map <- c(
@@ -528,21 +616,28 @@ get.layout <- function(g, layout) {
     tree     = "layout_as_tree",
     bipartite= "layout_as_bipartite"
   )
+  
   if (is.character(layout)) {
     layout <- tolower(layout)
+    
     ## Match either abbreviation or full name
     matched <- grep(paste0("^", layout), names(layout_map), value = TRUE)
+    
     if (length(matched) == 0) {
       stop("Unknown layout name: '", layout, "'.")
     } else if (length(matched) > 1) {
       stop("Ambiguous layout abbreviation: '", layout, "'. Matches: ", paste(matched, collapse = ", "))
     }
+    
     layout_fun_name <- layout_map[matched]
     layout_fun <- get(layout_fun_name, envir = asNamespace("igraph"))
+    
     ## sugiyama returns a list with $layout
     result <- layout_fun(g)
     if (matched == "sugiyama") result <- result$layout
+    
     return(result)
+    
   } else if (is.matrix(layout)) {
     return(layout)
   } else {

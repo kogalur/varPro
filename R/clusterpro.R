@@ -4,6 +4,8 @@ clusterpro <- function(data,
                        max.rules.tree = 40, max.tree = 40,
                        papply = mclapply, verbose = FALSE, seed = NULL,
                        ...) {
+  
+
   ## varpro call 
   dots <- list(...)
   o <- do.call("uvarpro", c(list(
@@ -16,20 +18,29 @@ clusterpro <- function(data,
                            papply = papply,
                            verbose = verbose,
                            seed = seed), dots))
+  
   ## get topvars
   vmp <- get.vimp(o, pretty=FALSE)
   vmp <- vmp[vmp>0]
   xvars <- names(vmp)
+
   ## filter x and scale it
   x <- o$x[, xvars, drop=FALSE]
+
   ## set the sparsity parameter (should probably put this into a utility)
   sparse <- 2
+  
   ## parse the entropy
   cO <- lapply(xvars, function(releaseX) {
+
     if (sum(xvars != releaseX) > 0) {
+
       keepX <- xvars[xvars != releaseX]
+      
       dO <- do.call(rbind, papply(o$entropy[[releaseX]], function(rule) {
+
         wts <- get.beta.workhorse(releaseX, rule, x)
+
         if (!is.null(wts)) {
           wts <- wts ^ sparse
           wts <- wts / max(wts, na.rm=TRUE)
@@ -41,7 +52,9 @@ clusterpro <- function(data,
         else {
           NULL
         }
+
       }))
+
       if (!is.null(dO)) {
         dO <- data.frame(dO)
         colnames(dO) <- colnames(x)
@@ -51,14 +64,20 @@ clusterpro <- function(data,
         }
         dO
       }
+
     }
     else {
       NULL
     }
+
   })
+
   ## return the goodies
   names(cO) <- xvars
   cO <- list(x=cO, importance=vmp)
   class(cO) <- "clusterpro"
   cO
+
 }
+
+

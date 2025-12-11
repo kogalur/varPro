@@ -85,6 +85,12 @@ See the examples for use cases with external learners, including:
 
 }
 
+\value{
+
+  Named list, with entries containing the partial plot information for a variable.
+  
+}
+
 \author{
 
   Min Lu and Hemant Ishwaran
@@ -104,6 +110,9 @@ See the examples for use cases with external learners, including:
 }
 
 \examples{
+
+\donttest{
+
 ##------------------------------------------------------------------
 ##
 ## Boston housing
@@ -112,9 +121,9 @@ See the examples for use cases with external learners, including:
 
 library(mlbench)
 data(BostonHousing)
-par(mfrow=c(2,3))
+oldpar <- par(mfrow=c(2,3))
 plot((oo.boston<-partialpro(varpro(medv~.,BostonHousing),nvar=6)))
-\donttest{
+par(oldpar)
 
 ##------------------------------------------------------------------
 ##
@@ -126,10 +135,11 @@ plot((oo.boston<-partialpro(varpro(medv~.,BostonHousing),nvar=6)))
 library(mlbench)
 data(BostonHousing)
 o <- varpro(medv~.,BostonHousing)
-par(mfrow=c(2,3))
+oldpar <- par(mfrow=c(2,3))
 plot(partialpro(o,nvar=3))
 ## same but using newdata (set to first 6 cases of the training data)
 plot(partialpro(o,newdata=o$x[1:6,],nvar=3))
+par(oldpar)
 
 ##------------------------------------------------------------------
 ##
@@ -149,9 +159,10 @@ pro <- partialpro(o, nvar=3)
 mypro <- partialpro(o, nvar=3, learner=rf.learner(o))
 
 ## compare the two
-par(mfrow=c(2,3))
+oldpar <- par(mfrow=c(2,3))
 plot(pro)
 plot(mypro, ylab="external rf learner")
+par(oldpar)
 
 ##------------------------------------------------------------------
 ##
@@ -172,23 +183,17 @@ o <- varpro(medv~.,BostonHousing)
 pro <- partialpro(o, nvar=3)
 
 ## partial pro call using built in gradient boosting learner
-## mypro <- partialpro(o, nvar=3, learner=gbm.learner(o, n.trees=1000, n.cores=detectCores()))
-
-## The only way to pass check-as-cran
-mypro <- partialpro(o, nvar=3, learner=gbm.learner(o, n.trees=1000, n.cores=2))
+mypro <- partialpro(o, nvar=3, learner=gbm.learner(o, n.trees=1000, n.cores=get.mc.cores()))
 
 ## partial pro call using built in bart learner
-## mypro2 <- partialpro(o, nvar=3, learner=bart.learner(o, mc.cores=detectCores()))
-
-## The only way to pass check-as-cran
-mypro2 <- partialpro(o, nvar=3, learner=bart.learner(o, mc.cores=2))
+mypro2 <- partialpro(o, nvar=3, learner=bart.learner(o, mc.cores=get.mc.cores()))
 
 ## compare the learners
-par(mfrow=c(3,3))
+oldpar <- par(mfrow=c(3,3))
 plot(pro)
 plot(mypro, ylab="external boosting learner")
 plot(mypro2, ylab="external bart learner")
-
+par(oldpar)
 }
 
 ##------------------------------------------------------------------
@@ -198,8 +203,9 @@ plot(mypro2, ylab="external bart learner")
 ##------------------------------------------------------------------
 
 data(peakVO2, package = "randomForestSRC")
-par(mfrow=c(2,3))
+oldpar <- par(mfrow=c(2,3))
 plot((oo.peak<-partialpro(varpro(Surv(ttodead,died)~.,peakVO2,rmst=5),nvar=6)))
+par(oldpar)
 
 ##------------------------------------------------------------------
 ##
@@ -210,8 +216,9 @@ plot((oo.peak<-partialpro(varpro(Surv(ttodead,died)~.,peakVO2,rmst=5),nvar=6)))
 data(veteran, package = "randomForestSRC")
 dta <- veteran
 dta$celltype <- factor(dta$celltype)
-par(mfrow=c(2,3))
+oldpar <- par(mfrow=c(2,3))
 plot((oo.veteran<-partialpro(varpro(Surv(time, status)~., dta), nvar=6)))
+par(oldpar)
 
 ##------------------------------------------------------------------
 ##
@@ -221,11 +228,11 @@ plot((oo.veteran<-partialpro(varpro(Surv(time, status)~., dta), nvar=6)))
 
 o.iris <- varpro(Species~.,iris)
 yl <- paste("log-odds", levels(iris$Species))
-par(mfrow=c(3,2))
+oldpar <- par(mfrow=c(3,2))
 plot((oo.iris.1 <- partialpro(o.iris, target=1, nvar=2)),ylab=yl[1])
 plot((oo.iris.2 <- partialpro(o.iris, target=2, nvar=2)),ylab=yl[2])
 plot((oo.iris.3 <- partialpro(o.iris, target=3, nvar=2)),ylab=yl[3])
-
+par(oldpar)
 
 ##------------------------------------------------------------------
 ##
@@ -243,8 +250,9 @@ dta$SalePrice <- NULL
 ## partial effects analysis
 o.housing <- varpro(y~., dta, nvar=Inf)
 oo.housing <- partialpro(o.housing,nvar=15)
-par(mfrow=c(3,5))
+oldpar <- par(mfrow=c(3,5))
 plot(oo.housing)
+par(oldpar)
 
 }
 }

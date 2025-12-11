@@ -54,6 +54,13 @@ structure and relationships in the original high-dimensional space.
 
 }
 
+\value{
+
+  Object containing transformed data which can be passed to standard
+  visualization tools.
+  
+}
+
 \author{
 
   Hemant Ishwaran
@@ -89,8 +96,8 @@ vcsim <- function(m=500, p=9, std=.2) {
 
 dvc <- vcsim()
 ovc <- clusterpro(dvc)
-par(mfrow=c(3,3));plot(ovc,1:9)
-par(mfrow=c(3,3));plot(ovc,1:9,col.names="x")
+oldpar<-par(mfrow=c(3,3));plot(ovc,1:9);par(oldpar)
+oldpar<-par(mfrow=c(3,3));plot(ovc,1:9,col.names="x");par(oldpar)
 
 ##------------------------------------------------------------------
 ##
@@ -116,7 +123,7 @@ fourcsim <- function(n=500, sigma=2) {
 
 d4c <- fourcsim()
 o4c <- clusterpro(d4c)
-par(mfrow=c(2,2));plot(o4c,1:4)
+oldpar<-par(mfrow=c(2,2));plot(o4c,1:4);par(oldpar)
 
 }
 
@@ -149,7 +156,7 @@ lvsim <- function(n=1000, q=2, qnoise=15, noise=FALSE)  {
 
 dlc <- lvsim()
 olc <- clusterpro(dlc)
-par(mfrow=c(4,4));plot(olc,col.names="w")
+oldpar<-par(mfrow=c(4,4));plot(olc,col.names="w");par(oldpar)
 
 
 ##------------------------------------------------------------------
@@ -163,12 +170,12 @@ dg <- Glass
 
 ## with class label
 og <- clusterpro(dg)
-par(mfrow=c(4,4));plot(og,1:16)
+oldpar<-par(mfrow=c(4,4));plot(og,1:16);par(oldpar)
 
 ## without class label
 dgU <- Glass; dgU$Type <- NULL
 ogU <- clusterpro(dgU)
-par(mfrow=c(3,3));plot(ogU,1:9)
+oldpar<-par(mfrow=c(3,3));plot(ogU,1:9);par(oldpar)
 
 }
 }

@@ -816,11 +816,13 @@ char stackAndInitializeTimeAndSubjectArrays(char     mode,
         *masterToInterestTimeMap = uivector(1, *masterTimeSize);
         *subjSlot = uivector(1, observationSize);
         *subjSlotCount = uivector(1, observationSize);
+        for (i = 1; i <= observationSize; i++) {
+          (*subjSlotCount)[i] = 0;
+        }
         *caseMap = uivector(1, observationSize);
         double *copySubjIn = dvector(1, observationSize);
         uint   *sortedIdx = uivector(1, observationSize);
         for (i = 1; i <= observationSize; i++) {
-          (*subjSlotCount)[i] = 0;
           copySubjIn[i] = (double) subjIn[i];
         }
         indexx(observationSize, copySubjIn, sortedIdx);

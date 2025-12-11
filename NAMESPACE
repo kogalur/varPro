@@ -7,7 +7,9 @@ importFrom("BART", "wbart")
 
 importFrom("glmnet", "glmnet", "cv.glmnet")
 
-importFrom("graphics", "barplot", "boxplot", "bxp", "lines", "rug", "axis", "legend", "arrows", "mtext")
+importFrom("graphics", "barplot", "boxplot", "bxp", "lines",
+           "rug", "axis", "legend", "arrows", "mtext",
+           "abline", "par", "points", "rect", "text")
 
 importFrom("grDevices", "hcl.colors")
 
@@ -23,7 +25,8 @@ importFrom("stats", "as.formula", "coef", "median", "qnorm",
            "lm", "supsmu", "predict.lm",
            "rnorm", "ecdf", "qt", "glm",
            "t.test", "chisq.test", "prop.test",
-           "binomial", "logLik", "pchisq", "cov")
+           "binomial", "logLik", "pchisq", "cov",
+           "hatvalues", "resid")
 
 importFrom("survival", "survdiff", "Surv")
 
@@ -40,15 +43,17 @@ export(
   cv.varpro,
   get.beta.entropy,
   get.iso.performance,
+  get.mc.cores,
   get.orgvimp,
+  get.splitweight.custom,
   get.topvars,
   get.vimp,
   gbm.learner,
   importance,
   importance.varpro,
   ivarpro,
+  ivarpro.shap,
   isopro,
-  make.vt,
   outpro,
   outpro.null,
   predict.isopro,
@@ -58,6 +63,7 @@ export(
   plot.clusterpro,
   plot.partialpro,
   rf.learner,
+  roughfix,
   sdependent,
   uvarpro,
   varpro,

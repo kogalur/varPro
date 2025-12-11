@@ -20,9 +20,17 @@
 
 \details{
 
-Applies to unsupervised VarPro objects built using the autoencoder (\code{method = "auto"}). The object contains a multivariate random forest used to generate predictions for the test data.
+Applies to unsupervised VarPro objects built using the autoencoder
+(\code{method = "auto"}). The object contains a multivariate random
+forest used to generate predictions for the test data.
 
-Returns a matrix of predicted values, where each column corresponds to a feature (with one-hot encoding applied). The result includes the following attributes:
+}
+
+\value{
+  
+Returns a matrix of predicted values, where each column corresponds to a
+feature (with one-hot encoding applied). The result includes the
+following attributes:
 
 \enumerate{
 
@@ -33,7 +41,6 @@ Returns a matrix of predicted values, where each column corresponds to a feature
 }
 
 }
-
 
 
 \author{

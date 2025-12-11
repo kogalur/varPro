@@ -1,14 +1,8 @@
 Package: varPro
-Version: 0.0.79 (bld20250902)
+Version: 1.0.0 (bld20251207)
 
 ---------------------------------------------------------------------------------
-CHANGES TO RELEASE 0.0.79
+CHANGES TO RELEASE 1.0.0
 ---------------------------------------------------------------------------------
-Integer suscipit malesuada odio, sit amet dapibus dui vehicula
-nec. Donec non velit arcu. Nulla congue sed nisi vitae feugiat. Proin
-sed eros neque. Curabitur laoreet lectus vitae purus tincidunt, sed
-tincidunt eros fringilla. Ut laoreet finibus erat, sed pharetra nisi
-porta congue. Praesent nec nisl a enim fermentum vestibulum. Nunc
-ornare mi et ex pellentesque pretium. Nullam a odio luctus, mollis est
-sit amet, viverra diam. Morbi suscipit at eros vel congue. Maecenas
-dictum vulputate lacus eget ultrices.
+Initial release!
+  

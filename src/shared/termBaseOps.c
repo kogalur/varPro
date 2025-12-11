@@ -87,9 +87,7 @@ TerminalSurvival *makeSurvivalBase(uint dummy, uint mTimeSize, uint aeTimeSize, 
   parent -> localSurvival = NULL;
   parent -> localNelsonAalen = NULL;
   parent -> localHazard = NULL;
-  parent -> allNelsonAalen = NULL;
   parent -> nelsonAalen = NULL;
-  parent -> allHazard = NULL;
   parent -> hazard = NULL;
   parent -> survival = NULL;
   parent -> outcome = NULL;
@@ -148,15 +146,6 @@ void unstackMultiClassProb(TerminalClassification *tTerm) {
     tTerm -> maxClass = NULL;
   }
 }
-void stackAllNelsonAalen(TerminalSurvival *tTerm) {
-  tTerm -> allNelsonAalen = dvector(1, tTerm -> aeTimeSize);
-}
-void unstackAllNelsonAalen(TerminalSurvival *tTerm) {
-  if (tTerm -> allNelsonAalen != NULL) {
-    free_dvector(tTerm -> allNelsonAalen, 1, tTerm -> aeTimeSize);
-    tTerm -> allNelsonAalen = NULL;
-  }
-}
 void stackNelsonAalen(TerminalSurvival *tTerm) {
   tTerm -> nelsonAalen = dvector(1, tTerm -> sTimeSize);
 }
@@ -164,15 +153,6 @@ void unstackNelsonAalen(TerminalSurvival *tTerm) {
   if (tTerm -> nelsonAalen != NULL) {
     free_dvector(tTerm -> nelsonAalen, 1, tTerm -> sTimeSize);
     tTerm -> nelsonAalen = NULL;
-  }
-}
-void stackAllHazard(TerminalSurvival *tTerm) {
-  tTerm -> allHazard = dvector(1, tTerm -> aeTimeSize);
-}
-void unstackAllHazard(TerminalSurvival *tTerm) {
-  if (tTerm -> allHazard != NULL) {
-    free_dvector(tTerm -> allHazard, 1, tTerm -> aeTimeSize);
-    tTerm -> allHazard = NULL;
   }
 }
 void stackHazard(TerminalSurvival *tTerm) {
@@ -315,9 +295,7 @@ void freeClassificationBase(TerminalClassification *parent) {
 }
 void freeSurvivalBase(TerminalSurvival *parent) {
   if (parent != NULL) {
-    unstackAllNelsonAalen(parent);
     unstackNelsonAalen(parent);
-    unstackAllHazard(parent);
     unstackHazard(parent);
     unstackSurvival(parent);
     unstackSurvivalOutcome(parent);

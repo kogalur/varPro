@@ -48,6 +48,11 @@ Conditioning is supported via the \code{subset} option. When supplied as a facto
 
 }
 
+\value{
+
+  No return value, called for the purpose of generating a plot.
+  
+}
 
 \author{
 
@@ -80,7 +85,7 @@ data(BostonHousing)
 o.boston <- varpro(medv~.,BostonHousing)
 oo.boston <- partialpro(o.boston, nvar=4, learner=rf.learner(o.boston))
 
-par(mfrow=c(2,4))
+oldpar <- par(mfrow=c(2,4))
 
 ## parametric local estimation (default)
 plot(oo.boston, ylab="parametric est.")
@@ -88,6 +93,7 @@ plot(oo.boston, ylab="parametric est.")
 ## non-parametric local estimation
 plot(oo.boston, parametric=FALSE, ylab="non-parametric est.")
 
+par(oldpar)
 
 ##------------------------------------------------------------------
 ##
@@ -103,9 +109,9 @@ oo.boston <- partialpro(o.boston, nvar=3, learner=rf.learner(o.boston))
 ## subset analysis
 price <- BostonHousing$medv
 pricef <- factor(price>median(price), labels=c("low priced","high priced"))
-par(mfrow=c(1,1))
+oldpar <- par(mfrow=c(1,1))
 plot(oo.boston, subset=pricef, nvar=1)
-
+par(oldpar)
 
 ##------------------------------------------------------------------
 ##
@@ -120,12 +126,14 @@ o.vet <- varpro(Surv(time, status)~., dta)
 oo.vet <- partialpro(o.vet, nvar=6, nsmp=Inf, learner=rf.learner(o.vet))
 
 ## partial effects, with subsetting
-par(mfrow=c(2,3))
+oldpar <- par(mfrow=c(2,3))
 plot(oo.vet, subset=dta$celltype)
+par(oldpar)
 
 ## causal effects, with subsetting
-par(mfrow=c(2,3))
+oldpar <- par(mfrow=c(2,3))
 plot(oo.vet, subset=dta$celltype, causal=TRUE)
+par(oldpar)
 
 }
 }

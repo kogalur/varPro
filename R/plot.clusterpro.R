@@ -1,14 +1,18 @@
 plot.clusterpro <- function(x, xvar.names=NULL, shrink=TRUE, col=TRUE,
                             col.names=NULL, sort=TRUE, cex=FALSE, breaks=10, ...) {
+
   o <- x
   importance <- o$importance
   x <- o$x
   xnms <- names(importance)##ordering of x features in the data
+
   o.pt <- 1:length(x)
   if (sort) {
     o.pt <- order(importance, decreasing=TRUE)
     x <- x[o.pt]
   }
+    
+  
   if (is.null(xvar.names)) {
     whichx <- 1:length(x)
   }
@@ -20,6 +24,7 @@ plot.clusterpro <- function(x, xvar.names=NULL, shrink=TRUE, col=TRUE,
       whichx <- xvar.names[xvar.names>0 & xvar.names<length(x)]
     }
   }
+
   whichx.col <- NULL
   if (!is.null(col.names)) {
     if (is.character(col.names)) {
@@ -29,7 +34,9 @@ plot.clusterpro <- function(x, xvar.names=NULL, shrink=TRUE, col=TRUE,
       whichx.col <- o.pt[col.names[1]]
     }
   }
+
     lO <- lapply(whichx, function(j) {
+
     ## pull the data: proceed if not NULL
     xj <- x[[j]]
     if (!is.null(xj)) {
@@ -39,17 +46,21 @@ plot.clusterpro <- function(x, xvar.names=NULL, shrink=TRUE, col=TRUE,
       else {
         xvj <- xj[, whichx.col]
       }
+
       ## custom breaks
       breaks <- unique(c(min(xvj, na.rm=TRUE) - 1, quantile(xvj, c(1:breaks)/breaks)))
       xvdj <- as.numeric(factor(cut(xvj, breaks=breaks, labels=FALSE)))
+
       ##shrink the release variable to zero when applying umap
       if (shrink) {
         xj[, names(x)[j]] <- 0
       }
+
       ##umap analysis: (TBD incorportate UMAP settings into hidden options)
       custom.settings <- umap::umap.defaults
       custom.settings$n_neighbors <- min(custom.settings$n_neighbors, round(nrow(xj)/2))
       um <- tryCatch({suppressWarnings(umap(xj, config=custom.settings))}, error=function(ex){NULL})
+
       ##plot-it
       if (!is.null(um)) {
         mycol <- "black"
@@ -66,6 +77,13 @@ plot.clusterpro <- function(x, xvar.names=NULL, shrink=TRUE, col=TRUE,
         mtext(title, side=3, line=1)
       }
     }
+    
   })
+
+  
   #invisible()
+    
 }
+
+
+

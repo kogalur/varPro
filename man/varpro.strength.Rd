@@ -50,6 +50,12 @@ varpro.strength(object,
 }
 
 
+\value{
+
+  Object coerced so as to work with other functions in the package.
+  
+}
+
 \examples{
   
 \donttest{

@@ -28,6 +28,12 @@ To return raw depth values instead of quantiles, set \code{quantiles = FALSE}.
 
 }
 
+\value{
+
+  Anomaly scores for the test data (or training data).
+
+}
+
 
 \author{
 

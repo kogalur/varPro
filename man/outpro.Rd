@@ -161,6 +161,9 @@ outpro.null(object,
 }
 
 \examples{
+
+\donttest{
+
 ## ------------------------------------------------
 
 ## fit a varPro model
@@ -179,3 +182,5 @@ op.null <- outpro.null(vp)
 head(op.null$quantile)
 
 }
+}
+

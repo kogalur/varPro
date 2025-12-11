@@ -44,8 +44,6 @@ struct terminalSurvival {
   double *localSurvival;
   double *localNelsonAalen;
   double *localHazard;
-  double *allNelsonAalen;
-  double *allHazard;
   double *nelsonAalen;
   double *hazard;
   double *survival;

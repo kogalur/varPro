@@ -1,0 +1,51 @@
+## Use R's portable OpenMP flags (do NOT hard-code -fopenmp etc.)
+PKG_CFLAGS = $(SHLIB_OPENMP_CFLAGS)
+PKG_LIBS   = $(SHLIB_OPENMP_CFLAGS) $(SHLIB_OPENMP_LIBS)
+
+## If you have headers in src/shared, make sure the compiler sees them
+PKG_CPPFLAGS = -I$(srcdir)/shared
+
+## C sources in src/
+SRCS_MAIN = \
+  R_init_varPro.c \
+  entry.c entryGeneric.c importance.c internal.c nodeOps.c sexpOutgoing.c \
+  stackOutput.c survivalUtil.c termOps.c treeOps.c varProAux.c varProMain.c
+
+## C sources in src/shared/
+SRCS_SHARED = \
+  shared/bootstrap.c \
+  shared/classification.c \
+  shared/diagnostic.c \
+  shared/error.c \
+  shared/factorOps.c \
+  shared/internalCore.c \
+  shared/leafLink.c \
+  shared/nativeUtil.c \
+  shared/nodeBaseOps.c \
+  shared/nrutil.c \
+  shared/stackParallel.c \
+  shared/polarityNew.c \
+  shared/preprocessForestRecord.c \
+  shared/quantile.c \
+  shared/random.c \
+  shared/regression.c \
+  shared/restoreTree.c \
+  shared/sampling.c \
+  shared/sexpIO.c \
+  shared/sortedLink.c \
+  shared/splitInfo.c \
+  shared/stack.c \
+  shared/stackAuxiliaryInfo.c \
+  shared/stackForestObjects.c \
+  shared/stackIncoming.c \
+  shared/stackMembershipVectors.c \
+  shared/stackPreDefined.c \
+  shared/survival.c \
+  shared/termBaseOps.c \
+  shared/trace.c
+
+## Tell R exactly which objects belong in the shared library
+OBJECTS = $(SRCS_MAIN:.c=.o) $(SRCS_SHARED:.c=.o)
+
+## Do NOT override the default "all" target – R's own makefiles provide that.
+# all: $(SHLIB)

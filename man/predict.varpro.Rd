@@ -20,9 +20,18 @@
 
 \details{
 
-VarPro uses rules extracted from a random forest built using guided tree-splitting, where variables are selected based on split-weights computed in a preprocessing step.
+VarPro uses rules extracted from a random forest built using guided
+tree-splitting, where variables are selected based on split-weights
+computed in a preprocessing step.
 
-This function returns predicted values for the input data. If \code{newdata} is provided, predictions are made on that data; otherwise, out-of-bag predictions for the training data are returned.
+}
+
+\value{
+
+
+  Returns predicted values for the input data. If \code{newdata} is
+  provided, predictions are made on that data; otherwise, out-of-bag
+  predictions for the training data are returned.
 
 }
 
@@ -47,6 +56,18 @@ This function returns predicted values for the input data. If \code{newdata} is 
 }
 
 \examples{
+
+## ------------------------------------------------------------
+## toy example - needed to pass CRAN test
+## ------------------------------------------------------------
+
+## train call
+o <- varpro(mpg~., mtcars[1:20,], ntree = 1)
+
+## predict call
+print(predict(o, mtcars[-(1:20),]))
+
+
 \donttest{
 ## ------------------------------------------------------------
 ##
@@ -78,9 +99,7 @@ print(data.frame(Species=iris[-trn, "Species"], predict(o, iris[-trn,])))
 
 ## ------------------------------------------------------------
 ##
-## mtcars regression
-## obtain predicted values for test data
-## also illustrates hot-encoding working on test data
+## mtcars regression: illustration of hot-encoding on test data
 ##
 ## ------------------------------------------------------------
 

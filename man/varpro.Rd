@@ -11,7 +11,7 @@ for Regression, Multivariate Regression, Classification and Survival.
 varpro(f, data, nvar = 30, ntree = 500, 
        split.weight = TRUE, split.weight.method = NULL, sparse = TRUE,
        nodesize = NULL, max.rules.tree = 150, max.tree = min(150, ntree),
-       parallel = TRUE, cores = get.number.cores(),
+       parallel = TRUE, cores = get.mc.cores(),
        papply = mclapply, verbose = FALSE, seed = NULL, ...)
 }
 
@@ -25,13 +25,21 @@ varpro(f, data, nvar = 30, ntree = 500,
 
   \item{ntree}{Number of trees to grow.}
 
-  \item{split.weight}{Use guided tree-splitting? Candidate variables for splitting are selected with probability proportional to a split-weight, obtained by default from a preliminary lasso+tree step.}
+  \item{split.weight}{Use guided tree-splitting? Candidate variables for
+  splitting are selected with probability proportional to a
+  split-weight, obtained by default from a preliminary lasso+tree step.}
 
-  \item{split.weight.method}{Character string (or vector) specifying method used to generate split-weights. Defaults to lasso+tree. See \code{Details}.}
+
+  \item{split.weight.method}{Character string (or vector) specifying
+  method used to generate split-weights. Defaults to lasso+tree. See
+  \code{Details}.}
+
 
   \item{sparse}{Use sparse split-weights?}
 
-  \item{nodesize}{Minimum terminal node size. If not specified, value is set internally based on sample size and dimension.}
+  \item{nodesize}{Minimum terminal node size. If not specified, value is
+    set internally based on sample size and dimension.}
+  
 
   \item{max.rules.tree}{Maximum number of rules per tree.}
 
@@ -39,10 +47,17 @@ varpro(f, data, nvar = 30, ntree = 500,
 
   \item{parallel}{Use parallel execution for lasso folds using \pkg{doMC}.}
 
-  \item{cores}{Number of cores for parallel processing. Defaults to \code{parallel::detectCores()}.}
-
-  \item{papply}{Apply method for parallel execution; typically \code{mclapply} or \code{lapply}.}
-
+  \item{cores}{Number of cores for parallel processing. Defaults to
+    \code{parallel::detectCores()}.}
+  
+  
+  \item{papply}{Apply function used for R parallelization 
+    (e.g., \code{mclapply} or \code{lapply}). The default is
+    \code{mclapply}, which uses multicore parallelism on Unix-like systems
+    (including macOS) and falls back to serial evaluation on Windows.
+    Users can supply \code{lapply} or other apply-like functions if
+    desired.}
+    
   \item{verbose}{Print verbose output?}
 
   \item{seed}{Seed for reproducibility.}
@@ -121,15 +136,23 @@ In class-imbalanced two-class settings, the algorithm automatically switches to 
 \examples{
 
 ## ------------------------------------------------------------
+## toy example - needed to pass CRAN test
+## ------------------------------------------------------------
+
+## mtcars regression
+o <- varpro(mpg ~ ., mtcars, ntree = 1)
+
+\donttest{
+
+## ------------------------------------------------------------
 ## classification example: iris 
 ## ------------------------------------------------------------
 
 ## apply varpro to the iris data
-o <- varpro(Species ~ ., iris)
+o <- varpro(Species ~ ., iris, max.tree = 5)
 
 ## call the importance function and print the results
 print(importance(o))
-
 
 ## ------------------------------------------------------------
 ## regression example: boston housing
@@ -152,8 +175,6 @@ print(get.vimp(o, pretty = FALSE))
 ## plot importance values
 importance(o, plot.it = TRUE)
 
-
-\donttest{
 ## ------------------------------------------------------------
 ## regression example: boston housing illustrating hot-encoding
 ## ------------------------------------------------------------
@@ -313,7 +334,7 @@ print(importance(varpro(f, vdv, split.weight.method = "lasso vimp tree")))
 
 ## first we roughly impute the data
 data(housing, package = "randomForestSRC")
-dta <- randomForestSRC:::get.na.roughfix(housing)
+dta <- roughfix(housing)
 dta <- data.frame(data.matrix(dta))
 
 ## varpro call
@@ -354,7 +375,7 @@ Boston$nox <- factor(round(20 * Boston$nox))
 Boston$rm <- factor(round(Boston$rm))
 
 ## get default custom split-weights: a named real vector
-swt <- varPro:::get.splitweight.custom(medv~.,Boston)
+swt <- get.splitweight.custom(medv~.,Boston)
 
 ## define custom splits weight
 swt <- swt[grepl("crim", names(swt)) |
@@ -377,8 +398,6 @@ cat("varpro result\n")
 print(importance(o))
 print(get.vimp(o, pretty=FALSE))
 print(get.orgvimp(o, pretty=FALSE))
-
-
 
 }
 }

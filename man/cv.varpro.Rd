@@ -30,19 +30,25 @@ cv.varpro(f, data, nvar = 30, ntree = 150,
 
   \item{nblocks}{Number of blocks (folds) for cross-validation.}
 
-  \item{split.weight}{Use guided tree-splitting? Variables are selected for splitting with probability proportional to split-weights, obtained by default from a preliminary lasso+tree step.}
+  \item{split.weight}{Use guided tree-splitting? Variables are selected
+  for splitting with probability proportional to split-weights, obtained
+  by default from a preliminary lasso+tree step.}
+
 
   \item{split.weight.method}{Character string or vector specifying how split-weights are generated. Defaults to lasso+tree.}
 
   \item{sparse}{Use sparse split-weights?}
 
-  \item{nodesize}{Minimum terminal node size. If not specified, an internal function sets the value based on sample size and data dimension.}
+  \item{nodesize}{Minimum terminal node size. If not specified, an
+  internal function sets the value based on sample size and data
+  dimension.}
+
 
   \item{max.rules.tree}{Maximum number of rules per tree.}
 
   \item{max.tree}{Maximum number of trees used for rule extraction.}
 
-  \item{papply}{Apply method; either \code{mclapply} or \code{lapply}.}
+  \item{papply}{Apply function used for R parallelization.}   
 
   \item{verbose}{Print verbose output?}
 
@@ -239,7 +245,7 @@ print(cv.varpro(f, peakVO2, crps = TRUE, ntree = 100, fast = TRUE, sampsize = 10
 
 ## roughly impute the data
 data(housing, package = "randomForestSRC")
-housing2 <- randomForestSRC:::get.na.roughfix(housing)
+housing2 <- roughfix(housing)
 
 ## use bigger nodesize
 print(cv.varpro(SalePrice~., housing2, fast = TRUE, ntree = 50, nodesize = 150))

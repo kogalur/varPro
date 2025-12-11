@@ -115,6 +115,17 @@ uvarpro(data,
 }
 
 \examples{
+
+
+## ------------------------------------------------------------
+## toy example - needed to pass CRAN test
+## ------------------------------------------------------------
+
+## mtcars unsupervised regression
+o <- uvarpro(mtcars, ntree = 1)
+
+\donttest{
+
 ## ------------------------------------------------------------
 ## boston housing: default call
 ## ------------------------------------------------------------
@@ -134,8 +145,6 @@ data(BostonHousing, package = "mlbench")
 ## unsupervised splitting 
 o <- uvarpro(BostonHousing, method = "unsupv")
 print(importance(o))
-
-\donttest{
 
 ## ------------------------------------------------------------
 ## boston housing: illustrates hot-encoding
@@ -213,7 +222,7 @@ print(importance(o))
 data(housing, package = "randomForestSRC")
 
 ## to speed up analysis, convert all factors to real values
-iowa <- randomForestSRC:::get.na.roughfix(housing)
+iowa <- roughfix(housing)
 iowa <- data.frame(data.matrix(iowa))
 
 ## canonical call
@@ -263,8 +272,6 @@ my.entropy <- function(xC, xO, ...) {
 
   ## return importance and in the second slot the entropy list 
   list(imp = imp, entropy)
-
-}
 
 o <- uvarpro(BostonHousing, entropy=my.entropy)
 print(importance(o))
@@ -324,7 +331,10 @@ print(imp)
 o <- uvarpro(BostonHousing)
 print((get.beta.entropy(o)))
 
-}}
+}
+
+}
+}
 
 
 \keyword{uvarpro}

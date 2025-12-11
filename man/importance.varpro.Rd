@@ -89,10 +89,32 @@ confidence-style boxplots.
 }
 
 \examples{
+
+
+## ------------------------------------------------------------
+## toy example - needed to pass CRAN test
+## ------------------------------------------------------------
+
+## mtcars regression
+o <- varpro(mpg ~ ., mtcars, ntree = 1)
+imp <- importance(o, local.std = FALSE)
+print(imp)
+
 \donttest{
 
 ## ------------------------------------------------------------
-## regression example
+## iris example
+## ------------------------------------------------------------
+
+## apply varpro to the iris data
+o <- varpro(Species ~ ., iris, max.tree = 5)
+
+## print/plot the results
+imp <- importance(o, plot.it = TRUE)
+print(imp)
+
+## ------------------------------------------------------------
+## boston housing: regression
 ## ------------------------------------------------------------
 
 data(BostonHousing, package = "mlbench")
@@ -109,12 +131,13 @@ imp <- importance(o, plot.it = TRUE)
 print(imp)
 
 
+
 ## ------------------------------------------------------------
 ## illustrates y-external: regression example
 ## ------------------------------------------------------------
 
 ## friedman1 - standard application of varpro
-d <- data.frame(mlbench:::mlbench.friedman1(250),noise=matrix(runif(250*10,-1,1),250))
+d <- data.frame(mlbench::mlbench.friedman1(250),noise=matrix(runif(250*10,-1,1),250))
 o <- varpro(y~.,d)
 print(importance(o))
 

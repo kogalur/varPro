@@ -98,6 +98,12 @@ low-dimensional settings.
 }
 
 
+\value{
+
+  Trained isolation forest and anomaly scores.
+
+}
+
 \author{
 
   Min Lu and Hemant Ishwaran
@@ -123,6 +129,8 @@ low-dimensional settings.
 }
 
 \examples{
+
+\donttest{
 
 ## ------------------------------------------------------------
 ##
@@ -151,7 +159,7 @@ perf <- cbind(get.iso.performance(is.outlier,i.rnd$howbad),
 colnames(perf) <- c("rnd", "unsupv", "auto")
 print(perf)
 
-\donttest{
+
 ## ------------------------------------------------------------
 ##
 ## boston housing analysis

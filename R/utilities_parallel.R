@@ -6,6 +6,7 @@ myDoRegister <- function(cores, parallel) {
     FALSE
   }
 }
+
 myUnRegister <- function(parallel) {
   if (parallel && requireNamespace("foreach", quietly = TRUE)) {
     foreach::registerDoSEQ()
