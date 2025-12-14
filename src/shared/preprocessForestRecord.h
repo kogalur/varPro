@@ -14,5 +14,5 @@ void preprocessForestRecord(uint    ntree,
                             uint  **mwcpCT,
                             ulong **restoreMWCPoffset,
                             ulong  *totalTerminalCount);
-void preprocessForestRecordSynthetic();
+void preprocessForestRecordSynthetic(void);
 #endif

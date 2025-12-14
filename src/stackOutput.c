@@ -922,7 +922,7 @@ void getMinHeap(uint twin, uint m, uint n, double *value, uint *minHeapIndx) {
   }
   free_dvector(neighbour, 1, m);
 }
-void testTwinMembership() {
+void testTwinMembership(void) {
   uint iter, treeID, nodeID, cellTreeID, cellNodeID;
   for (uint ii = 1; ii <= RF_fobservationSize; ii++) {
     for (uint bb = 1; bb <= VP_strengthTreeCount; bb++) {
@@ -949,7 +949,7 @@ void testTwinMembership() {
     }
   }
 }
-void testMinHeap() {
+void testMinHeap(void) {
   double *testValue = dvector(1, 20);
   for (uint j = 1; j <= 20; j++) {
     testValue[j] = ran1D(1) * 50;

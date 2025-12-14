@@ -298,7 +298,7 @@ varpro.strength <- function(object,
                                   as.double((object$nativeArray)$contPT),
                                   as.integer((object$nativeArray)$mwcpSZ),
                                   as.integer((object$nativeArray)$fsrecID),
-                                  as.integer((object$nativeFactorArray)$mwcpPT)),
+                                  if (is.null((object$nativeFactorArray)$mwcpPT)) NULL else as.integer((object$nativeFactorArray)$mwcpPT)),
 
                                   as.integer(object$nativeArrayTNDS$tnRMBR),
                                   as.integer(object$nativeArrayTNDS$tnAMBR),

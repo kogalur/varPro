@@ -64,5 +64,5 @@ void preprocessForestRecord(uint    ntree,
     (*totalTermCount) += (ulong) tLeafCount[b];
   }
 }
-void preprocessForestRecordSynthetic() {
+void preprocessForestRecordSynthetic(void) {
 }

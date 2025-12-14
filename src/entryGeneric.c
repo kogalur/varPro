@@ -11,7 +11,7 @@
     
 
 #include "entryGeneric.h"
-void processDefaultPredict() {
+void processDefaultPredict(void) {
   RF_fobservationSize = 0;
   RF_fnodeMembership = NULL;
 }  

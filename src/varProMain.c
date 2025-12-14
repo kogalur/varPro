@@ -1226,7 +1226,7 @@ void complement(uint    originalMemberSize,
   free_uivector(originalMembersIndx, 1, originalMemberSize);
   free_uivector(releasedMembersIndx, 1, releasedMemberSize);
 }
-void test()
+void test(void)
 {
   uint n = 20;
   uint m = 50;

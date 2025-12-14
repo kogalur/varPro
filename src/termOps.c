@@ -18,7 +18,7 @@
 #include "shared/nrutil.h"
 #include "terminal.h"
 #include "shared/error.h"
-void *makeTerminalDerived() {
+void *makeTerminalDerived(void) {
   Terminal *parent = (Terminal*) gblock((size_t) sizeof(Terminal));
   preInitTerminalBase((TerminalBase *) parent);
   parent -> xReleaseCount     = 0;

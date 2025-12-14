@@ -1,7 +1,7 @@
 #ifndef RF_TERM_OPS_H
 #define RF_TERM_OPS_H
 #include "terminal.h"
-void *makeTerminalDerived();
+void *makeTerminalDerived(void);
 void  freeTerminalDerived(void *parent);
 void stackCompMeanResponseOuter(Terminal *tTerm, unsigned int xReleaseCount);
 void stackCompMeanResponseInner(Terminal *tTerm, unsigned int xReleaseIndx);

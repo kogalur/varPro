@@ -148,4 +148,6 @@ void acquireTwinStat(uint strengthTreeCount,
                      double **twinStat_ptr,
                      uint  ***twinFreqTable_ptr);
 void getMinHeap(uint twin, uint m, uint n, double *value, uint *minHeap);
+void testTwinMembership(void);
+void testMinHeap(void);
 #endif
