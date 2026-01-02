@@ -1,54 +1,42 @@
 beta.varpro <- function(o, use.cv=FALSE, use.1se=TRUE, nfolds=10, maxit=2500, thresh=1e-3,
                         max.rules.tree, max.tree, papply=mclapply) {
-
   ##------------------------------------------------------------------
   ##
   ## prelim
   ##
   ##------------------------------------------------------------------
- 
   if (missing(max.rules.tree)) {
     max.rules.tree <- o$max.rules.tree
   }
-
   if (missing(max.tree)) {
     max.tree <- o$max.tree
   }
-  
-  
   ##------------------------------------------------------------------
   ##
   ## call varpro strength to obtain membership lists
   ##
   ##------------------------------------------------------------------
- 
   oo <- get.varpro.strength(o, membership = TRUE, max.rules.tree = max.rules.tree, max.tree = max.tree)
-  
   ## identify non-empty rules
   keep.rules <- which(oo$strengthArray$oobCT > 0 & oo$strengthArray$compCT > 0)
   if (length(keep.rules) == 0) {
     return(NULL)
   }
-  
   ##------------------------------------------------------------------
   ##
   ## process the strength array and other prelim calculations
   ##
   ##------------------------------------------------------------------
-
   ## membership lists 
   oobMembership <- oo$oobMembership
   compMembership <- oo$compMembership
-  
   ## keep track of which variable is released for a rule
   xreleaseId <- oo$strengthArray$xReleaseID
   xreleaseIdUnq <- sort(unique(xreleaseId))
-
   ## pull x and y
   xvar.names <- o$xvar.names[xreleaseIdUnq]
   x <- o$x[, xvar.names, drop=FALSE]
   y <- o$y
-  
   ## storage for the new importance values - family dependent
   pt1 <- 1:3
   pt2 <- which(grepl("oobCT", colnames(oo$strengthArray)))
@@ -68,15 +56,12 @@ beta.varpro <- function(o, use.cv=FALSE, use.1se=TRUE, nfolds=10, maxit=2500, th
   }
   colnames(results) <- c("tree", "branch", "variable", cnames, inames)
   results[, inames] <- NA
-  
   ##------------------------------------------------------------------
   ##
   ## MAIN LOOP - parse the membership values to obtain lasso beta for each variable
   ##
   ##------------------------------------------------------------------
-   
   beta <- papply(keep.rules, function(i) {
-
     ## build the x data
     xC <- x[compMembership[[i]],, drop=FALSE]
     xO <- x[oobMembership[[i]],, drop=FALSE]
@@ -90,13 +75,11 @@ beta.varpro <- function(o, use.cv=FALSE, use.1se=TRUE, nfolds=10, maxit=2500, th
     else {
       y <- y[c(compMembership[[i]], oobMembership[[i]]),, drop=FALSE]
     }
-    
     ##------------------------------------------------------------------
     ##
     ## regression/survival
     ##
     ##------------------------------------------------------------------
-
     if (o$family == "regr") {
       if (use.cv) {## standard cv-lasso
         o.glmnet <- tryCatch(
@@ -124,18 +107,14 @@ beta.varpro <- function(o, use.cv=FALSE, use.1se=TRUE, nfolds=10, maxit=2500, th
         }
       }
     }
-
     ##------------------------------------------------------------------
     ##
     ## classification/multiclassification
     ##
     ##------------------------------------------------------------------
-
     else if (o$family == "class") {
-
       ## number of class labels
       nclass <- length(levels(y))
-
       ## two class
       if (nclass == 2) {
         if (use.cv) {## standard cv-lasso
@@ -195,14 +174,11 @@ beta.varpro <- function(o, use.cv=FALSE, use.1se=TRUE, nfolds=10, maxit=2500, th
         }
       }
     }
-
     ##------------------------------------------------------------------
     ##
     ## ## mv-regression
     ##
     ##------------------------------------------------------------------
-
-
     else if (o$family == "regr+") {
       if (use.cv) {## standard cv-lasso
         o.glmnet <- tryCatch(
@@ -230,25 +206,17 @@ beta.varpro <- function(o, use.cv=FALSE, use.1se=TRUE, nfolds=10, maxit=2500, th
         }
       }
     }
- 
-
     ##------------------------------------------------------------------
     ##
     ## error for unsuported family
     ##
     ##------------------------------------------------------------------
-
     else {
       stop("family specified not currently supported: ", o$family)
     }
-
-    
     ### return the beta
     b
-    
   })
-
-
   ##------------------------------------------------------------------
   ##
   ##
@@ -256,7 +224,6 @@ beta.varpro <- function(o, use.cv=FALSE, use.1se=TRUE, nfolds=10, maxit=2500, th
   ##
   ##
   ##------------------------------------------------------------------
-
   if (o$family == "class" | o$family == "regr+") {
     beta <- do.call(rbind, beta)
   }
@@ -264,9 +231,6 @@ beta.varpro <- function(o, use.cv=FALSE, use.1se=TRUE, nfolds=10, maxit=2500, th
     beta <- unlist(beta)
   }
   results[keep.rules, inames] <- beta
-
-  
-  
   ##------------------------------------------------------------------
   ##
   ##
@@ -274,13 +238,10 @@ beta.varpro <- function(o, use.cv=FALSE, use.1se=TRUE, nfolds=10, maxit=2500, th
   ##
   ##
   ##------------------------------------------------------------------
-
   rO <- o
   rO$results <- results
   rO$max.rules.tree <- max.rules.tree
   rO$max.tree <- max.tree
-
-  
   ##------------------------------------------------------------------
   ##
   ##
@@ -288,11 +249,7 @@ beta.varpro <- function(o, use.cv=FALSE, use.1se=TRUE, nfolds=10, maxit=2500, th
   ##
   ##
   ##------------------------------------------------------------------
-
   #importance(rO)
   rO
-
-  
 }
-
 get.lambda <- function(o, use.1se=TRUE) {if (use.1se) o$lambda.1se else o$lambda.min}

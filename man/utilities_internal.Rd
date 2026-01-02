@@ -13,6 +13,7 @@
 
 \alias{gbm.learner}
 
+\alias{ivarpro.partial}
 \alias{ivarpro.shap}
 
 \alias{rf.learner}

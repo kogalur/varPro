@@ -12,7 +12,7 @@
 ### 1120 NW 14th Street
 ### University of Miami, Miami FL 33136
 ###
-### https://ishwaran.org
+### https:
 ### ------------------------------------------------------------------------
 ###
 ### THIS PROGRAM SHOULD NOT BE COPIED, USED, MODIFIED, OR 
@@ -20,16 +20,13 @@
 ### FROM THE AUTHOR.
 ###
 ############################################################################
-
 varpro <- function(f, data, nvar = 30, ntree = 500, 
                    split.weight = TRUE, split.weight.method = NULL, sparse = TRUE,
                    nodesize = NULL, max.rules.tree = 150, max.tree = min(150, ntree),
                    parallel = TRUE, cores = get.mc.cores(),
                    papply = mclapply, verbose = FALSE, seed = NULL,
                    ...)
-
 {
-   
   ## ------------------------------------------------------------------------
   ##
   ##
@@ -37,19 +34,14 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
   ##
   ##
   ## ------------------------------------------------------------------------
-
   ## formula must be a formula
   f.org <- f <- as.formula(f)
-
   ## data must be a data frame
   data <- data.frame(data)
-  
   ## droplevels
   data <- droplevels(data)
-
   ## initialize the seed
   seed <- get.seed(seed)
-
   ## run a stumpy tree as a quick way to determine family
   ## use the stumped tree to acquire x and y
   ## save original y - needed for coherent treatment of survival
@@ -64,12 +56,10 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
   xvar.org.names <- colnames(x)
   rm(stump)
   gc()
-
   ## coherence check
   if (!(family == "regr" || family == "regr+" || family == "class" || family == "surv")) {
     stop("this function only works for regression, mv-regression, classification and survival")
   }
-
   ## check if "y" is used as a name for one of the x features
   if (any(colnames(x) == "y")) {
     yfkname <- "y123XYZ9999abc"
@@ -77,12 +67,9 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
   else {
     yfkname <- "y"
   }
-  
   ## convert factors using hot-encoding
   x <- get.hotencode(x, papply)
   xvar.names <- colnames(x)
-
-
   ## ------------------------------------------------------------------------
   ##
   ##
@@ -90,10 +77,8 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
   ##
   ##
   ## ------------------------------------------------------------------------
-
   data <- data.frame(y, x)
   colnames(data) <- c(yvar.names, xvar.names)
-
   ## ------------------------------------------------------------------------
   ##
   ##
@@ -101,7 +86,6 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
   ##
   ##
   ## ------------------------------------------------------------------------
-
   dots <- list(...)
   hidden <- get.varpro.hidden(dots, ntree)
   sampsize <- hidden$sampsize
@@ -117,13 +101,10 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
   split.weight.only <- hidden$split.weight.only
   split.weight.tolerance <- hidden$split.weight.tolerance
   nfolds <- hidden$nfolds
-
-
   ## set dimensions
   n <- nrow(x)
   p <- ncol(x)
   nvar <- min(nvar, p)
-
   ## set nodesize values: optimized for n and p
   nodesize <- set.nodesize(n, p, nodesize)
   nodesize.reduce <- set.nodesize(n, p, dots$nodesize.reduce)
@@ -139,7 +120,6 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
       nodesize.external <- set.nodesize(dots$sampsize, p, dots$nodesize.external)
     }
   }
-  
   ## user can pass in a custom split weight vector
   split.weight.custom <- FALSE
   if (!is.null(dots$split.weight.custom)) {
@@ -161,7 +141,6 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
     split.weight <- split.weight.only <- FALSE
     split.weight.custom <- TRUE
   }
-  
   ## ------------------------------------------------------------------------
   ##
   ##
@@ -170,15 +149,10 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
   ##
   ##
   ## ------------------------------------------------------------------------
-
   if (family == "surv") {
-
     if (verbose) {
-
       cat("detected a survival family, using external estimator ...\n")
-    
     }  
-
     ## survival forest used to calculate external estimator
     o.external <- rfsrc(f, data,
                         sampsize = sampsize,
@@ -187,7 +161,6 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
                         ntime = ntime.external,
                         save.memory = TRUE,
                         perf.type = "none")
-    
     ## use mortality for y
     if (is.null(rmst)) {
       y <- as.numeric(randomForestSRC::get.mv.predicted(o.external, oob = FALSE))
@@ -196,7 +169,6 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
     else {
       y <- get.rmst(o.external, rmst)
     }
-    
     ## we now have regression
     if (!is.matrix(y)) {
       family <- "regr"
@@ -209,35 +181,22 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
       colnames(y) <- yvar.names <- paste0(yfkname, ".", 1:ncol(y))
       f <- randomForestSRC::get.mv.formula(yvar.names)
     }
-    
     if (verbose) {
-      
       cat("external estimation completed\n")
-      
     }  
-    
-      
   }
-
-
-
   ## ------------------------------------------------------------------------
   ##
   ## store information for classification analysis
   ##
   ## ------------------------------------------------------------------------
-
   ## default setting
   imbalanced.flag <- FALSE
-
   if (family == "class") {
-
     ## number of class labels
     nclass <- length(levels(y))
-    
     ## two class processing: class labels are mapped to {0, 1}
     if (nclass == 2) {
-
       ## majority label --> 0, minority label --> 1 
       y.frq <- table(y)
       class.labels <- names(y.frq)
@@ -246,17 +205,12 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
       yvar <- rep(0, length(y))
       yvar[y==class.labels[minority]] <- 1
       y <- factor(yvar, levels = c(0, 1))
-      
       ## determine if imbalanced analysis is in play
       threshold <- as.numeric(min(y.frq, na.rm = TRUE) / sum(y.frq, na.rm = TRUE))
       iratio <- max(y.frq, na.rm = TRUE) / min(y.frq, na.rm = TRUE)
       imbalanced.flag <- (iratio > iratio.threshold) & use.rfq
-      
     }
-
-    
   }
-
   ## ------------------------------------------------------------------------
   ##
   ##
@@ -264,11 +218,8 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
   ##
   ##
   ## ------------------------------------------------------------------------
-
   data <- data.frame(y, x)
   colnames(data) <- c(yvar.names, xvar.names)
-
-
   ## ------------------------------------------------------------------------
   ##
   ##
@@ -277,27 +228,18 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
   ##
   ##
   ## ------------------------------------------------------------------------
-
   ## custom user setting
   if ((split.weight || split.weight.only) && !is.null(split.weight.method)) {
-
     use.lasso <- any(grepl("lasso", split.weight.method))
     use.tree <- any(grepl("tree", split.weight.method))
     use.vimp <- any(grepl("vimp", split.weight.method))
-
   }
-
   ## default setting
   else {
-    
     use.lasso <- hidden$use.lasso 
     use.vimp <- set.use.vimp(n, p, dots$use.vimp)
     use.tree <- !use.vimp
-    
-    
   }
-  
-  
   ## ------------------------------------------------------------------------
   ##
   ##
@@ -310,22 +252,15 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
   ##
   ##
   ## ------------------------------------------------------------------------
-
   split.weight.raw <- list()
-  
   if (split.weight || split.weight.only) {
-
-
     ## verbose output
     if (verbose) {
       cat("acquiring split-weights for guided rule generation ...\n")
     }
-
     ## initialize xvar.wt
     xvar.wt <- rep(0, p)
     names(xvar.wt) <- xvar.names
-
-
     ##---------------------------------------------------------
     ##
     ## lasso split weight calculation
@@ -333,12 +268,9 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
     ## by default, lasso coefficients use 1 standard error rule
     ##
     ##---------------------------------------------------------
-    
     if (use.lasso) {
-
       ## register DoMC and set the number of cores
       parallel <- myDoRegister(cores, parallel)
-      
       ## regression
       if (family == "regr") {
         o.glmnet <- tryCatch(
@@ -386,22 +318,17 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
       else {
         stop("family specified not currently supported: ", family)
       }
-
       ##----------------------------
       ##
       ## final lasso details
       ##
       ##----------------------------
-
       ## unregister the backend
       nullO <- myUnRegister(parallel)
-      
       ## assign missing values NA
       xvar.wt[is.na(xvar.wt)] <- 0
-
       ## store split-weight information (expert mode)
       split.weight.raw$lasso <- xvar.wt
-      
       ## scale the weights using sparse dimension.index
       pt <- xvar.wt > 0
       if (sum(pt) > 0) {
@@ -412,18 +339,14 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
           xvar.wt[pt] <- (xvar.wt[pt] / max(xvar.wt[pt], na.rm = TRUE)) ^ dimension.index(1)
         }
       }
-      
     }##end lasso split-weight calculation
-
     ##---------------------------------------------------------
     ##
     ## add vimp to split weight calculation
     ## sampsize is not deployed since this can non-intuitively slow calculations
     ##
     ##---------------------------------------------------------
-
     if (use.vimp) {
-
       ## regression
       if (family == "regr") {
         vmp <- rfsrc(f, data[, c(yvar.names, xvar.names)],
@@ -452,10 +375,8 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
                      importance = "permute",
                      seed = seed)$importance[, 1]
       }
-      
       ## store split-weight information (expert mode)
       split.weight.raw$vimp <- vmp
-      
       ## scale the weights using dimension.index
       pt <- vmp > 0
       if (sum(pt) > 0) {
@@ -471,17 +392,13 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
       else {
         use.vimp <- FALSE
       }
-      
     }##end vimp split-weight calculation
-    
     ##---------------------------------------------------------
     ##
     ## add split relative frequency from shallow forest to split weights
     ##
     ##---------------------------------------------------------
-
     if (use.tree) {
-
       ## fast filtering based on number of splits
       xvar.used <- rfsrc(f, data,
                          splitrule = if (imbalanced.flag) "auc" else NULL,
@@ -491,10 +408,8 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
                          nsplit = 100,
                          var.used = "all.trees",
                          perf.type = "none")$var.used[xvar.names]
-
       ## store split-weight information (expert mode)
       split.weight.raw$tree <- xvar.used
-
       ## update the weights
       pt <- xvar.used >= set.xvar.cut(xvar.used, n)
       if (sum(pt) > 0) {
@@ -511,27 +426,21 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
         pt <- which.max(xvar.used)
         xvar.wt[pt] <- 1
       }
-
     }##end shallow forest split-weight calculation
-
     ##---------------------------------------------------------
     ##
     ## final steps
     ##
     ##---------------------------------------------------------
-    
     ## in case there was a total failure ...
     if (all(xvar.wt == 0)) {
       xvar.wt <- rep(1, p)
       names(xvar.wt) <- xvar.names
     }
-
     ## if the user only wants the xvar weights
     if (split.weight.only) {
-
       ## tolerance: keep weights from becoming too small
       xvar.wt <- tolerance(xvar.wt, split.weight.tolerance)
-
       return(list(
         split.weight = xvar.wt,
         xvar.org.names = xvar.org.names,
@@ -541,20 +450,14 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
         y = y,
         y.org = y.org,
         family = family))
-
     }
-
   }###########split weight calculations end here
-
-  
   ## ------------------------------------------------------------------------
   ##
   ## final split weight processing
   ##
   ## ------------------------------------------------------------------------
-
   if (split.weight || split.weight.only || split.weight.custom) {
-    
     ## final assignment
     if (sum(xvar.wt > 0) > nvar) {
       pt <- order(xvar.wt, decreasing = TRUE)
@@ -562,10 +465,8 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
     }
     xvar.names <- xvar.names[xvar.wt > 0]
     xvar.wt <- xvar.wt[xvar.wt > 0]
-  
     ## tolerance: keep weights from becoming too small
     xvar.wt <- tolerance(xvar.wt, split.weight.tolerance)
-    
     ## verbose
     if (verbose) {
        if (!split.weight.custom) {
@@ -573,15 +474,10 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
        }
       print(data.frame(xvar = xvar.names, weights = xvar.wt))
     }
-    
     ## update the data
     data <- data[, c(yvar.names, xvar.names)]
     p <- length(xvar.names)
-    
   }
-
-
-
   ## ------------------------------------------------------------------------
   ##
   ##
@@ -591,14 +487,10 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
   ## survival families are now properly handled
   ##
   ## ------------------------------------------------------------------------
-
-  
   if (verbose) {
     cat("model based rule generation ...\n")
   }  
-
   if (split.weight || split.weight.custom) {
-    
     object <- rfsrc(if (family=="regr+") f else f.org,
                     if (family=="regr+") data else data.frame(y.org, data[, xvar.names, drop=FALSE]),
                     splitrule = if (imbalanced.flag) "auc" else NULL,
@@ -608,12 +500,8 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
                     nodesize = nodesize,
                     perf.type = "none",
                     seed = seed)
-  
-
   }
-
   else {
-
     object <- rfsrc(if (family=="regr+") f else f.org,
                     if (family=="regr+") data else data.frame(y.org, data[, xvar.names, drop=FALSE]),
                     splitrule = if (imbalanced.flag) "auc" else NULL,
@@ -623,11 +511,7 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
                     nodesize = nodesize,
                     perf.type = "none",
                     seed = seed)
-  
-    
   }
-
-
   ## ------------------------------------------------------------------------
   ##
   ##
@@ -636,21 +520,16 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
   ## note: for survival y.external --> external estimator
   ##
   ## ------------------------------------------------------------------------
-
   if (verbose) {
     cat("acquiring rules...\n")
   }
-  
   var.strength <- get.varpro.strength(object = object,
                          max.rules.tree = max.rules.tree,
                          max.tree = max.tree,
                          y.external = data[, yvar.names])$results
-
   if (verbose) {
     cat("done!\n")
   }
-  
-
   ## ------------------------------------------------------------------------
   ##
   ##
@@ -658,7 +537,6 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
   ##
   ##
   ## ------------------------------------------------------------------------
-
   rO <- list(
     rf = object,
     split.weight = if (split.weight || split.weight.custom) xvar.wt else NULL,
@@ -673,14 +551,8 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
     y = y,
     y.org = y.org[, 1:ncol(y.org)],
     family = object$family)
-
   class(rO) <- "varpro"
-  
   return(rO)
-
-
 }
-  
 ## legacy
 varPro <- varpro
-

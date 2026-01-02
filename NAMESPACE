@@ -52,6 +52,7 @@ export(
   importance,
   importance.varpro,
   ivarpro,
+  ivarpro.partial,
   ivarpro.shap,
   isopro,
   outpro,
