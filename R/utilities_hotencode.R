@@ -1,5 +1,5 @@
 ## hot-encoding
-get.hotencode <- function(x, papply = mclapply) {
+get.hotencode <- function(x, papply = lapply) {
   anyF <- sapply(x, is.factor) | sapply(x, is.character)
   ## factors are present -> hotencode them
   if (sum(anyF) > 0) {
@@ -41,7 +41,7 @@ get.hotencode <- function(x, papply = mclapply) {
   x
 }
 ## hot-encoding for test data
-get.hotencode.test <- function(x, xtest, papply = mclapply, raw = FALSE) {
+get.hotencode.test <- function(x, xtest, papply = lapply, raw = FALSE) {
   ## pull the original variable names (which may not be the same as colnames of x)
   xvar.names <- attr(x, "xvar.names")
   ## confirm test data coherence

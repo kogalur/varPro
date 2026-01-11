@@ -9,7 +9,7 @@
 \usage{
 partialpro(object, xvar.names, nvar,
            target, learner, newdata, method = c("unsupv", "rnd", "auto"),
-           verbose = FALSE, papply = mclapply, ...)
+           verbose = FALSE, ...)
 }
 
 \arguments{
@@ -29,8 +29,6 @@ partialpro(object, xvar.names, nvar,
   \item{method}{Isolation forest method used for Unlimited Virtual Twins (UVT). Options are \code{"unsupv"} (default), \code{"rnd"} (pure random splitting), and \code{"auto"} (autoencoder). See \code{isopro} for details.}
 
   \item{verbose}{Print verbose output?}
-
-  \item{papply}{Parallel apply method; typically \code{mclapply} or \code{lapply}.}
 
   \item{...}{Additional hidden options: \code{"cut"}, \code{"nsmp"},
   \code{"nvirtual"}, \code{"nmin"}, \code{"alpha"}, \code{"df"},

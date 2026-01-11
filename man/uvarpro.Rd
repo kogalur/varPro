@@ -16,7 +16,7 @@ uvarpro(data,
         method = c("auto", "unsupv", "rnd"),
         ntree = 200, nodesize = NULL,
         max.rules.tree = 20, max.tree = 200,
-        papply = mclapply, verbose = FALSE, seed = NULL,
+        verbose = FALSE, seed = NULL,
         ...)
 }
 
@@ -24,17 +24,21 @@ uvarpro(data,
 
   \item{data}{Data frame containing the unsupervised data.}
 
-  \item{method}{Type of forest used. Options are \code{"auto"} (auto-encoder), \code{"unsupv"} (unsupervised analysis), and \code{"rnd"} (pure random forest).}
+  \item{method}{Type of forest used. Options are \code{"auto"}
+  (auto-encoder), \code{"unsupv"} (unsupervised analysis), and
+  \code{"rnd"} (pure random forest).}
+
 
   \item{ntree}{Number of trees to grow.}
 
-  \item{nodesize}{Minimum terminal node size. If not specified, an internal function selects an appropriate value based on sample size and dimension.}
+  \item{nodesize}{Minimum terminal node size. If not specified, an
+  internal function selects an appropriate value based on sample size
+  and dimension.}
+
 
   \item{max.rules.tree}{Maximum number of rules per tree.}
 
   \item{max.tree}{Maximum number of trees used to extract rules.}
-
-  \item{papply}{Parallel apply method; typically \code{mclapply} or \code{lapply}.}
 
   \item{verbose}{Print verbose output?}
 
@@ -56,12 +60,12 @@ uvarpro(data,
   The forest construction is controlled by the \code{method} argument.
   By default, \code{method = "auto"} fits a random forest autoencoder,
   which regresses each selected variable on itself, a specialized form
-  of multivariate forest modeling. Alternatives include
-  \code{"unsupv"}, which uses pseudo-responses and multivariate splits
-  to build an unsupervised forest (Tang and Ishwaran, 2017), and
-  \code{"rnd"}, which uses completely random splits. For large datasets,
-  the autoencoder may be slower, while the \code{"unsupv"} and
-  \code{"rnd"} options are typically more computationally efficient.
+  of multivariate forest modeling. Alternatives include \code{"unsupv"},
+  which uses pseudo-responses and multivariate splits to build an
+  unsupervised forest (Tang and Ishwaran, 2017), and \code{"rnd"}, which
+  uses completely random splits. For large datasets, the autoencoder may
+  be slower, while \code{"unsupv"} and \code{"rnd"} are often much
+  faster.
 
   Variable importance is assessed using region-release contrasts formed
   by the forest. By default, the \code{importance} function returns
@@ -76,7 +80,7 @@ uvarpro(data,
   user-defined entropy functions to create alternative importance
   metrics.
 
-  A more sophisticated procedure, described in Zhou et al. (2025),
+  A more sophisticated procedure, described in Zhou et al. (2026),
   reframes each region-release contrast as a supervised classification
   task, with membership in the region serving as the class label.
   Variable effects are estimated using lasso-based logistic regression,
@@ -104,9 +108,9 @@ uvarpro(data,
   Tang F. and Ishwaran H. (2017).  Random forest missing data
   algorithms.  \emph{Statistical Analysis and Data Mining}, 10:363-377.
 
-  Zhou L., Lu M. and Ishwaran H. (2025).  Variable priority for
-  unsupervised variable selection.  PhD dissertation, University of
-  Miami.
+  Zhou L., Lu M. and Ishwaran H. (2026).  Variable priority for
+  unsupervised variable selection.  \emph{Pattern Recognition},
+  172:112727.
   
 }
 

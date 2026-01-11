@@ -11,7 +11,7 @@ get.splitweight.custom <- function(f, data, namedvec = NULL) {
   }
   swt
 }
-get.orgvimp <- function(o, papply = mclapply, pretty = TRUE, local.std = TRUE) {
+get.orgvimp <- function(o, pretty = TRUE, local.std = TRUE, vmp = NULL) {
   ## input value must be a varpro, cv.varpro or uvarpro object
   if (!(inherits(o, "varpro") ||
         inherits(o, "cv.varpro") ||
@@ -37,7 +37,7 @@ get.orgvimp <- function(o, papply = mclapply, pretty = TRUE, local.std = TRUE) {
   }
   ## hereafter we are dealing with a varpro object  
   ## extract the vimp 
-  vmp <- importance(o, papply = papply, local.std = local.std)
+  vmp <- importance(o, local.std = local.std)
   if (o$family == "regr+") {
       vmp <- do.call(rbind, vmp)
   }
@@ -95,13 +95,13 @@ get.orgvimp <- function(o, papply = mclapply, pretty = TRUE, local.std = TRUE) {
   }
 }
 ## extract names of signal variables from varpro analysis
-get.topvars <- function(o, papply = mclapply, local.std = TRUE) {
+get.topvars <- function(o, local.std = TRUE) {
   ## input value must be a varpro or uvarpro object
   if (!(inherits(o, "varpro") || inherits(o, "uvarpro"))) {
     stop("object must be a varpro or uvarpro object")
   }
   ## extract the vimp and names
-  vmp <- importance(o, papply = papply, local.std = local.std)
+  vmp <- importance(o, local.std = local.std)
   ## mv-regression
   if (o$family == "regr+") {
     return(unique(unlist(lapply(vmp, function(o){rownames(o)}))))
@@ -114,7 +114,7 @@ get.topvars <- function(o, papply = mclapply, local.std = TRUE) {
   rownames(vmp)
 }
 ## extract vimp
-get.vimp <- function(o, papply = mclapply, pretty = TRUE, local.std = TRUE) {
+get.vimp <- function(o, pretty = TRUE, local.std = TRUE) {
   ## input value must be a varpro, cv.varpro or uvarpro object
   if (!(inherits(o, "varpro") ||
         inherits(o, "cv.varpro") ||
@@ -124,7 +124,7 @@ get.vimp <- function(o, papply = mclapply, pretty = TRUE, local.std = TRUE) {
   ## varpro, uvarpro object
   if (inherits(o, "varpro") || inherits(o, "uvarpro")) {
     ## extract vimp + names
-    vmp <- importance(o, papply = papply, local.std = local.std)
+    vmp <- importance(o, local.std = local.std)
     ## mv-regression
     if (o$family == "regr+") {
       vmp <- do.call(rbind, lapply(1:length(vmp), function (j) {
@@ -296,12 +296,29 @@ local.importance.workhorse <- function(y, idx1, idx2, local.std) {
     }
     ## local importance 
     if (local.std) {
-      test <- tryCatch({suppressWarnings(t.test(y[idx1],y[idx2]))},error=function(ex){NULL})
-      if (!is.null(test)) {
-        abs(as.numeric(test$stat))
+      ## Welch t-statistic (same statistic as stats::t.test default),
+      ## computed directly for speed (t.test() object construction is expensive).
+      x1 <- y[idx1]
+      x2 <- y[idx2]
+      x1 <- x1[!is.na(x1)]
+      x2 <- x2[!is.na(x2)]
+      n1 <- length(x1)
+      n2 <- length(x2)
+      if (n1 < 2 || n2 < 2) {
+        NA
       }
       else {
-        NA
+        m1 <- mean(x1)
+        m2 <- mean(x2)
+        v1 <- var(x1)
+        v2 <- var(x2)
+        se <- sqrt(v1 / n1 + v2 / n2)
+        if (!is.finite(se) || se <= 0) {
+          NA
+        }
+        else {
+          abs((m1 - m2) / se)
+        }
       }
     }
     ## canonical importance
@@ -312,80 +329,82 @@ local.importance.workhorse <- function(y, idx1, idx2, local.std) {
   ## ---------------------------------------------------------------------
   ## classification
   ## y is a factor --> get "all" performance and J-class performance, a J+1 vector
-  else if (family == "class") {
-    ## number of class labels
-    J <- length(levels(y))
-    ## bail out if subsetted y has zero length
-    if (n == 0) {
-      rep(NA, 1 + J)
-    }
-    ## frequency counts
-    y <- as.numeric(y)
-    f1 <- tapply(y[idx1], y[idx1], length) 
-    f2 <- tapply(y[idx2], y[idx2], length) 
-    frq1 <- frq2 <- rep(0, J)
-    names(frq1) <- names(frq2) <- 1:J
-    ## local importance 
-    if (local.std) {
-      ## build frequencies for all cells, but keep track of 0/0 cells
-      frq1[names(f1)] <- f1 
-      frq2[names(f2)] <- f2
-      nonzero <- frq1>0 | frq2>0
-      frq1 <- frq1[nonzero]
-      frq2 <- frq2[nonzero]
-      J.nonzero <- sum(nonzero)
-      ## over-all test
-      test <- tryCatch({suppressWarnings(chisq.test(rbind(frq1, frq2)))},error=function(ex){NULL})
-      if (!is.null(test)) {
-        perf.all <- sqrt(test$stat/(max(1, J.nonzero-1)))
-      }
-      else {
-        perf.all <- NA
-      }
-      ## class-specific test
-      perf.class <- rep(NA, J)
-      binomial.flag <- TRUE
-      perf.class[nonzero] <- sapply(1:J.nonzero, function(j) {
-        if (!binomial.flag) {##prop test
-          counts <- matrix(c(frq1[j], frq2[j], sum(frq1) - frq1[j], sum(frq2) - frq2[j]), nrow = 2)
-          test.j <- tryCatch({suppressWarnings(prop.test(counts))},error=function(ex){NULL})
-          if (!is.null(test.j)) {
-            sqrt(test.j$stat)
-          }
-          else {
-            NA
-          }
-        }
-        else {## binomial test, with separate variance
-          p1 <- frq1[j] / sum(frq1)
-          p2 <- frq2[j] / sum(frq2)
-          p <- (frq1[j] + frq2[j]) / (sum(frq1) + sum(frq2))
-          se <- sqrt(p1 * (1 - p1) / max(1, sum(frq1)) + p2 * (1 - p2) / max(1, sum(frq2)))
-          #se <- sqrt(p * (1 - p) / max(1, sum(frq1)) + p * (1 - p) / max(1, sum(frq2)))
-          if (se > 0) {
-            abs(p1 - p2) / se
-          }
-          else {
-            NA
-          }
-        }
-      })
-    }
-    ## canonical importance
-    else {
-      ## conditional probability calculations
-      prb1 <- prb2 <- rep(0, J)
-      names(prb1) <- names(prb2) <- 1:J
-      prb1[names(f1)] <- f1 / length(y[idx1])
-      prb2[names(f2)] <- f2 / length(y[idx2])
-      perf.all <- mean(abs(prb2 - prb1), na.rm = TRUE)
-      perf.class <- abs(prb2 - prb1)
-      majority.class <- resample(which(perf.class == max(perf.class)), 1)
-      perf.class[-majority.class] <- 0
-    }
-    ## return the performance
-    c(perf.all, perf.class)
+  ## classification
+## y is a factor --> get "all" performance and J-class performance, a J+1 vector
+else if (family == "class") {
+  ## number of class labels
+  J <- length(levels(y))
+  ## bail out if subsetted y has zero length
+  if (n == 0) {
+    return(rep(NA, 1 + J))
   }
+  ## frequency counts (fast tabulate instead of tapply)
+  yint <- as.integer(y)
+  y1 <- yint[idx1]
+  y2 <- yint[idx2]
+  ## drop NA (tabulate does not accept NA)
+  y1 <- y1[!is.na(y1)]
+  y2 <- y2[!is.na(y2)]
+  frq1.full <- tabulate(y1, nbins = J)
+  frq2.full <- tabulate(y2, nbins = J)
+  names(frq1.full) <- names(frq2.full) <- 1:J
+  ## local importance 
+  if (local.std) {
+    ## build frequencies for all cells, but keep track of 0/0 cells
+    nonzero <- frq1.full > 0 | frq2.full > 0
+    frq1 <- frq1.full[nonzero]
+    frq2 <- frq2.full[nonzero]
+    J.nonzero <- sum(nonzero)
+    ## overall chi-square statistic (stats::chisq.test default, including
+    ## Yates correction for 2x2 tables)
+    r1 <- sum(frq1)
+    r2 <- sum(frq2)
+    ntot <- r1 + r2
+    if (ntot > 0 && r1 > 0 && r2 > 0 && J.nonzero > 1) {
+      coltot <- frq1 + frq2
+      e1 <- r1 * coltot / ntot
+      e2 <- r2 * coltot / ntot
+      if (J.nonzero == 2) {
+        ## 2x2 table: apply Yates correction (chisq.test(correct=TRUE) default)
+        O <- c(frq1[1], frq1[2], frq2[1], frq2[2])
+        E <- c(e1[1],  e1[2],  e2[1],  e2[2])
+        Y <- pmin(0.5, abs(O - E))
+        chisq <- sum((abs(O - E) - Y)^2 / E)
+      } else {
+        ## general 2 x k Pearson chi-square
+        valid <- (e1 > 0) & (e2 > 0)
+        chisq <- sum((frq1[valid] - e1[valid])^2 / e1[valid] +
+                     (frq2[valid] - e2[valid])^2 / e2[valid])
+      }
+      perf.all <- sqrt(chisq / max(1, J.nonzero - 1))
+    } else {
+      perf.all <- NA_real_
+    }
+    ## class-specific test (binomial z, separate variance)
+    perf.class <- rep(NA_real_, J)
+    if (J.nonzero > 0 && r1 > 0 && r2 > 0) {
+      p1 <- frq1 / r1
+      p2 <- frq2 / r2
+      se <- sqrt(p1 * (1 - p1) / r1 + p2 * (1 - p2) / r2)
+      z <- rep(NA_real_, length(se))
+      ok <- se > 0
+      z[ok] <- abs(p1[ok] - p2[ok]) / se[ok]
+      perf.class[nonzero] <- z
+    }
+  }
+  ## canonical importance
+  else {
+    ## conditional probability calculations
+    prb1 <- frq1.full / max(1, length(idx1))
+    prb2 <- frq2.full / max(1, length(idx2))
+    perf.all <- mean(abs(prb2 - prb1), na.rm = TRUE)
+    perf.class <- abs(prb2 - prb1)
+    majority.class <- resample(which(perf.class == max(perf.class)), 1)
+    perf.class[-majority.class] <- 0
+  }
+  ## return the performance
+  c(perf.all, perf.class)
+}
   ## survival
   else {
     ## bail out if subsetted y has zero length

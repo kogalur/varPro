@@ -1,4 +1,4 @@
-# Unified base-R iVarPro SHAP summary plot
+# iVarPro SHAP summary plot
 # ivar_mat: n x p_i matrix of iVarPro values (local gradients) for some features
 # dat_mat : n x p_all matrix of original feature values (may have more columns)
 #
@@ -9,7 +9,7 @@
 #                         the colour range for others).
 # - style = "blobby"    : quasi-beeswarm style (default)
 #   style = "jitter"    : simple vertical jitter per feature
-ivarpro.shap <- function(ivar,
+shap.ivarpro <- function(ivar,
                          dat = NULL,
                          feature_names = NULL,
                          max.points   = 5000,
@@ -319,9 +319,7 @@ ivarpro.shap <- function(ivar,
 ## partial plot 
 ##
 ##############################################################
-## Scatter: x[var] vs ivar[var] with optional ladder-band.
-## Optional: color points by x[col.var], size points by x[size.var]
-ivarpro.partial <- function(ivar,
+partial.ivarpro <- function(ivar,
                             var,
                             col.var = NULL,
                             size.var = NULL,
@@ -337,6 +335,53 @@ ivarpro.partial <- function(ivar,
                             ylab = "iVarPro gradient",
                             legend = TRUE,
                             ...) {
+  ## ------------------------------------------------------------
+  ## Extra plotting controls (kept in ... so old calls don't break)
+  ##
+  ## col.style        : "auto" (default), "solid", "outline", "binary"
+  ## col.outline      : outline/border colour (default "gray10")
+  ## col.outline.lwd  : outline width (default 0.4)
+  ## col.binary.pch   : pch mapping for 2-level factors (default c(16, 1))
+  ## col.binary.lwd   : line width for open symbols in binary mode (default 1)
+  ## col.dodge        : fraction of x-range used to offset factor levels
+  ##                  (default 0; try 0.01 for dense discrete x)
+  ## col.var.discrete.max : if col.var is numeric with <= this many unique
+  ##                       finite values, treat it like a factor (categorical).
+  ##                       (default 10; set to 2 for legacy behaviour)
+  ## ------------------------------------------------------------
+  dots <- list(...)
+  col.style <- dots$col.style
+  if (is.null(col.style)) col.style <- "auto"
+  col.style <- match.arg(as.character(col.style),
+                         c("auto", "solid", "outline", "binary"))
+  col.outline <- dots$col.outline
+  if (is.null(col.outline)) col.outline <- "gray10"
+  col.outline.lwd <- dots$col.outline.lwd
+  if (is.null(col.outline.lwd)) col.outline.lwd <- 0.4
+  col.outline.lwd <- as.numeric(col.outline.lwd)[1]
+  if (!is.finite(col.outline.lwd) || col.outline.lwd <= 0) col.outline.lwd <- 0.4
+  col.binary.pch <- dots$col.binary.pch
+  if (is.null(col.binary.pch)) col.binary.pch <- c(16, 1)
+  col.binary.lwd <- dots$col.binary.lwd
+  if (is.null(col.binary.lwd)) col.binary.lwd <- 1
+  col.binary.lwd <- as.numeric(col.binary.lwd)[1]
+  if (!is.finite(col.binary.lwd) || col.binary.lwd <= 0) col.binary.lwd <- 1
+  col.dodge <- dots$col.dodge
+  if (is.null(col.dodge)) col.dodge <- 0
+  col.dodge <- as.numeric(col.dodge)[1]
+  if (!is.finite(col.dodge)) col.dodge <- 0
+  col.var.discrete.max <- dots$col.var.discrete.max
+  if (is.null(col.var.discrete.max)) col.var.discrete.max <- 10
+  col.var.discrete.max <- as.numeric(col.var.discrete.max)[1]
+  if (is.na(col.var.discrete.max)) col.var.discrete.max <- 10
+  if (is.finite(col.var.discrete.max) && col.var.discrete.max < 0) col.var.discrete.max <- 0
+  ## Remove our custom args so graphics::plot() doesn't see them.
+  dots$col.style <- dots$col.outline <- dots$col.outline.lwd <- NULL
+  dots$col.binary.pch <- dots$col.binary.lwd <- NULL
+  dots$col.dodge <- NULL
+  dots$col.var.discrete.max <- NULL
+  ## We draw points ourselves (after ladder bands), so suppress plot() points.
+  if (!is.null(dots$type)) dots$type <- NULL
   ## special handling for class outcomes (TBD: extend to multivariate)
   if (is.list(ivar) && !inherits(ivar, "data.frame")) {
     if (is.null(x) && !is.null(attr(ivar, "data"))) {
@@ -384,11 +429,25 @@ ivarpro.partial <- function(ivar,
   }
   ## colors
   col_pt <- rep("black", length(yv))
+  col_grp <- NULL
   col_legend <- NULL
   if (!is.null(col.var)) {
     if (!(col.var %in% colnames(x))) stop("col.var not found in x.")
     cv <- x[, col.var]
-    if (is.numeric(cv) && length(unique(cv)) > 2) {
+    ## If col.var is numeric but has only a few distinct values, it's usually
+    ## more readable to treat it as categorical (factor-like) rather than
+    ## forcing a continuous colour gradient.
+    treat_as_factor <- FALSE
+    if (is.numeric(cv)) {
+      u <- unique(cv[is.finite(cv)])
+      n_unique <- length(u)
+      if (is.infinite(col.var.discrete.max) ||
+          (is.finite(col.var.discrete.max) && n_unique <= col.var.discrete.max)) {
+        treat_as_factor <- TRUE
+      }
+    }
+    if (is.numeric(cv) && !treat_as_factor) {
+      ## continuous colour ramp
       pal <- grDevices::colorRampPalette(c("navy", "skyblue", "gold", "firebrick"))(100)
       rng <- range(cv, na.rm = TRUE)
       if (is.finite(rng[1]) && is.finite(rng[2]) && rng[2] > rng[1]) {
@@ -398,10 +457,17 @@ ivarpro.partial <- function(ivar,
         col_legend <- list(type = "numeric", rng = rng, pal = pal, var = col.var)
       }
     } else {
-      ff <- as.factor(cv)
+      ## categorical palette
+      if (is.numeric(cv)) {
+        lev_num <- sort(unique(cv[is.finite(cv)]))
+        ff <- factor(cv, levels = lev_num)
+      } else {
+        ff <- as.factor(cv)
+      }
       lev <- levels(ff)
       pal <- grDevices::rainbow(length(lev))
-      col_pt <- pal[as.integer(ff)]
+      col_grp <- as.integer(ff)
+      col_pt  <- pal[col_grp]
       col_legend <- list(type = "factor", lev = lev, pal = pal, var = col.var)
     }
   }
@@ -425,6 +491,7 @@ ivarpro.partial <- function(ivar,
   xv <- xv[ok]
   yv <- yv[ok]
   col_pt <- col_pt[ok]
+  if (!is.null(col_grp)) col_grp <- col_grp[ok]
   cex_pt <- cex_pt[ok]
   if (!is.null(band_df)) {
     lo <- band_df$lower[ok]
@@ -432,14 +499,29 @@ ivarpro.partial <- function(ivar,
   } else {
     lo <- hi <- NULL
   }
+  ## optional: small horizontal dodge when colouring by a factor (helps
+  ## discrete x + heavy overlap). col.dodge is interpreted as a fraction
+  ## of the x-range (e.g. 0.01 means 1% of range).
+  x_plot <- xv
+  if (!is.null(col_grp) && is.finite(col.dodge) && col.dodge != 0) {
+    xr <- range(xv, finite = TRUE)
+    dx <- col.dodge * diff(xr)
+    nlev <- if (!is.null(col_legend) && col_legend$type == "factor") length(col_legend$lev) else 0L
+    if (is.finite(dx) && dx != 0 && nlev > 1L) {
+      ctr <- (nlev + 1) / 2
+      x_plot <- xv + (col_grp - ctr) * dx
+    }
+  }
   ## plot
   if (is.null(main)) main <- paste0(var_name, " vs iVarPro gradient")
   if (is.null(xlab)) xlab <- var_name
-  graphics::plot(xv, yv,
+  ## draw axes first, then ladder bands, then points (so points are always on top)
+  do.call(graphics::plot,
+          c(list(x = x_plot, y = yv,
                  xlab = xlab, ylab = ylab,
                  main = main,
-                 pch = pch, col = col_pt, cex = cex_pt,
-                 ...)
+                 type = "n"),
+            dots))
   ## add ladder band as vertical segments (thinned if necessary)
   if (!is.null(lo) && !is.null(hi)) {
     okb <- is.finite(lo) & is.finite(hi)
@@ -450,37 +532,133 @@ ivarpro.partial <- function(ivar,
         take <- take[round(seq(1, nn, length.out = ladder.max.segments))]
       }
       band_col <- grDevices::adjustcolor("gray60", alpha.f = 0.35)
-      graphics::segments(x0 = xv[take], y0 = lo[take],
-                         x1 = xv[take], y1 = hi[take],
+      graphics::segments(x0 = x_plot[take], y0 = lo[take],
+                         x1 = x_plot[take], y1 = hi[take],
                          col = band_col, lwd = 1)
     }
   }
-  ## (re)plot points on top for clarity
-  graphics::points(xv, yv, pch = pch, col = col_pt, cex = cex_pt)
+  ## points (always on top)
+  style_final <- col.style
+  if (identical(style_final, "auto")) {
+    if (!is.null(col_legend) && identical(col_legend$type, "factor")) {
+      style_final <- if (length(col_legend$lev) == 2L) "binary" else "outline"
+    } else {
+      style_final <- "solid"
+    }
+  }
+  if (identical(style_final, "outline")) {
+    ## filled points with a dark border (keeps colours strong without alpha)
+    graphics::points(x_plot, yv,
+                     pch = 21,
+                     bg  = col_pt,
+                     col = col.outline,
+                     cex = cex_pt,
+                     lwd = col.outline.lwd)
+  } else if (identical(style_final, "binary") &&
+             !is.null(col_grp) &&
+             !is.null(col_legend) &&
+             identical(col_legend$type, "factor") &&
+             length(col_legend$lev) == 2L) {
+    ## 2-level colouring: draw one group with a filled symbol and the other
+    ## with an open/line symbol so overlapping points remain discernible.
+    pch_map <- col.binary.pch
+    if (length(pch_map) < 2L) pch_map <- rep(pch_map[1], 2L)
+    if (length(pch_map) > 2L) pch_map <- pch_map[1:2]
+    is_open_symbol <- function(p) {
+      is.finite(p) && p >= 0 && p <= 14
+    }
+    open_flag <- vapply(pch_map, is_open_symbol, logical(1))
+    ## Prefer: filled first, open second. If unclear, draw the larger group first.
+    if (sum(open_flag) == 1L) {
+      grp_order <- c(which(!open_flag), which(open_flag))
+    } else {
+      tab <- tabulate(col_grp, nbins = 2L)
+      grp_order <- order(tab, decreasing = TRUE)
+    }
+    for (g in grp_order) {
+      idx <- which(col_grp == g)
+      if (!length(idx)) next
+      pg <- pch_map[g]
+      if (pg %in% 21:25) {
+        graphics::points(x_plot[idx], yv[idx],
+                         pch = pg,
+                         bg  = col_pt[idx],
+                         col = col.outline,
+                         cex = cex_pt[idx],
+                         lwd = col.outline.lwd)
+      } else {
+        graphics::points(x_plot[idx], yv[idx],
+                         pch = pg,
+                         col = col_pt[idx],
+                         cex = cex_pt[idx],
+                         lwd = col.binary.lwd)
+      }
+    }
+  } else {
+    ## default/legacy behaviour
+    graphics::points(x_plot, yv, pch = pch, col = col_pt, cex = cex_pt)
+  }
   ## legend
   if (isTRUE(legend) && !is.null(col_legend)) {
     if (col_legend$type == "factor") {
-      graphics::legend("topright",
-                       legend = col_legend$lev,
-                       col = col_legend$pal, pch = 16, bty = "n",
-                       title = col_legend$var)
+      if (identical(style_final, "outline")) {
+        graphics::legend("topright",
+                         legend = col_legend$lev,
+                         pch = 21,
+                         pt.bg = col_legend$pal,
+                         col = col.outline,
+                         pt.lwd = col.outline.lwd,
+                         bty = "n",
+                         title = col_legend$var)
+      } else if (identical(style_final, "binary") && length(col_legend$lev) == 2L) {
+        pch_map <- col.binary.pch
+        if (length(pch_map) < 2L) pch_map <- rep(pch_map[1], 2L)
+        if (length(pch_map) > 2L) pch_map <- pch_map[1:2]
+        is_fill_bg <- pch_map %in% 21:25
+        col_leg    <- ifelse(is_fill_bg, col.outline, col_legend$pal)
+        bg_leg     <- ifelse(is_fill_bg, col_legend$pal, NA)
+        lwd_leg    <- ifelse(is_fill_bg, col.outline.lwd, col.binary.lwd)
+        graphics::legend("topright",
+                         legend = col_legend$lev,
+                         pch = pch_map,
+                         col = col_leg,
+                         pt.bg = bg_leg,
+                         pt.lwd = lwd_leg,
+                         bty = "n",
+                         title = col_legend$var)
+      } else {
+        graphics::legend("topright",
+                         legend = col_legend$lev,
+                         col = col_legend$pal, pch = 16, bty = "n",
+                         title = col_legend$var)
+      }
     } else if (col_legend$type == "numeric") {
       ## simple numeric legend using quantiles
       qs <- stats::quantile(x[, col_legend$var], probs = c(0.05, 0.5, 0.95), na.rm = TRUE)
       kk <- pmax(1L, pmin(100L, 1L + floor(99 * (qs - col_legend$rng[1]) / (col_legend$rng[2] - col_legend$rng[1]))))
-      graphics::legend("topright",
-                       legend = sprintf("%s = %.3g", names(qs), as.numeric(qs)),
-                       col = col_legend$pal[kk],
-                       pch = 16, bty = "n",
-                       title = col_legend$var)
+      if (identical(style_final, "outline")) {
+        graphics::legend("topright",
+                         legend = sprintf("%s = %.3g", names(qs), as.numeric(qs)),
+                         pch = 21,
+                         pt.bg = col_legend$pal[kk],
+                         col = col.outline,
+                         pt.lwd = col.outline.lwd,
+                         bty = "n",
+                         title = col_legend$var)
+      } else {
+        graphics::legend("topright",
+                         legend = sprintf("%s = %.3g", names(qs), as.numeric(qs)),
+                         col = col_legend$pal[kk],
+                         pch = 16, bty = "n",
+                         title = col_legend$var)
+      }
     }
   }
   invisible(TRUE)
 }
 ## Path helper: per-variable bands from rule-level ladder
 ## Compute per-case ladder summary for ONE variable.
-## - 'ivar' must be a data.frame returned by ivarpro() from this script (>= 1.7)
-## - Returns a data.frame with main gradient + lower/upper band across ladder cuts.
+## Returns a data.frame with main gradient + lower/upper band across ladder cuts.
 ivarpro_band <- function(ivar,
                          var,
                          cuts = NULL,

@@ -15,7 +15,6 @@ ivarpro <- function(object,
                     nmin = 20, nmax = 150,
                     y.external = NULL,
                     noise.na = TRUE,
-                    papply = mclapply,
                     max.rules.tree = NULL,
                     max.tree = NULL,
                     use.loo = TRUE,
@@ -29,25 +28,20 @@ ivarpro <- function(object,
     if (!(inherits(object, "rfsrc") && inherits(object, "grow"))) {
       stop("This function only works for objects of class 'varpro' or an 'rfsrc' grow object")
     }
-    ## this is a random forest object
-    ## we do not handle multivariate forests
     if (object$family == "regr+" ||
         object$family == "class+" ||
         object$family == "mix+" ||
         object$family == "unsupv") {
       stop("This function does not handle multivariate or unsupervised forests")
     }
-    ## get.varpro.strength does not work nicely with survival
     y <- data.matrix(object$predicted.oob)
     object$yvar <- as.numeric(y)
-    ## !! x cannot contain factors !!
     xvar.names <- object$xvar.names
     x <- object$xvar
     if (any(sapply(x, is.factor))) {
       stop("factors not allowed in x-features ... consider using a varpro object instead of a forest object")
     }
   } else {
-    ## this is a varpro object
     if (is.null(max.rules.tree)) max.rules.tree <- object$max.rules.tree
     if (is.null(max.tree))       max.tree       <- object$max.tree
     y <- data.matrix(object$rf$predicted.oob)
@@ -66,7 +60,6 @@ ivarpro <- function(object,
   if (is.null(cut)) {
     if (adaptive) {
       n <- nrow(x)
-      ## simple bandwidth-style rule: cut.max.data ~ 0.5 when n ~ 500
       cut.max.data <- min(cut.max, 1.7 * n^(-1/5))
       cut <- seq(0, cut.max.data, length.out = ncut)
     } else {
@@ -77,59 +70,72 @@ ivarpro <- function(object,
   }
   ## final check on nmax (cap at 10% of sample size)
   nmax <- max(nmin, min(nmax, floor(0.1 * nrow(x))))
-  ## ensure max.rules.tree / max.tree have values for rfsrc objects too
   if (is.null(max.rules.tree)) max.rules.tree <- 150
   if (is.null(max.tree))       max.tree       <- 150
-  ## call varpro strength and pull relevant information
   o <- get.varpro.strength(object, membership = TRUE,
                            max.rules.tree = max.rules.tree,
                            max.tree       = max.tree)
   keep.rules     <- which(o$strengthArray$oobCT > 0 & o$strengthArray$compCT > 0)
-  oobMembership  <- o$oobMembership
-  compMembership <- o$compMembership
-  xreleaseId     <- o$strengthArray$xReleaseID
-  results        <- o$results
+  ## subset everything ONCE so rule index is 1..R
+  oobMembership  <- o$oobMembership[keep.rules]
+  compMembership <- o$compMembership[keep.rules]
+  xreleaseId     <- as.integer(o$strengthArray$xReleaseID[keep.rules])
+  results        <- o$results[keep.rules, , drop = FALSE]
   ## y is the OOB estimator - keep in mind that y can be multivariate
   if (ncol(y) == 1 || (object$family == "class" && ncol(y) == 2)) {
     y <- y[, 1]
   }
   ## ladder bookkeeping (exclude edges: cut[1] and cut[end])
-  nladder <- max(0, length(cut) - 2)
+  nladder <- max(0L, length(cut) - 2L)
   cut.ladder <- if (nladder > 0) cut[2:(length(cut) - 1)] else numeric(0)
   ## ------------------------------------------------------------
-  ## rule-level gradient estimation (always returns full + ladder)
+  ## rule-level gradient estimation (no mclapply; avoid copying full xO/xC)
   ## ------------------------------------------------------------
-  ruleMat <- do.call(rbind, papply(keep.rules, function(i) {
-    xO <- x[oobMembership[[i]], , drop = FALSE]
-    xC <- x[compMembership[[i]], , drop = FALSE]
-    if (is.matrix(y)) {
-      yO <- y[oobMembership[[i]], , drop = FALSE]
-      yC <- y[compMembership[[i]], , drop = FALSE]
+  mresp <- if (is.matrix(y)) ncol(y) else 1L
+  R <- length(xreleaseId)
+  n_imp_cols <- mresp * (1L + nladder)
+  n_cols <- 4L + n_imp_cols
+  ruleMat <- matrix(NA_real_, nrow = R, ncol = n_cols)
+  x_is_df <- is.data.frame(x)
+  y_is_mat <- is.matrix(y)
+  for (r in seq_len(R)) {
+    idxO <- oobMembership[[r]]
+    idxC <- compMembership[[r]]
+    var_id <- xreleaseId[r]
+    ## extract ONLY the release coordinate (big speed win)
+    if (x_is_df) {
+      xO <- x[idxO, var_id, drop = TRUE]
+      xC <- x[idxC, var_id, drop = TRUE]
     } else {
-      yO <- y[oobMembership[[i]]]
-      yC <- y[compMembership[[i]]]
+      xO <- x[idxO, var_id]
+      xC <- x[idxC, var_id]
+    }
+    if (y_is_mat) {
+      yO <- y[idxO, , drop = FALSE]
+      yC <- y[idxC, , drop = FALSE]
+    } else {
+      yO <- y[idxO]
+      yC <- y[idxC]
     }
     imp <- cs.local.importance(
       yO, yC, xO, xC,
-      idx      = xreleaseId[i],
-      cut      = cut,
+      idx = NULL,
+      cut = cut,
       noise.na = noise.na,
-      nmin     = nmin,
-      nmax     = nmax,
-      use.loo  = use.loo,
-      use.abs  = use.abs,
+      nmin = nmin,
+      nmax = nmax,
+      use.loo = use.loo,
+      use.abs = use.abs,
       return.path = TRUE
     )
-    c(
-      tree     = results[i, "tree"],
-      branch   = results[i, "branch"],
-      variable = xreleaseId[i],
-      n.oob    = length(oobMembership[[i]]),
+    ruleMat[r, ] <- c(
+      results[r, "tree"],
+      results[r, "branch"],
+      var_id,
+      length(idxO),
       imp
     )
-  }))
-  ## parse ruleMat into rule meta + main imp + ladder
-  mresp <- if (is.matrix(y)) ncol(y) else 1L
+  }
   ## rule meta (always present)
   rO.meta <- data.frame(
     tree     = ruleMat[, 1],
@@ -161,17 +167,15 @@ ivarpro <- function(object,
   csO <- list()
   csO$results       <- rO
   csO$xvar.names    <- xvar.names
-  csO$oobMembership <- oobMembership[keep.rules]
+  csO$oobMembership <- oobMembership
   csO$n             <- nrow(x)
   if (is.matrix(y)) {
     out <- lapply(seq_len(ncol(y)), function(j) {
       csO$results <- rO[, c(1:4, 4 + j), drop = FALSE]
-      ## ensure the importance column is always named "imp"
       names(csO$results)[5] <- "imp"
       csimp.varpro.workhorse(csO, noise.na = noise.na)
     })
     names(out) <- colnames(y)
-    ## attach path attributes (one per response)
     for (j in seq_along(out)) {
       attr(out[[j]], "ivarpro.path") <- list(
         cut = cut,
@@ -186,7 +190,6 @@ ivarpro <- function(object,
         rule.variable = as.integer(rO$variable),
         oobMembership = if (isTRUE(path.store.membership)) csO$oobMembership else NULL,
         rule.imp.ladder = rule.ladder[[j]],
-        ## optional metadata (useful for debugging)
         rule.tree = as.integer(rO$tree),
         rule.branch = as.integer(rO$branch),
         rule.n.oob = as.integer(rO$n.oob)
@@ -194,7 +197,6 @@ ivarpro <- function(object,
     }
   } else {
     out <- csimp.varpro.workhorse(csO, noise.na = noise.na)
-    ## attach path attributes
     attr(out, "ivarpro.path") <- list(
       cut = cut,
       cut.ladder = cut.ladder,
@@ -208,7 +210,6 @@ ivarpro <- function(object,
       rule.variable = as.integer(rO$variable),
       oobMembership = if (isTRUE(path.store.membership)) csO$oobMembership else NULL,
       rule.imp.ladder = rule.ladder[[1]],
-      ## optional metadata (useful for debugging)
       rule.tree = as.integer(rO$tree),
       rule.branch = as.integer(rO$branch),
       rule.n.oob = as.integer(rO$n.oob)
@@ -219,15 +220,271 @@ ivarpro <- function(object,
   }
   out
 }
-##############################################################
-##
-## utilities for calculating case-specific importance
-##
-##############################################################
-## rule-centric aggregator
-## Matches original semantics:
-##  - variables absent for a case stay NA (noise.na=TRUE) or 0 (noise.na=FALSE)
-##  - variables present but all-NA contributions yield NaN (as mean(numeric(0)) does)
+## ------------------------------------------------------------
+## helper: fast simple regression y ~ x with intercept
+## returns slope (for x) and optional LOO MSE (same criterion as rsq.loo())
+## ------------------------------------------------------------
+.ivarpro_fast_lm1 <- function(x, y, use.loo = TRUE) {
+  n <- length(x)
+  if (n < 2L) return(list(slope = NA_real_, loo = NA_real_))
+  xbar <- mean(x)
+  ybar <- mean(y)
+  xc <- x - xbar
+  yc <- y - ybar
+  Sxx <- sum(xc * xc)
+  if (!is.finite(Sxx) || Sxx <= 0) {
+    return(list(slope = NA_real_, loo = NA_real_))
+  }
+  slope <- sum(xc * yc) / Sxx
+  if (!isTRUE(use.loo)) {
+    return(list(slope = slope, loo = NA_real_))
+  }
+  intercept <- ybar - slope * xbar
+  res <- y - (intercept + slope * x)
+  ## hatvalues for simple regression with intercept:
+  ## h_i = 1/n + (x_i - xbar)^2 / sum((x - xbar)^2)
+  h <- 1 / n + (xc * xc) / Sxx
+  ok <- is.finite(res) & is.finite(h) & ((1 - h) > 1e-8)
+  loo <- if (any(ok)) mean((res[ok] / (1 - h[ok]))^2) else NA_real_
+  list(slope = slope, loo = loo)
+}
+## ------------------------------------------------------------
+## grad.est: fast closed-form version (drop-in signature)
+## ------------------------------------------------------------
+grad.est <- function(yO, yC, xO, xC,
+                     cut, noise.na,
+                     nmin = 10, nmax = 20,
+                     use.loo = TRUE, use.abs = FALSE,
+                     return.path = FALSE) {
+  nladder <- max(0L, length(cut) - 2L)
+  out0 <- if (isTRUE(noise.na)) NA_real_ else 0
+  ## combine OOB and complement
+  x_all <- c(xO, xC)
+  y_all <- c(yO, yC)
+  ok <- is.finite(x_all) & is.finite(y_all)
+  x_all <- x_all[ok]
+  y_all <- y_all[ok]
+  if (length(x_all) < nmin) {
+    if (isTRUE(return.path)) return(c(out0, rep(out0, nladder)))
+    return(out0)
+  }
+  ux <- sort(unique(x_all))
+  ## --- 0/1 (one-hot) branch ---------------------------------
+  if (length(ux) == 2L && all(ux %in% c(0, 1))) {
+    n0 <- sum(x_all == 0)
+    n1 <- sum(x_all == 1)
+    if (n0 == 0L || n1 == 0L || (n0 + n1) < nmin) {
+      if (isTRUE(return.path)) return(c(out0, rep(out0, nladder)))
+      return(out0)
+    }
+    x_use <- x_all
+    y_use <- y_all
+    ## robust subsampling that always keeps both levels (when both exist)
+    if ((n0 + n1) > nmax) {
+      n_use <- min(nmax, n0 + n1)
+      ## initial proportional split
+      J1 <- round(n_use * n1 / (n0 + n1))
+      J1 <- max(1L, min(J1, n1, n_use - 1L))
+      J0 <- n_use - J1
+      J0 <- max(1L, min(J0, n0, n_use - 1L))
+      ## adjust if caps caused mismatch
+      if ((J0 + J1) < n_use) {
+        rem <- n_use - (J0 + J1)
+        cap1 <- n1 - J1
+        cap0 <- n0 - J0
+        add1 <- min(rem, max(0L, cap1))
+        J1 <- J1 + add1
+        rem <- rem - add1
+        add0 <- min(rem, max(0L, cap0))
+        J0 <- J0 + add0
+      } else if ((J0 + J1) > n_use) {
+        over <- (J0 + J1) - n_use
+        drop1 <- min(over, max(0L, J1 - 1L))
+        J1 <- J1 - drop1
+        over <- over - drop1
+        drop0 <- min(over, max(0L, J0 - 1L))
+        J0 <- J0 - drop0
+      }
+      ## final safety
+      J0 <- max(1L, min(J0, n0))
+      J1 <- max(1L, min(J1, n1))
+      if ((J0 + J1) > n_use) {
+        if (J0 > J1 && J0 > 1L) J0 <- J0 - 1L else if (J1 > 1L) J1 <- J1 - 1L
+      }
+      if ((J0 + J1) < n_use) {
+        if (J1 < n1) J1 <- J1 + 1L else if (J0 < n0) J0 <- J0 + 1L
+      }
+      idx1 <- sample(which(x_all == 1), J1)
+      idx0 <- sample(which(x_all == 0), J0)
+      idx  <- c(idx0, idx1)
+      x_use <- x_all[idx]
+      y_use <- y_all[idx]
+    }
+    ## lm(y ~ scale(x, center=TRUE, scale=TRUE)) coefficient is:
+    ## coef(y ~ x) * sd_sample(x)
+    y1 <- y_use[x_use == 1]
+    y0 <- y_use[x_use == 0]
+    if (!length(y0) || !length(y1)) {
+      if (isTRUE(return.path)) return(c(out0, rep(out0, nladder)))
+      return(out0)
+    }
+    b_x <- mean(y1) - mean(y0)
+    xbar <- mean(x_use)
+    sd_x <- sqrt(sum((x_use - xbar)^2) / (length(x_use) - 1L))
+    g <- b_x * sd_x
+    if (isTRUE(use.abs)) g <- abs(g)
+    if (isTRUE(return.path)) return(c(g, rep(g, nladder)))
+    return(g)
+  }
+  ## --- continuous branch ------------------------------------
+  mn <- mean(xO, na.rm = TRUE)
+  if (!is.finite(mn)) {
+    if (isTRUE(return.path)) return(c(out0, rep(out0, nladder)))
+    return(out0)
+  }
+  x <- c(xO, xC) - mn
+  y <- c(yO, yC)
+  ok2 <- is.finite(x) & is.finite(y)
+  x <- x[ok2]
+  y <- y[ok2]
+  if (length(x) < nmin) {
+    if (isTRUE(return.path)) return(c(out0, rep(out0, nladder)))
+    return(out0)
+  }
+  sdx <- sd(x, na.rm = TRUE)
+  if (!is.finite(sdx) || sdx == 0) {
+    if (isTRUE(return.path)) return(c(out0, rep(out0, nladder)))
+    return(out0)
+  }
+  ## Sort once by |x|. Each cut corresponds to a prefix of this ordering.
+  absx <- abs(x)
+  ord <- order(absx)
+  absx <- absx[ord]
+  x_ord <- x[ord]
+  y_ord <- y[ord]
+  thr <- sdx * cut
+  k_vec <- findInterval(thr, absx)  # number of points with abs(x) <= thr[t]
+  nc <- length(cut)
+  best <- rep(out0, nc)
+  if (isTRUE(use.loo)) {
+    have <- FALSE
+    best_err <- Inf
+    best_grad <- out0
+  } else {
+    have <- FALSE
+    best_J <- -Inf
+    best_grad <- out0
+  }
+  ## cache stats when J doesn't change across neighboring cut values
+  last_J <- NA_integer_
+  last_g <- out0
+  last_err <- NA_real_
+  for (t in seq_len(nc)) {
+    k <- k_vec[t]  # n_pt (points inside the threshold)
+    Jval <- k      # matches original df[,1] semantics when k < nmin
+    if (k < nmin) {
+      if (isTRUE(noise.na)) {
+        g <- NA_real_
+        err <- NA_real_
+      } else {
+        g <- 0
+        err <- if (isTRUE(use.loo)) .Machine$double.xmax else NA_real_
+      }
+    } else {
+      J <- min(k, nmax)
+      Jval <- J
+      if (is.na(last_J) || J != last_J) {
+        xsub <- x_ord[seq_len(J)]
+        ysub <- y_ord[seq_len(J)]
+        st <- .ivarpro_fast_lm1(xsub, ysub, use.loo = use.loo)
+        ## original code regresses on xx = scale(xsub, center=FALSE),
+        ## which is just xsub scaled by sqrt(sum(x^2)/(n-1)).
+        s0 <- sqrt(sum(xsub * xsub) / (J - 1L))
+        if (!is.finite(st$slope) || !is.finite(s0) || s0 <= 0) {
+          if (isTRUE(noise.na)) {
+            g <- NA_real_
+            err <- NA_real_
+          } else {
+            g <- 0
+            err <- if (isTRUE(use.loo)) .Machine$double.xmax else NA_real_
+          }
+        } else {
+          g <- st$slope * s0
+          if (isTRUE(use.abs)) g <- abs(g)
+          err <- st$loo
+          if (!isTRUE(use.loo)) err <- NA_real_
+        }
+        last_J <- J
+        last_g <- g
+        last_err <- err
+      } else {
+        g <- last_g
+        err <- last_err
+      }
+    }
+    ## prefix-best update (same as maX.prefix())
+    if (isTRUE(use.loo)) {
+      if (is.finite(g) && is.finite(err)) {
+        if (!have || err < best_err) {
+          have <- TRUE
+          best_err <- err
+          best_grad <- g
+        }
+      }
+      best[t] <- if (have) best_grad else out0
+    } else {
+      if (is.finite(g) && is.finite(Jval) && Jval > 0) {
+        if (!have || Jval > best_J) {
+          have <- TRUE
+          best_J <- Jval
+          best_grad <- g
+        }
+      }
+      best[t] <- if (have) best_grad else out0
+    }
+  }
+  full <- best[nc]
+  if (!isTRUE(return.path)) return(full)
+  ladder <- if (nladder > 0L) best[2:(nc - 1L)] else numeric(0)
+  c(full, ladder)
+}
+## ------------------------------------------------------------
+## cs.local.importance: now supports xO/xC vectors when idx=NULL
+## (backward compatible with matrix inputs when idx is supplied)
+## ------------------------------------------------------------
+cs.local.importance <- function(yO, yC, xO, xC, idx = NULL,
+                                cut, noise.na, nmin, nmax,
+                                use.loo = TRUE, use.abs = FALSE,
+                                return.path = FALSE) {
+  if (!is.null(idx)) {
+    ## backward compat: old calling pattern passed xO/xC as matrices
+    xO <- xO[, idx]
+    xC <- xC[, idx]
+  }
+  if (!is.matrix(yC)) {
+    grad.est(yO, yC, xO, xC,
+             cut, noise.na, nmin, nmax, use.loo, use.abs,
+             return.path = return.path)
+  } else {
+    m <- ncol(yC)
+    if (!isTRUE(return.path)) {
+      sapply(seq_len(m), function(j) {
+        grad.est(yO[, j], yC[, j], xO, xC,
+                 cut, noise.na, nmin, nmax, use.loo, use.abs,
+                 return.path = FALSE)
+      })
+    } else {
+      tmp <- lapply(seq_len(m), function(j) {
+        grad.est(yO[, j], yC[, j], xO, xC,
+                 cut, noise.na, nmin, nmax, use.loo, use.abs,
+                 return.path = TRUE)
+      })
+      main   <- sapply(tmp, function(z) z[1])
+      ladder <- do.call(cbind, lapply(tmp, function(z) z[-1]))  ## nladder x m
+      c(main, c(ladder))  ## response-major (columns stacked)
+    }
+  }
+}
 csimp.varpro.workhorse <- function(o, noise.na = TRUE) {
   xn <- o$xvar.names
   n  <- o$n
@@ -283,270 +540,4 @@ csimp.varpro.workhorse <- function(o, noise.na = TRUE) {
   }
   colnames(sum_mat) <- xn
   data.frame(sum_mat, check.names = FALSE)
-}
-cs.local.importance <- function(yO, yC, xO, xC, idx,
-                                cut, noise.na, nmin, nmax,
-                                use.loo = TRUE, use.abs = FALSE,
-                                return.path = FALSE) {
-  if (!is.matrix(yC)) {
-    grad.est(yO, yC, xO[, idx], xC[, idx],
-             cut, noise.na, nmin, nmax, use.loo, use.abs,
-             return.path = return.path)
-  } else {
-    m <- ncol(yC)
-    if (!isTRUE(return.path)) {
-      ## one scalar per response
-      sapply(seq_len(m), function(j) {
-        grad.est(yO[, j], yC[, j],
-                 xO[, idx], xC[, idx],
-                 cut, noise.na, nmin, nmax, use.loo, use.abs,
-                 return.path = FALSE)
-      })
-    } else {
-      ## path mode: return main + ladder for each response, response-major
-      tmp <- lapply(seq_len(m), function(j) {
-        grad.est(yO[, j], yC[, j],
-                 xO[, idx], xC[, idx],
-                 cut, noise.na, nmin, nmax, use.loo, use.abs,
-                 return.path = TRUE)
-      })
-      ## tmp is a list of length m, each element length (1 + nladder)
-      main   <- sapply(tmp, function(z) z[1])
-      ladder <- do.call(cbind, lapply(tmp, function(z) z[-1]))  ## nladder x m (or 0 x m)
-      c(main, c(ladder))  ## response-major because c(ladder) stacks columns
-    }
-  }
-}
-grad.est <- function(yO, yC, xO, xC,
-                     cut, noise.na,
-                     nmin = 10, nmax = 20,
-                     use.loo = TRUE, use.abs = FALSE,
-                     return.path = FALSE) {
-  ## ladder length (exclude edges: cut[1], cut[end])
-  nladder <- max(0, length(cut) - 2)
-  ## combine OOB and complement
-  x_all <- c(xO, xC)
-  y_all <- c(yO, yC)
-  ok <- is.finite(x_all) & is.finite(y_all)
-  x_all <- x_all[ok]
-  y_all <- y_all[ok]
-  if (length(x_all) < nmin) {
-    out0 <- if (noise.na) NA_real_ else 0
-    if (isTRUE(return.path)) {
-      return(c(out0, rep(out0, nladder)))
-    } else {
-      return(out0)
-    }
-  }
-  ux <- sort(unique(x_all))
-  ## --- 0/1 (one-hot) branch ---------------------------------
-  if (length(ux) == 2 && all(ux %in% c(0, 1))) {
-    n0 <- sum(x_all == 0)
-    n1 <- sum(x_all == 1)
-    if (n0 == 0 || n1 == 0 || (n0 + n1) < nmin) {
-      out0 <- if (noise.na) NA_real_ else 0
-      if (isTRUE(return.path)) {
-        return(c(out0, rep(out0, nladder)))
-      } else {
-        return(out0)
-      }
-    }
-    ## robust subsampling that always keeps both levels (when both exist)
-    x_use <- x_all
-    y_use <- y_all
-    if ((n0 + n1) > nmax) {
-      n_use <- min(nmax, n0 + n1)
-      ## initial proportional split
-      J1 <- round(n_use * n1 / (n0 + n1))
-      J1 <- max(1L, min(J1, n1, n_use - 1L))
-      J0 <- n_use - J1
-      J0 <- max(1L, min(J0, n0, n_use - 1L))
-      ## adjust if caps caused mismatch
-      if ((J0 + J1) < n_use) {
-        rem <- n_use - (J0 + J1)
-        cap1 <- n1 - J1
-        cap0 <- n0 - J0
-        add1 <- min(rem, max(0L, cap1))
-        J1 <- J1 + add1
-        rem <- rem - add1
-        add0 <- min(rem, max(0L, cap0))
-        J0 <- J0 + add0
-      } else if ((J0 + J1) > n_use) {
-        over <- (J0 + J1) - n_use
-        drop1 <- min(over, max(0L, J1 - 1L))
-        J1 <- J1 - drop1
-        over <- over - drop1
-        drop0 <- min(over, max(0L, J0 - 1L))
-        J0 <- J0 - drop0
-      }
-      ## final safety
-      J0 <- max(1L, min(J0, n0))
-      J1 <- max(1L, min(J1, n1))
-      if ((J0 + J1) > n_use) {
-        if (J0 > J1 && J0 > 1L) J0 <- J0 - 1L else if (J1 > 1L) J1 <- J1 - 1L
-      }
-      if ((J0 + J1) < n_use) {
-        if (J1 < n1) J1 <- J1 + 1L else if (J0 < n0) J0 <- J0 + 1L
-      }
-      idx1 <- sample(which(x_all == 1), J1)
-      idx0 <- sample(which(x_all == 0), J0)
-      idx  <- c(idx0, idx1)
-      x_use <- x_all[idx]
-      y_use <- y_all[idx]
-    }
-    z <- scale(x_use, center = TRUE, scale = TRUE)
-    o.lm <- tryCatch(
-      suppressWarnings(lm(y_use ~ z)),
-      error = function(e) NULL
-    )
-    if (is.null(o.lm)) {
-      out0 <- if (noise.na) NA_real_ else 0
-      if (isTRUE(return.path)) {
-        return(c(out0, rep(out0, nladder)))
-      } else {
-        return(out0)
-      }
-    } else {
-      g <- coef(o.lm)[["z"]]
-      if (use.abs) g <- abs(g)
-      if (isTRUE(return.path)) {
-        return(c(g, rep(g, nladder)))
-      } else {
-        return(g)
-      }
-    }
-  }
-  ## --- continuous branch ------------------------------------
-  mn  <- mean(xO, na.rm = TRUE)
-  if (!is.finite(mn)) {
-    out0 <- if (noise.na) NA_real_ else 0
-    if (isTRUE(return.path)) {
-      return(c(out0, rep(out0, nladder)))
-    } else {
-      return(out0)
-    }
-  }
-  x <- c(xO, xC) - mn
-  y <- c(yO, yC)
-  ok2 <- is.finite(x) & is.finite(y)
-  x <- x[ok2]
-  y <- y[ok2]
-  if (length(x) < nmin) {
-    out0 <- if (noise.na) NA_real_ else 0
-    if (isTRUE(return.path)) {
-      return(c(out0, rep(out0, nladder)))
-    } else {
-      return(out0)
-    }
-  }
-  sdx <- sd(x, na.rm = TRUE)
-  if (!is.finite(sdx) || sdx == 0) {
-    out0 <- if (noise.na) NA_real_ else 0
-    if (isTRUE(return.path)) {
-      return(c(out0, rep(out0, nladder)))
-    } else {
-      return(out0)
-    }
-  }
-  rows <- lapply(cut, function(scl) {
-    pt <- abs(x) <= (sdx * scl)
-    ## pt is logical without NA because x is finite
-    n_pt <- sum(pt)
-    if (n_pt >= nmin) {
-      J   <- min(n_pt, nmax)
-      idx <- which(pt)[order(abs(x[pt]))[1:J]]
-      xx  <- scale(x[idx], center = FALSE)
-      yy  <- y[idx]
-      o.lm <- tryCatch(
-        suppressWarnings(lm(yy ~ xx)),
-        error = function(e) NULL
-      )
-      if (is.null(o.lm)) {
-        if (noise.na) c(J, NA_real_, NA_real_) else c(J, 0, .Machine$double.xmax)
-      } else {
-        if (use.loo) {
-          score <- rsq.loo(o.lm)
-        } else {
-          score <- NA_real_
-        }
-        g <- coef(o.lm)[["xx"]]
-        if (use.abs) g <- abs(g)
-        c(J, g, score)
-      }
-    } else {
-      if (noise.na) c(n_pt, NA_real_, NA_real_) else c(n_pt, 0, .Machine$double.xmax)
-    }
-  })
-  df <- do.call(rbind, rows)
-  if (!isTRUE(return.path)) {
-    maX(df, use.loo = use.loo)
-  } else {
-    best_prefix <- maX.prefix(df, use.loo = use.loo)
-    full <- best_prefix[length(cut)]
-    ladder <- if (nladder > 0) best_prefix[2:(length(cut) - 1)] else numeric(0)
-    c(full, ladder)
-  }
-}
-rsq.loo <- function(o.lm) {
-  r <- resid(o.lm)
-  h <- hatvalues(o.lm)
-  ok <- is.finite(r) & is.finite(h) & (1 - h) > 1e-8
-  if (!any(ok)) return(NA_real_)
-  mean((r[ok] / (1 - h[ok]))^2, na.rm = TRUE)
-}
-maX <- function(df, use.loo = TRUE) {
-  J    <- df[, 1]
-  grad <- df[, 2]
-  if (use.loo) {
-    err  <- df[, 3]
-    good <- which(is.finite(grad) & is.finite(err))
-    if (!length(good)) return(NA_real_)
-    k <- good[which.min(err[good])]
-    grad[k]
-  } else {
-    good <- which(is.finite(grad) & is.finite(J) & J > 0)
-    if (!length(good)) return(NA_real_)
-    k <- good[which.max(J[good])]
-    grad[k]
-  }
-}
-## best gradient selected along prefixes of the cut-grid
-## returns a vector best[t] = maX(df[1:t,], use.loo)
-maX.prefix <- function(df, use.loo = TRUE) {
-  J    <- df[, 1]
-  grad <- df[, 2]
-  n    <- nrow(df)
-  best <- rep(NA_real_, n)
-  if (use.loo) {
-    err <- df[, 3]
-    have <- FALSE
-    best_err <- Inf
-    best_grad <- NA_real_
-    for (t in seq_len(n)) {
-      if (is.finite(grad[t]) && is.finite(err[t])) {
-        if (!have || err[t] < best_err) {
-          have <- TRUE
-          best_err <- err[t]
-          best_grad <- grad[t]
-        }
-      }
-      best[t] <- if (have) best_grad else NA_real_
-    }
-  } else {
-    have <- FALSE
-    best_J <- -Inf
-    best_grad <- NA_real_
-    for (t in seq_len(n)) {
-      if (is.finite(grad[t]) && is.finite(J[t]) && J[t] > 0) {
-        if (!have || J[t] > best_J) {
-          have <- TRUE
-          best_J <- J[t]
-          best_grad <- grad[t]
-        }
-        ## ties keep first occurrence (do nothing)
-      }
-      best[t] <- if (have) best_grad else NA_real_
-    }
-  }
-  best
 }

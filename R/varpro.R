@@ -24,7 +24,7 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
                    split.weight = TRUE, split.weight.method = NULL, sparse = TRUE,
                    nodesize = NULL, max.rules.tree = 150, max.tree = min(150, ntree),
                    parallel = TRUE, cores = get.mc.cores(),
-                   papply = mclapply, verbose = FALSE, seed = NULL,
+                   verbose = FALSE, seed = NULL,
                    ...)
 {
   ## ------------------------------------------------------------------------
@@ -34,14 +34,14 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
   ##
   ##
   ## ------------------------------------------------------------------------
+  ## initialize the seed
+  seed <- get.seed(seed)
   ## formula must be a formula
   f.org <- f <- as.formula(f)
   ## data must be a data frame
   data <- data.frame(data)
   ## droplevels
   data <- droplevels(data)
-  ## initialize the seed
-  seed <- get.seed(seed)
   ## run a stumpy tree as a quick way to determine family
   ## use the stumped tree to acquire x and y
   ## save original y - needed for coherent treatment of survival
@@ -68,7 +68,7 @@ varpro <- function(f, data, nvar = 30, ntree = 500,
     yfkname <- "y"
   }
   ## convert factors using hot-encoding
-  x <- get.hotencode(x, papply)
+  x <- get.hotencode(x)
   xvar.names <- colnames(x)
   ## ------------------------------------------------------------------------
   ##

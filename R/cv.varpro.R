@@ -2,10 +2,16 @@ cv.varpro <- function(f, data, nvar = 30, ntree = 150,
                       local.std = TRUE, zcut = seq(0.1, 2, length = 50), nblocks = 10,
                       split.weight = TRUE, split.weight.method = NULL, sparse = TRUE,
                       nodesize = NULL, max.rules.tree = 150, max.tree = min(150, ntree),
-                      papply = mclapply, verbose = FALSE, seed = NULL,
+                      verbose = FALSE, seed = NULL,
                       fast = FALSE, crps = FALSE,
                       ...)
 {		   
+  ##--------------------------------------------------------------
+  ##
+  ## to avoid forking issues we run everything in serial in R
+  ##
+  ##--------------------------------------------------------------
+  papply <- base::lapply
   ##--------------------------------------------------------------
   ##
   ## extract original yvalue names
@@ -99,14 +105,22 @@ cv.varpro <- function(f, data, nvar = 30, ntree = 150,
   o <- do.call("varpro", c(list(f = f, data = data, nvar = nvar, ntree = ntree,
                   split.weight = split.weight, split.weight.method = split.weight.method, sparse = sparse,
                   nodesize = nodesize, max.rules.tree = max.rules.tree, max.tree = max.tree,
-		  papply = papply, verbose = verbose, seed = seed), dots))
+                  verbose = verbose, seed = seed), dots))
   ##--------------------------------------------------------------
   ##
   ## extract importance values
   ## map importance values which are hot-encoded back to original data 
   ##
   ##--------------------------------------------------------------
-  vorg <- get.orgvimp(o, papply = papply, local.std = local.std)
+  ##--------------------------------------------------------------
+  ##
+  ## extract importance values
+  ## map importance values which are hot-encoded back to original data 
+  ##
+  ##--------------------------------------------------------------
+  ## compute importance once and reuse it (avoid recomputation)
+  vmp <- importance(o, local.std = local.std)
+  vorg <- get.orgvimp(o, local.std = local.std, vmp = vmp)
   xvar.names <- vorg$variable
   imp <- vorg$z
   imp[is.na(imp)] <- 0
@@ -260,7 +274,7 @@ cv.varpro <- function(f, data, nvar = 30, ntree = 150,
              zcut.liberal = zcut.liberal)
   class(rO) <- "cv.varpro"
   ## append some useful information as attributes
-  attr(rO, "imp.org") <- importance(o, local.std = local.std)
+  attr(rO, "imp.org") <- vmp
   attr(rO, "xvar.names") <- o$xvar.names
   attr(rO, "xvar.org.names") <- o$xvar.org.names
   attr(rO, "family") <- o$family

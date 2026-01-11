@@ -10,8 +10,7 @@ cv.varpro(f, data, nvar = 30, ntree = 150,
        local.std = TRUE, zcut = seq(0.1, 2, length = 50), nblocks = 10,
        split.weight = TRUE, split.weight.method = NULL, sparse = TRUE,
        nodesize = NULL, max.rules.tree = 150, max.tree = min(150, ntree), 
-       papply = mclapply, verbose = FALSE, seed = NULL,
-       fast = FALSE, crps = FALSE, ...)
+       verbose = FALSE, seed = NULL, fast = FALSE, crps = FALSE, ...)
 }
 
 \arguments{
@@ -47,8 +46,6 @@ cv.varpro(f, data, nvar = 30, ntree = 150,
   \item{max.rules.tree}{Maximum number of rules per tree.}
 
   \item{max.tree}{Maximum number of trees used for rule extraction.}
-
-  \item{papply}{Apply function used for R parallelization.}   
 
   \item{verbose}{Print verbose output?}
 

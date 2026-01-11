@@ -25,49 +25,127 @@ get.entropy.default <- function(entropy.values, xvar.names, ...) {
 ##
 ##
 ##################################################################
-fit.logistic.cv.beta <- function(X.cls, class, nfolds, parallel, maxit, thresh) {
+## Extract absolute, non-zero coefficients from a glmnet coef() object
+## (typically a 1-column dgCMatrix). Returns a named numeric vector.
+.abs_nz_coef <- function(co, drop_names = "(Intercept)") {
+  if (is.null(co)) return(NULL)
+  rn <- rownames(co)
+  if (is.null(rn)) rn <- as.character(seq_len(nrow(co)))
+  if (inherits(co, "dgCMatrix")) {
+    ## For a single-column dgCMatrix, non-zeros are in @x and rows in @i (0-based)
+    idx <- co@i + 1L
+    val <- co@x
+    nm  <- rn[idx]
+    keep <- is.finite(val) & (val != 0)
+    if (!is.null(drop_names) && length(drop_names)) {
+      keep <- keep & !(nm %in% drop_names)
+    }
+    if (!any(keep)) return(setNames(numeric(0), character(0)))
+    v <- abs(val[keep])
+    names(v) <- nm[keep]
+    v
+  } else {
+    ## Fallback: dense
+    m <- tryCatch(as.matrix(co), error = function(e) NULL)
+    if (is.null(m) || nrow(m) == 0L) return(NULL)
+    v <- as.numeric(m[, 1])
+    names(v) <- rn
+    if (!is.null(drop_names) && length(drop_names)) {
+      v <- v[!(names(v) %in% drop_names)]
+    }
+    v <- v[is.finite(v) & v != 0]
+    abs(v)
+  }
+}
+fit.logistic.cv.beta <- function(X.cls, class,
+                                 nfolds, parallel, maxit, thresh,
+                                 use.cv = TRUE,
+                                 lambda.sel = c("lambda.1se", "lambda.min"),
+                                 nlambda = NULL,
+                                 lambda.min.ratio = NULL) {
+  lambda.sel <- match.arg(lambda.sel)
   ## !!!manual scaling!!!
   X.cls <- scale(X.cls, center = FALSE)
-  o.cv <- tryCatch(
-    suppressWarnings(glmnet::cv.glmnet(
-      as.matrix(X.cls), class,
-      family  = "binomial",
-      nfolds  = nfolds,
-      parallel= parallel,  
-      maxit   = maxit,
-      thresh  = thresh
-    )),
-    error = function(e) NULL
-  )
-  if (is.null(o.cv)) return(NULL)
-  ## be explicit about s for robustness (same as cv.glmnet default)
-  co <- tryCatch(as.matrix(stats::coef(o.cv, s = "lambda.1se")),
-                 error = function(e) NULL)
-  if (is.null(co) || nrow(co) <= 1L) return(NULL)
-  bhat <- abs(co[-1, 1])
-  names(bhat) <- rownames(co)[-1]
+  if (isTRUE(use.cv)) {
+    args <- list(
+      x        = X.cls,
+      y        = class,
+      family   = "binomial",
+      nfolds   = nfolds,
+      parallel = parallel,
+      maxit    = maxit,
+      thresh   = thresh
+    )
+    if (!is.null(nlambda))          args$nlambda <- nlambda
+    if (!is.null(lambda.min.ratio)) args$lambda.min.ratio <- lambda.min.ratio
+    o.cv <- tryCatch(
+      suppressWarnings(do.call(glmnet::cv.glmnet, args)),
+      error = function(e) NULL
+    )
+    if (is.null(o.cv)) return(NULL)
+    co <- tryCatch(stats::coef(o.cv, s = lambda.sel),
+                   error = function(e) NULL)
+  } else {
+    ## No-CV option (faster): fit once and take the last lambda on the path
+    args <- list(
+      x      = X.cls,
+      y      = class,
+      family = "binomial",
+      maxit  = maxit,
+      thresh = thresh
+    )
+    if (!is.null(nlambda))          args$nlambda <- nlambda
+    if (!is.null(lambda.min.ratio)) args$lambda.min.ratio <- lambda.min.ratio
+    fit <- tryCatch(
+      suppressWarnings(do.call(glmnet::glmnet, args)),
+      error = function(e) NULL
+    )
+    if (is.null(fit)) return(NULL)
+    co <- last.lambda.coef(fit)
+  }
+  ## Pull only non-zero coefficients (drop intercept)
+  bhat <- .abs_nz_coef(co, drop_names = "(Intercept)")
+  if (is.null(bhat) || !length(bhat)) return(NULL)
   bhat
 }
 last.lambda.coef <- function(fit) {
   lam.last <- utils::tail(fit$lambda, 1L)
-  tryCatch(as.matrix(stats::coef(fit, s = lam.last)),
+  tryCatch(stats::coef(fit, s = lam.last),
            error = function(e) NULL)
 }
-fit.linear.lasso.at.last <- function(X, Y, add.zero = FALSE, zero.name = "ZeroColumn") {
-  ## !!!!manual scaling!!!! 
+fit.linear.lasso.at.last <- function(X, Y,
+                                     add.zero = FALSE,
+                                     zero.name = "ZeroColumn",
+                                     nlambda = NULL,
+                                     lambda.min.ratio = NULL,
+                                     maxit = 2500,
+                                     thresh = 1e-3) {
+  ## !!!!manual scaling!!!!
   X <- scale(X, center = FALSE)
   if (add.zero) {
     X <- cbind(rep(0, nrow(X)), X)
     colnames(X)[1] <- zero.name
   }
-  fit <- tryCatch(suppressWarnings(glmnet::glmnet(X, Y, alpha = 1)),
-                  error = function(e) NULL)
+  args <- list(
+    x     = X,
+    y     = Y,
+    alpha = 1,
+    maxit = maxit,
+    thresh = thresh
+  )
+  if (!is.null(nlambda))          args$nlambda <- nlambda
+  if (!is.null(lambda.min.ratio)) args$lambda.min.ratio <- lambda.min.ratio
+  fit <- tryCatch(
+    suppressWarnings(do.call(glmnet::glmnet, args)),
+    error = function(e) NULL
+  )
   if (is.null(fit)) return(NULL)
   co <- last.lambda.coef(fit)
-  if (is.null(co) || nrow(co) <= 1L) return(NULL)
-  drop.idx <- if (add.zero) c(1L, 2L) else 1L
-  v <- abs(co[-drop.idx, 1])
-  names(v) <- rownames(co)[-drop.idx]
+  if (is.null(co)) return(NULL)
+  drop <- "(Intercept)"
+  if (isTRUE(add.zero)) drop <- c(drop, zero.name)
+  v <- .abs_nz_coef(co, drop_names = drop)
+  if (is.null(v) || !length(v)) return(NULL)
   v
 }
 ## Generalized workhorse (can target any predictor universe)
@@ -81,29 +159,66 @@ beta.workhorse <- function(releaseX,
                            parallel = FALSE,
                            maxit = 2500,
                            thresh = 1e-3,
-                           ret.data = FALSE) {
+                           ret.data = FALSE,
+                           sparse = FALSE,
+                           use.cv = TRUE,
+                           lambda.sel = c("lambda.1se", "lambda.min"),
+                           nlambda = NULL,
+                           lambda.min.ratio = NULL) {
   if (length(predictor.universe) == 0L) return(NULL)
+  lambda.sel <- match.arg(lambda.sel)
   rel.col.fit <- match(releaseX, predictor.universe)
   if (is.na(rel.col.fit)) return(NULL)  # release not in this universe
   idx.C <- rule[[1]]
   idx.O <- rule[[2]]
   if (length(idx.C) == 0L || length(idx.O) == 0L) return(NULL)
   idx <- c(idx.C, idx.O)
-  dt  <- xorg[idx, predictor.universe, drop = FALSE]
   nC  <- length(idx.C); nO <- length(idx.O)
-  ## logistic step
-  X.cls <- dt[, -rel.col.fit, drop = FALSE]
-  class <- factor(c(rep(0, nC), rep(1, nO)))
-  bhat  <- fit.logistic.cv.beta(X.cls, class, nfolds, parallel, maxit, thresh)
-  if (is.null(bhat)) return(NULL)
-  ## embed into a vector over the predictor universe (release variable stays zero)
-  beta <- setNames(numeric(length(predictor.universe)), predictor.universe)
-  hit  <- intersect(names(bhat), predictor.universe)
-  if (length(hit)) beta[hit] <- bhat[hit]
-  if (ret.data) {
-    return(list(beta = beta, dt = dt, rel.col.fit = rel.col.fit))
+  ## Build the design once; avoid repeated char-based column matching when possible
+  if (isTRUE(ret.data)) {
+    if (!is.null(colnames(xorg)) && identical(predictor.universe, colnames(xorg))) {
+      dt <- xorg[idx, , drop = FALSE]
+    } else {
+      dt <- xorg[idx, predictor.universe, drop = FALSE]
+    }
+    X.cls <- dt[, -rel.col.fit, drop = FALSE]
   } else {
-    return(beta)
+    dt <- NULL
+    if (!is.null(colnames(xorg)) && identical(predictor.universe, colnames(xorg))) {
+      X.cls <- xorg[idx, -rel.col.fit, drop = FALSE]
+    } else {
+      X.cls <- xorg[idx, predictor.universe[-rel.col.fit], drop = FALSE]
+    }
+  }
+  ## logistic step
+  class <- factor(c(rep(0, nC), rep(1, nO)))
+  bhat  <- fit.logistic.cv.beta(X.cls, class,
+                                nfolds = nfolds,
+                                parallel = parallel,
+                                maxit = maxit,
+                                thresh = thresh,
+                                use.cv = use.cv,
+                                lambda.sel = lambda.sel,
+                                nlambda = nlambda,
+                                lambda.min.ratio = lambda.min.ratio)
+  if (is.null(bhat)) return(NULL)
+  ## sparse mode: return only selected predictors (non-zero coef magnitudes)
+  if (isTRUE(sparse)) {
+    if (isTRUE(ret.data)) {
+      return(list(beta = bhat, dt = dt, rel.col.fit = rel.col.fit))
+    } else {
+      return(bhat)
+    }
+  }
+  ## dense mode: embed into a full vector over the predictor universe
+  beta <- setNames(numeric(length(predictor.universe)), predictor.universe)
+  pos  <- match(names(bhat), predictor.universe)
+  ok   <- is.finite(pos)
+  if (any(ok)) beta[pos[ok]] <- bhat[ok]
+  if (isTRUE(ret.data)) {
+    list(beta = beta, dt = dt, rel.col.fit = rel.col.fit)
+  } else {
+    beta
   }
 }
 ## Backward-compatible wrapper that preserves the original API
@@ -137,30 +252,48 @@ custom.entropy <- function(o,
                            papply = mclapply,
                            pre.filter = FALSE,
                            second.stage = FALSE,
-                           vimp.min = 0, 
+                           vimp.min = 0,
                            nfolds = 5,
                            maxit = 2500,
                            thresh = 1e-3,
-                           parallel = FALSE) {
+                           parallel = FALSE,
+                           ## (2) speed: don't keep per-rule matrices unless you need them
+                           store.rules = TRUE,
+                           ## (6) speed knobs for the logistic stage
+                           use.cv = TRUE,
+                           lambda.sel = c("lambda.1se", "lambda.min"),
+                           nlambda = NULL,
+                           lambda.min.ratio = NULL,
+                           ## (6) knobs for the stage-2 lasso (only used when second.stage=TRUE)
+                           nlambda.lasso = nlambda,
+                           lambda.min.ratio.lasso = lambda.min.ratio) {
   if (is.null(o$x) || is.null(o$entropy)) {
     stop("Object 'o' must contain x and entropy.")
   }
-  x.nms.all <- colnames(o$x)
+  lambda.sel <- match.arg(lambda.sel)
+  ## resolve papply
+  papply <- .resolve_papply(
+    papply,
+    cores = getOption("mc.cores", 1L),
+    envir = environment()
+  )
+  x.nms.all     <- colnames(o$x)
   rel.candidates <- names(o$entropy)
   ## optional VIMP pre-filter (shrinks rows and cols)
-  if (pre.filter) {
+  if (isTRUE(pre.filter)) {
     vmp <- tryCatch(get.vimp(o, pretty = FALSE), error = function(e) NULL)
     if (is.null(vmp)) {
       x.nms.fit <- x.nms.all
       rel.vars  <- rel.candidates
     } else {
-      xvars <- names(vmp[vmp > vimp.min])
-      xvars <- intersect(xvars, x.nms.all)
+      xvars    <- names(vmp[vmp > vimp.min])
+      xvars    <- intersect(xvars, x.nms.all)
       rel.vars <- intersect(xvars, rel.candidates)
       if (length(xvars) == 0L || length(rel.vars) == 0L) {
         return(list(info.rule = list(),
                     beta.mean.mat = NULL,
-                    lasso.mean.mat = NULL))
+                    lasso.mean.mat = NULL,
+                    lasso.mean.std.mat = NULL))
       }
       x.nms.fit <- xvars
     }
@@ -168,88 +301,188 @@ custom.entropy <- function(o,
     x.nms.fit <- x.nms.all
     rel.vars  <- rel.candidates
   }
+  if (!length(x.nms.fit) || !length(rel.vars)) {
+    return(list(info.rule = list(),
+                beta.mean.mat = NULL,
+                lasso.mean.mat = NULL,
+                lasso.mean.std.mat = NULL))
+  }
+  ## (5c) Convert once to a numeric matrix (faster slicing than data.frame)
+  x_fit <- data.matrix(o$x[, x.nms.fit, drop = FALSE])
+  colnames(x_fit) <- x.nms.fit
+  ## Don't ship the full 'o' through the cluster closure if we can avoid it
+  entropy_list <- o$entropy
+  p_fit <- length(x.nms.fit)
   ## ------------- outer loop over release variables -------------
   mat.list <- papply(rel.vars, function(x.release) {
+    ## Safety / edge cases
     if (length(setdiff(x.nms.fit, x.release)) == 0L) return(NULL)
-    oo <- o$entropy[[x.release]]
+    oo <- entropy_list[[x.release]]
     if (length(oo) == 0L) return(NULL)
-    ## ------------- inner loop over rules -------------## 
-    rO <- lapply(oo, function(rule) {
-      ## delegate logistic stage to the helper
-      res <- beta.workhorse(releaseX = x.release,
-                            rule = rule,
-                            xorg = o$x,
-                            predictor.universe = x.nms.fit,
-                            nfolds = nfolds,
-                            parallel = parallel,
-                            maxit = maxit,
-                            thresh = thresh,
-                            ret.data = second.stage)  # only return dt if we need stage 2
-      if (is.null(res)) return(NULL)
-      if (second.stage) {
-        beta <- res$beta
-        dt   <- res$dt
+    nr <- length(oo)
+    ## storage
+    if (isTRUE(store.rules)) {
+      beta.mat <- matrix(0, nrow = nr, ncol = p_fit,
+                         dimnames = list(NULL, x.nms.fit))
+      ## (1) don't build per-rule all-zero lasso objects when second.stage=FALSE
+      lasso.mat <- if (isTRUE(second.stage)) {
+        matrix(0, nrow = nr, ncol = p_fit,
+               dimnames = list(NULL, x.nms.fit))
+      } else {
+        NULL
+      }
+      keep <- rep(FALSE, nr)
+    } else {
+      beta.sum <- numeric(p_fit)
+      lasso.sum <- if (isTRUE(second.stage)) numeric(p_fit) else NULL
+      n.ok <- 0L
+    }
+    ## --------- inner loop over rules ---------
+    for (rr in seq_len(nr)) {
+      rule <- oo[[rr]]
+      ## logistic stage (sparse, fast path)
+      res <- beta.workhorse(
+        releaseX = x.release,
+        rule     = rule,
+        xorg     = x_fit,
+        predictor.universe = x.nms.fit,
+        nfolds   = nfolds,
+        parallel = parallel,
+        maxit    = maxit,
+        thresh   = thresh,
+        ret.data = second.stage,
+        sparse   = TRUE,
+        use.cv   = use.cv,
+        lambda.sel = lambda.sel,
+        nlambda  = nlambda,
+        lambda.min.ratio = lambda.min.ratio
+      )
+      if (is.null(res)) next
+      if (isTRUE(second.stage)) {
+        bhat <- res$beta       # sparse named vector
+        dt   <- res$dt         # matrix with all columns in x.nms.fit
         rel.col.fit <- res$rel.col.fit
-        coef.lasso <- setNames(numeric(length(x.nms.fit)), x.nms.fit)
-        nz.names <- names(beta)[beta != 0]
+      } else {
+        bhat <- res            # sparse named vector
+      }
+      if (isTRUE(store.rules)) {
+        keep[rr] <- TRUE
+        pos <- match(names(bhat), x.nms.fit)
+        ok  <- is.finite(pos)
+        if (any(ok)) beta.mat[rr, pos[ok]] <- bhat[ok]
+      } else {
+        n.ok <- n.ok + 1L
+        pos <- match(names(bhat), x.nms.fit)
+        ok  <- is.finite(pos)
+        if (any(ok)) beta.sum[pos[ok]] <- beta.sum[pos[ok]] + bhat[ok]
+      }
+      ## optional second stage lasso: regress released var on selected predictors
+      if (isTRUE(second.stage)) {
+        nz.names <- names(bhat)  # already non-zero only
         if (length(nz.names)) {
-          Y <- dt[, rel.col.fit]  # same as o$x[idx, x.release]; dt already aligned
+          Y <- dt[, rel.col.fit]
           if (length(nz.names) > 1L) {
-            v <- fit.linear.lasso.at.last(dt[, nz.names, drop = FALSE], Y, add.zero = FALSE)
-            if (!is.null(v)) {
-              hit2 <- intersect(names(v), x.nms.fit)
-              if (length(hit2)) coef.lasso[hit2] <- v[hit2]
-            }
+            v <- fit.linear.lasso.at.last(
+              dt[, nz.names, drop = FALSE], Y,
+              add.zero = FALSE,
+              nlambda = nlambda.lasso,
+              lambda.min.ratio = lambda.min.ratio.lasso,
+              maxit = maxit,
+              thresh = thresh
+            )
           } else {
-            v <- fit.linear.lasso.at.last(dt[, nz.names, drop = FALSE], Y, add.zero = TRUE)
-            if (!is.null(v) && nz.names %in% names(v)) {
-              coef.lasso[nz.names] <- v[nz.names]
+            v <- fit.linear.lasso.at.last(
+              dt[, nz.names, drop = FALSE], Y,
+              add.zero = TRUE,
+              nlambda = nlambda.lasso,
+              lambda.min.ratio = lambda.min.ratio.lasso,
+              maxit = maxit,
+              thresh = thresh
+            )
+          }
+          if (!is.null(v) && length(v)) {
+            pos2 <- match(names(v), x.nms.fit)
+            ok2  <- is.finite(pos2)
+            if (any(ok2)) {
+              if (isTRUE(store.rules)) {
+                lasso.mat[rr, pos2[ok2]] <- v[ok2]
+              } else {
+                lasso.sum[pos2[ok2]] <- lasso.sum[pos2[ok2]] + v[ok2]
+              }
             }
           }
         }
-      } else {
-        beta <- res
-        coef.lasso <- setNames(numeric(length(x.nms.fit)), x.nms.fit)
       }
-      list(beta = beta, lasso = coef.lasso)
-    })
-    rO <- Filter(Negate(is.null), rO)
-    if (!length(rO)) return(NULL)
-    beta.mat  <- do.call(rbind, lapply(rO, function(z) z$beta))
-    lasso.mat <- do.call(rbind, lapply(rO, function(z) z$lasso))
-    list(beta = beta.mat, lasso = lasso.mat)
+    }
+    ## prune failures and return
+    if (isTRUE(store.rules)) {
+      if (!any(keep)) return(NULL)
+      beta.mat <- beta.mat[keep, , drop = FALSE]
+      if (!isTRUE(second.stage)) {
+        ## keep output contract: lasso matrix exists but is all zeros
+        lasso.mat <- matrix(0, nrow = nrow(beta.mat), ncol = p_fit,
+                            dimnames = list(NULL, x.nms.fit))
+      } else {
+        lasso.mat <- lasso.mat[keep, , drop = FALSE]
+      }
+      list(beta = beta.mat, lasso = lasso.mat)
+    } else {
+      if (n.ok < 1L) return(NULL)
+      beta.mean <- beta.sum / n.ok
+      names(beta.mean) <- x.nms.fit
+      if (isTRUE(second.stage)) {
+        lasso.mean <- lasso.sum / n.ok
+        names(lasso.mean) <- x.nms.fit
+      } else {
+        lasso.mean <- NULL
+      }
+      list(beta.mean = beta.mean,
+           lasso.mean = lasso.mean,
+           n.ok = n.ok)
+    }
   })
   names(mat.list) <- rel.vars
   mat.list <- mat.list[!vapply(mat.list, is.null, logical(1))]
   if (!length(mat.list)) {
     return(list(info.rule = list(),
                 beta.mean.mat = NULL,
-                lasso.mean.mat = NULL))
+                lasso.mean.mat = NULL,
+                lasso.mean.std.mat = NULL))
   }
-  ## assemble per-release matrices
-  beta.list  <- lapply(mat.list, `[[`, "beta")
-  lasso.list <- lapply(mat.list, `[[`, "lasso")
-  ## average the beta and lasso values (full precision; no rounding)
-  beta.mean.mat  <- do.call(rbind, lapply(beta.list,  function(x) colMeans(x, na.rm = TRUE)))
-  lasso.mean.mat <- do.call(rbind, lapply(lasso.list, function(x) colMeans(x, na.rm = TRUE)))
+  ## -------- assemble outputs --------
+  if (isTRUE(store.rules)) {
+    beta.list  <- lapply(mat.list, `[[`, "beta")
+    lasso.list <- lapply(mat.list, `[[`, "lasso")
+    beta.mean.mat  <- do.call(rbind, lapply(beta.list,  function(x) colMeans(x,  na.rm = TRUE)))
+    lasso.mean.mat <- do.call(rbind, lapply(lasso.list, function(x) colMeans(x, na.rm = TRUE)))
+    info.rule <- mat.list
+  } else {
+    beta.mean.mat <- do.call(rbind, lapply(mat.list, `[[`, "beta.mean"))
+    if (isTRUE(second.stage)) {
+      lasso.mean.mat <- do.call(rbind, lapply(mat.list, `[[`, "lasso.mean"))
+    } else {
+      lasso.mean.mat <- matrix(0, nrow = nrow(beta.mean.mat), ncol = ncol(beta.mean.mat),
+                               dimnames = dimnames(beta.mean.mat))
+    }
+    info.rule <- list()  ## intentionally empty to reduce object size
+  }
   ## standardized lasso: divide each row by sd(Y) so entries are (SDs of Y) per 1 SD of X
-  if (!is.null(lasso.mean.mat) && nrow(lasso.mean.mat) > 0L) {
-    rel.vars <- rownames(lasso.mean.mat)
-    sd.y <- vapply(rel.vars,
-                   function(v) stats::sd(o$x[, v], na.rm = TRUE),
+  if (isTRUE(second.stage) && !is.null(lasso.mean.mat) && nrow(lasso.mean.mat) > 0L) {
+    rel.rows <- rownames(lasso.mean.mat)
+    sd.y <- vapply(rel.rows,
+                   function(v) stats::sd(x_fit[, v], na.rm = TRUE),
                    FUN.VALUE = numeric(1))
-    ## avoid divide-by-zero or non-finite sds
     sd.y[!is.finite(sd.y) | sd.y == 0] <- NA_real_
     lasso.mean.std.mat <- sweep(lasso.mean.mat, 1, sd.y, "/")
   } else {
-    lasso.mean.std.mat <- lasso.mean.mat  # NULL or 0x0 passes through
+    ## (when second.stage=FALSE, lasso.mean.mat is already all zeros)
+    lasso.mean.std.mat <- lasso.mean.mat
   }
-  ## return values
   list(
-    info.rule             = mat.list,
-    beta.mean.mat         = beta.mean.mat,
-    lasso.mean.mat        = lasso.mean.mat,
-    lasso.mean.std.mat    = lasso.mean.std.mat
+    info.rule          = info.rule,
+    beta.mean.mat      = beta.mean.mat,
+    lasso.mean.mat     = lasso.mean.mat,
+    lasso.mean.std.mat = lasso.mean.std.mat
   )
 }
 ## convenience function
@@ -261,63 +494,39 @@ get.beta.entropy <- function(o,
                              nfolds = 10,
                              maxit = 2500,
                              thresh = 1e-3,
-                             parallel = FALSE) {
-  out <- custom.entropy(o,
-                        papply = papply,
-                        pre.filter = pre.filter,
-                        second.stage = second.stage,
-                        vimp.min = vimp.min,
-                        nfolds = nfolds,
-                        maxit = maxit,
-                        thresh = thresh,
-                        parallel = parallel)
-  if (second.stage) {
+                             parallel = FALSE,
+                             ## (6) speed knobs
+                             use.cv = TRUE,
+                             lambda.sel = c("lambda.1se", "lambda.min"),
+                             nlambda = NULL,
+                             lambda.min.ratio = NULL,
+                             nlambda.lasso = nlambda,
+                             lambda.min.ratio.lasso = lambda.min.ratio) {
+  out <- custom.entropy(
+    o,
+    papply = papply,
+    pre.filter = pre.filter,
+    second.stage = second.stage,
+    vimp.min = vimp.min,
+    nfolds = nfolds,
+    maxit = maxit,
+    thresh = thresh,
+    parallel = parallel,
+    ## (2) We only return means here, so don't store rule-level matrices.
+    store.rules = FALSE,
+    ## (6)
+    use.cv = use.cv,
+    lambda.sel = lambda.sel,
+    nlambda = nlambda,
+    lambda.min.ratio = lambda.min.ratio,
+    nlambda.lasso = nlambda.lasso,
+    lambda.min.ratio.lasso = lambda.min.ratio.lasso
+  )
+  if (isTRUE(second.stage)) {
     out$lasso.mean.std.mat
-  }
-  else {
+  } else {
     out$beta.mean.mat
   }
-}
-####################################################################
-##
-##
-## generalized inverse regression
-## legacy 
-##
-##
-####################################################################
-ginvResidual <- function (y, x, tol = sqrt(.Machine$double.eps)) {
-  x <- as.matrix(cbind(1, x))
-  xsvd <- svd(x)
-  Positive <- xsvd$d > max(tol * xsvd$d[1L], 0)
-  if (all(Positive)) {
-    ginv <- xsvd$v %*% (1/xsvd$d * t(xsvd$u))
-  }
-  else if (!any(Positive)) {
-    ginv <- array(0, dim(x)[2L:1L])
-  }
-  else {
-    ginv <- xsvd$v[, Positive, drop = FALSE] %*% ((1/xsvd$d[Positive]) * 
-       t(xsvd$u[, Positive, drop = FALSE]))
-  }
-  c(y - x %*% (ginv %*% y))
-}
-ginvMLS <- function (y, x, tol = sqrt(.Machine$double.eps)) {
-  x <- as.matrix(cbind(1, x))
-  xsvd <- svd(x)
-  Positive <- xsvd$d > max(tol * xsvd$d[1L], 0)
-  if (all(Positive)) {
-    ginv <- xsvd$v %*% (1/xsvd$d * t(xsvd$u))
-  }
-  else if (!any(Positive)) {
-    ginv <- array(0, dim(x)[2L:1L])
-  }
-  else {
-    ginv <- xsvd$v[, Positive, drop = FALSE] %*% ((1/xsvd$d[Positive]) * 
-       t(xsvd$u[, Positive, drop = FALSE]))
-  }
-  ## return the MLS coefficients (remove intercept)
-  c(ginv %*% y)[-1] 
 }
 ####################################################################
 ##
@@ -327,23 +536,6 @@ ginvMLS <- function (y, x, tol = sqrt(.Machine$double.eps)) {
 ##
 ##
 ####################################################################
-set.legacy.unsupervised.nodesize <- function(n, p, nodesize = NULL) {
-  if (is.null(nodesize)) {
-    if (n <= 300 & p > n) {
-      nodesize <- 2
-    }
-    else if (n <= 300 & p <= n) {
-      nodesize <- min(n / 4, 20)
-    }
-    else if (n > 300 & n <= 2000) {
-      nodesize <- 40
-    }
-    else {
-      nodesize <- n / 50
-    }
-  }
-  nodesize
-}
 set.unsupervised.nodesize <- function(n, p, nodesize = NULL) {
   if (is.null(nodesize)) {
     if (n < 100) {

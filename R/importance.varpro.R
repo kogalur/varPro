@@ -14,7 +14,6 @@ importance.varpro <- function(o, local.std = TRUE, y.external = NULL,
                               plot.it = FALSE, conf = TRUE, sort = TRUE,
                               ylab = if (conf) "Importance" else "Standardized Importance",
                               max.rules.tree, max.tree,
-                              papply = mclapply,
                               ...)
 {
   ## ------------------------------------------------------------------------
@@ -29,6 +28,11 @@ importance.varpro <- function(o, local.std = TRUE, y.external = NULL,
     local.std <- FALSE
     y.external <- NULL
   }
+  ## importance() is optimized for serial execution:
+  ## - PSOCK has high serialization overhead for these tasks
+  ## - fork-based mclapply can be unsafe after OpenMP (e.g. rfsrc) on macOS
+  ## Keep the papply argument for legacy API compatibility, but run serial here.
+  papply <- lapply
   ## ------------------------------------------------------------------------
   ##
   ## call varpro.strength?
@@ -102,7 +106,6 @@ importance.varpro <- function(o, local.std = TRUE, y.external = NULL,
                                 conf = conf,
                                 sort = sort,
                                 ylab = ylab,
-                                papply = papply,
                                 local.std = local.std,
                                 ...)
   }
@@ -119,7 +122,6 @@ importance.varpro <- function(o, local.std = TRUE, y.external = NULL,
                                   trim = trim,
                                   plot.it = FALSE,
                                   sort = sort,
-                                  papply = papply,
                                   local.std = local.std,
                                   ...)
     })
@@ -127,7 +129,7 @@ importance.varpro <- function(o, local.std = TRUE, y.external = NULL,
 }
 importance <- importance.varpro 
 importance.varpro.workhorse <- function(o, cutoff, trim, plot.it, conf, sort,
-              ylab, papply, local.std, ...) {
+              ylab, local.std, ...) {
   ## ------------------------------------------------------------------------
   ##
   ## extract desired quantities from the varpro object
@@ -195,59 +197,64 @@ importance.varpro.workhorse <- function(o, cutoff, trim, plot.it, conf, sort,
   xvarused.names <- rownames(rO)
   p <- length(xvarused.names)
   ## acquire the tree importance for each variable
-  imp.tree = do.call(rbind, papply(split(dta, dta$tree), function(dd) {
-    imp <- rep(0, p)
-    names(imp) <- xvarused.names
-    ## extract the rule based importance, converting it to a fraction, then apply weighting
-    ## do not count statistics with sample size of zero (set them to NA)
-    imp.numer <- dd$imp * dd$n.oob
-    imp.denom <- dd$n.oob
-    imp.denom[imp.denom == 0] <- NA
-    imptr <- (tapply(imp.numer, dd$variable, sum, na.rm = TRUE) /
-        tapply(imp.denom, dd$variable, sum, na.rm = TRUE))
-    imptr[is.na(imptr)] <- 0
-    imp[names(imptr)] <- avgwt * as.numeric(imptr)
-    ## additional processing for classification, unconditional importance
-    ## do not count statistics with sample size of zero (set them to NA)
-    if (o$family == "class") {
-      ## "pure" conditional importance
-      impC.numer <- do.call(cbind, lapply(1:J, function(j) {
-        dd[, paste0("imp.", j)] * dd[, paste0("n.oob.", j)] 
-      }))
-      ## conditional overall importance, conditioned by class label as in rfsrc
-      #impC.numer <- do.call(cbind, lapply(1:J, function(j) {
-      #  imp.numer * dd[, paste0("n.oob.", j)] 
-      #}))
-      impC.denom <- do.call(cbind, lapply(1:J, function(j) {
-        denom <- dd[, paste0("n.oob.", j)]
-        denom[denom == 0] <- NA
-        denom
-      }))
-      ## string out the conditional importance as a long vector, with class label values
-      ## in order: class 1 importance followed by class 2 and so forth to class J
-      impCtr <- unlist(lapply(1:J, function(j) {
-        impCj <- rep(0, p)
-        names(impCj) <- xvarused.names
-        impCtrj <- unlist(tapply(impC.numer[, j], dd$variable, sum, na.rm = TRUE) /
-                    tapply(impC.denom[, j], dd$variable, sum, na.rm = TRUE))
-        impCtrj[is.na(impCtrj)] <- 0
-        impCj[names(impCtrj)] <- avgwt * as.numeric(impCtrj)
-        impCj
-      }))
-    }
-    ## return the goodies
-    if (o$family != "class") {
-      imp
-    }
-    else {
-      ## since the conditional importance is a long vector, give names to identify it
-      imp <- c(imp, impCtr)
-      names(imp) <- c(xvarused.names, paste0(xvarused.names, ".", rep(1:J, each = p)))
-      imp
-    }
-   }))
-  ## ------------------------------------------------------------------------
   ##
+  ## NOTE: This is a hot path for importance().  The legacy implementation did:
+  ##   split(dta, dta$tree) -> (mc)lapply -> repeated tapply() per tree
+  ## which is memory-heavy and can be very slow.
+  ##
+  ## Here we aggregate in one pass using rowsum(), which is fast in base R and
+  ## avoids building large intermediate lists.
+  ## ensure weights are named by variable level
+  if (is.null(names(avgwt))) {
+    names(avgwt) <- levels(dta$variable)
+  }
+  wt.vec <- avgwt[xvarused.names]
+  ## map each rule-row to a (tree, variable) group id
+  trees <- sort(unique(dta$tree))
+  ntree.used <- length(trees)
+  tree.idx <- match(dta$tree, trees)
+  var.idx  <- match(as.character(dta$variable), xvarused.names)
+  grp <- tree.idx + (var.idx - 1L) * ntree.used
+  ## unconditional importance: weighted mean of rule importance within tree+variable
+  w <- dta$n.oob
+  numer <- dta$imp * w
+  numer[is.na(numer)] <- 0  ## treat NA importance as 0 (matches legacy na.rm=TRUE behavior)
+  numer.sum <- rowsum(numer, grp, reorder = FALSE)
+  denom.sum <- rowsum(w, grp, reorder = FALSE)
+  ratio <- as.numeric(numer.sum[, 1] / denom.sum[, 1])
+  ratio[!is.finite(ratio)] <- 0
+  imp.tree <- matrix(0, nrow = ntree.used, ncol = p,
+                     dimnames = list(as.character(trees), xvarused.names))
+  ## rowsum() rows correspond to the unique grp values (in the order of appearance)
+  g.rows <- as.integer(rownames(numer.sum))
+  imp.tree[cbind(((g.rows - 1L) %% ntree.used) + 1L,
+  ((g.rows - 1L) %/% ntree.used) + 1L)] <- ratio
+  ## apply optional weighting (legacy)
+  imp.tree <- sweep(imp.tree, 2, wt.vec, `*`)
+  ## additional processing for classification: conditional importance
+  if (o$family == "class") {
+    impC.tree <- matrix(0, nrow = ntree.used, ncol = p * J,
+                        dimnames = list(as.character(trees),
+                                        paste0(rep(xvarused.names, times = J), ".", rep(1:J, each = p))))
+    for (j in 1:J) {
+      impj <- dta[[paste0("imp.", j)]]
+      noj  <- dta[[paste0("n.oob.", j)]]
+      numerj <- impj * noj
+      numerj[is.na(numerj)] <- 0
+      numerj.sum <- rowsum(numerj, grp, reorder = FALSE)
+      denomj.sum <- rowsum(noj, grp, reorder = FALSE)
+      ratioj <- as.numeric(numerj.sum[, 1] / denomj.sum[, 1])
+      ratioj[!is.finite(ratioj)] <- 0
+      tmp <- matrix(0, nrow = ntree.used, ncol = p)
+      g.rows <- as.integer(rownames(numerj.sum))
+      tmp[cbind(((g.rows - 1L) %% ntree.used) + 1L,
+      ((g.rows - 1L) %/% ntree.used) + 1L)] <- ratioj
+      tmp <- sweep(tmp, 2, wt.vec, `*`)
+      impC.tree[, ((j - 1L) * p + 1L):(j * p)] <- tmp
+    }
+    ## mimic legacy layout: unconditional columns followed by conditional columns
+    imp.tree <- cbind(imp.tree, impC.tree)
+  }
   ## extract conditional importance for use later
   ##
   ## ------------------------------------------------------------------------

@@ -7,7 +7,7 @@ get.cens.dist <- function(data, ntree, nodesize, ssize) {
                        ntree = ntree, nodesize = nodesize, sampsize = ssize, perf.type = "none")
   list(surv = cens.o$survival.oob, time.interest = cens.o$time.interest)
 }
-get.crps <- function (o, papply = mclapply, cens.dist = NULL)  {
+get.crps <- function (o, papply = lapply, cens.dist = NULL)  {
   if (!is.null(o$survival.oob)) {
     surv.ensb <- t(o$survival.oob)
   }
@@ -89,7 +89,7 @@ get.mc.cores <- function() {
 }
 ## standard error workhorse
 get.sderr.workhorse <- function(obj, standardize = TRUE, outcome.target = NULL,
-                       crps = FALSE, papply = mclapply, cens.dist = NULL) {
+                       crps = FALSE, papply = lapply, cens.dist = NULL) {
   ## set the target response outcome
   ynms <- obj$yvar.names
   if (is.null(outcome.target)) {
@@ -130,7 +130,7 @@ get.sderr.workhorse <- function(obj, standardize = TRUE, outcome.target = NULL,
 get.sderr <- function(obj, nblocks,
                       outcome.target = NULL,
                       crps = FALSE,
-                      papply = mclapply,
+                      papply = lapply,
                       newdata = NULL,
                       imbalanced.obj = NULL,
                       cens.dist = NULL) {

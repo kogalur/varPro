@@ -19,7 +19,6 @@ ivarpro(object,
         nmin = 20, nmax = 150,
         y.external = NULL,
         noise.na = TRUE,
-        papply = mclapply,
         max.rules.tree = NULL,
         max.tree = NULL,
         use.loo = TRUE,
@@ -89,8 +88,6 @@ ivarpro(object,
   or non-signal variables are set to \code{NA}; if \code{FALSE}, they
   are set to zero.}
 
-  \item{papply}{Apply function used for R parallelization.}   
-
   \item{max.rules.tree}{Maximum number of rules per tree.  If
     unspecified, the value from the \code{varpro} object is used, while
     for \code{rfsrc} objects, a default value is used.}
@@ -112,7 +109,7 @@ ivarpro(object,
   case IDs) in the returned object for later ladder/band calculations?
   Setting \code{FALSE} can substantially reduce memory usage when the
   number of rules is large, but disables ladder-based bands in
-  \code{ivarpro.partial()} and prevents \code{ivarpro_band()} from being
+  \code{partial.ivarpro()} and prevents \code{ivarpro_band()} from being
   used. Default is \code{TRUE}.}
 
 \item{keep.data}{Save the x and y data (default is \code{TRUE})?  Used
@@ -129,10 +126,11 @@ average effect, yet be highly influential for certain cases, or the
 direction of its effect may differ across individuals.
 
 The VarPro framework summarizes population-level importance by defining
-feature-space regions using rule-based splitting and computing importance
-using only observed data. iVarPro extends this idea to the individual
-level by quantifying how sensitive each case's prediction is to small
-changes in a predictor identified by the VarPro rule set.
+feature-space regions using rule-based splitting and computing
+importance using only observed data. iVarPro (Lu and Ishwaran, 2025)
+extends this idea to the individual level by quantifying how sensitive
+each case's prediction is to small changes in a predictor identified by
+the VarPro rule set.
 
 For each VarPro rule, iVarPro considers the corresponding rule-defined
 region and then \emph{releases} the rule along the rule's release
@@ -240,6 +238,7 @@ diagnostics.
 
   Lu, M. and Ishwaran, H. (2025). Individual variable priority: a
   model-independent local gradient method for variable importance.
+  \emph{Artificial Intelligence Review}, 58:407.
 
 }
 
@@ -261,15 +260,15 @@ o <- varpro(Surv(ttodead, died)~., peakVO2, ntree = 50)
 
 ## canonical standard analysis
 imp1 <- ivarpro(o)
-ivarpro.shap(imp1)
+shap.ivarpro(imp1)
 
 ## non-adaptive analysis
 imp2 <- ivarpro(o, adaptive = FALSE)
-ivarpro.shap(imp2)
+shap.ivarpro(imp2)
 
 ## non-adaptive using a small cut.max
 imp3 <- ivarpro(o, cut.max = 0.5, adaptive = FALSE)
-ivarpro.shap(imp3)
+shap.ivarpro(imp3)
 
 
 ## ------------------------------------------------------------
@@ -316,16 +315,16 @@ vp <- varpro(y ~ ., df)
 imp <- ivarpro(vp)
 
 ## partial plot of x2 
-ivarpro.partial(imp, var="x2")
+partial.ivarpro(imp, var="x2")
 
 ## partial plot of x2 without ladder band
-ivarpro.partial(imp, var="x2", ladder=FALSE)
+partial.ivarpro(imp, var="x2", ladder=FALSE)
 
 ## optional: use only a subset of ladder cuts
-ivarpro.partial(imp, var="x2", ladder=TRUE, ladder.cuts=1:8)
+partial.ivarpro(imp, var="x2", ladder=TRUE, ladder.cuts=1:8)
 
 ## partial plot with color/size using x1 (color) and y (size)
-ivarpro.partial(imp, var="x2", col.var="x1", size.var="y")
+partial.ivarpro(imp, var="x2", col.var="x1", size.var="y")
 
 ## ------------------------------------------------------------
 ##
@@ -341,10 +340,10 @@ i.pv <- ivarpro(varpro(Surv(ttodead, died)~., peakVO2))
 ## partial plot of peak vo2
 ## color displays interval (a measure of exercise time)
 ## size displays "y" which is predicted mortality in survival
-ivarpro.partial(i.pv, var="peak.vo2", col.var="interval", size.var="y")
+partial.ivarpro(i.pv, var="peak.vo2", col.var="interval", size.var="y")
 
 ## same but using beta blockers for color
-ivarpro.partial(i.pv, var="peak.vo2", col.var="betablok", size.var="y")
+partial.ivarpro(i.pv, var="peak.vo2", col.var="betablok", size.var="y")
 
 }}
 

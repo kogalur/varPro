@@ -2,17 +2,15 @@ uvarpro <- function(data,
                     method = c("auto", "unsupv", "rnd"),
                     ntree = 200, nodesize = NULL,
                     max.rules.tree = 20, max.tree = 200,
-                    papply = mclapply, verbose = FALSE, seed = NULL,
+                    verbose = FALSE, seed = NULL,
                     ...)
-{		   
+{
   ##------------------------------------------------------------------
   ##
-  ##
-  ## pre-processing 
-  ##
+  ## pre-processing
   ##
   ##------------------------------------------------------------------
-  # set method
+  ## set method
   method <- match.arg(method, c("auto", "unsupv", "rnd"))
   ## data must be a data frame without missing values
   data <- data.frame(na.omit(data))
@@ -20,17 +18,13 @@ uvarpro <- function(data,
   data <- droplevels(data)
   ## initialize the seed
   seed <- get.seed(seed)
+  ## get options
+  dots <- list(...)
   ##--------------------------------------------------------------
   ##
   ## define the entropy function (or obtain user specified one)
   ##
-  ## can be a number or a list
-  ## for numbers: this is the importance
-  ## for lists: entry 1 = importance; entry 2 = entropy values
-  ## 
-  ##
   ##--------------------------------------------------------------
-  dots <- list(...)
   custom.entropy.flag <- FALSE
   ## default entropy returns a list
   ## first entry = total variance
@@ -47,8 +41,6 @@ uvarpro <- function(data,
   ##--------------------------------------------------------------
   ##
   ## extract additional options specified by user
-  ## we lock this down to allowed types
-  ## define the entropy function used for importance
   ##
   ##--------------------------------------------------------------
   enames <- names(formals(entropy.function))[-(1:2)]
@@ -77,83 +69,71 @@ uvarpro <- function(data,
                      rfnames != "ntree" &
                      rfnames != "nodesize" &
                      rfnames != "perf.type"]
-  ## get the permissible hidden options for rfrsc
+  ## get the permissible hidden options for rfsrc
   dots <- dots[names(dots) %in% rfnames]
   ##-----------------------------------------------------------------
   ##
   ## process data
   ##
-  ##
   ##------------------------------------------------------------------
-  ## remove any column with less than two unique values
-  #void.var <- sapply(data, function(x){length(unique(x, na.rm = TRUE)) < 2})
-  #if (sum(void.var) > 0) {
-  #  data[, which(void.var)] <- NULL
-  #}
   ## save the original names
   xvar.org.names <- colnames(data)
   ## hot encode the data
-  data <- get.hotencode(data, papply)
+  data <- get.hotencode(data)
   ## assign the xvar names
   xvar.names <- colnames(data)
   ##------------------------------------------------------------------
   ##
-  ##
   ## unsupervised forests
-  ##
   ##
   ##------------------------------------------------------------------
   if (method == "unsupv" && !user.provided.varpro.flag) {
     dots$ytry <- set.unsupervised.ytry(nrow(data), ncol(data), dots$ytry)
     o <- do.call("rfsrc", c(list(
-                   data = data,
-                   ntree = ntree,
-                   nodesize = set.unsupervised.nodesize(nrow(data), ncol(data), nodesize),
-                   perf.type = "none"), dots))
+      data = data,
+      ntree = ntree,
+      nodesize = set.unsupervised.nodesize(nrow(data), ncol(data), nodesize),
+      perf.type = "none"), dots))
   }
   ##------------------------------------------------------------------
   ##
-  ##
   ## pure random forests
-  ##
   ##
   ##------------------------------------------------------------------
   if (method == "rnd" && !user.provided.varpro.flag) {
     dots$splitrule <- NULL
-    o <- do.call("rfsrc", c(list(formula = yxyz123~.,
-                   data = data.frame(yxyz123 = rnorm(nrow(data)), data),
-                   splitrule = "random",
-                   ntree = ntree,
-                   nodesize = set.unsupervised.nodesize(nrow(data), ncol(data) + 1, nodesize),
-                   perf.type = "none"), dots))
+    o <- do.call("rfsrc", c(list(formula = yxyz123 ~ .,
+      data = data.frame(yxyz123 = rnorm(nrow(data)), data),
+      splitrule = "random",
+      ntree = ntree,
+      nodesize = set.unsupervised.nodesize(nrow(data), ncol(data) + 1, nodesize),
+      perf.type = "none"), dots))
   }
   ##------------------------------------------------------------------
   ##
-  ##
   ## auto-encoder (regr+)
-  ##
   ##
   ##------------------------------------------------------------------
   if (method == "auto" && !user.provided.varpro.flag) {
     ## call regr+
     o <- do.call("rfsrc", c(list(formula = get.mv.formula(paste0("y.", xvar.names)),
-                   data = data.frame(y = data, data),
-                   ntree = ntree,
-                   nodesize = set.unsupervised.nodesize(nrow(data), ncol(data), nodesize),
-                   perf.type = "none"), dots))
+      data = data.frame(y = data, data),
+      ntree = ntree,
+      nodesize = set.unsupervised.nodesize(nrow(data), ncol(data), nodesize),
+      perf.type = "none"), dots))
   }
   ##------------------------------------------------------------------
   ##
-  ##
   ## call varpro.strength and extract necessary information
   ##
-  ##
   ##------------------------------------------------------------------
-  ## switch for varpro strength depends on whether object is a forest 
-  oo <- get.varpro.strength(o, membership = TRUE, max.rules.tree = max.rules.tree, max.tree = max.tree)
+  ## switch for varpro strength depends on whether object is a forest
+  oo <- get.varpro.strength(o, membership = TRUE,
+                            max.rules.tree = max.rules.tree,
+                            max.tree = max.tree)
   ## identify useful rules and variables at play
   keep.rules <- which(oo$strengthArray$oobCT > 0 & oo$strengthArray$compCT > 0)
-  ## membership lists 
+  ## membership lists
   oobMembership <- oo$oobMembership
   compMembership <- oo$compMembership
   ## keep track of which variable is released for a rule
@@ -166,11 +146,7 @@ uvarpro <- function(data,
   results$imp <- NA
   ##------------------------------------------------------------------
   ##
-  ##
   ## obtain the "X" importance values
-  ## - uses the default entropy function (can be user specified) 
-  ## - data is ordered so that first coordinate is the target variable
-  ##   potentially this allows refined/customization of the entropy function 
   ##
   ##------------------------------------------------------------------
   ## add some useful information for the entropy function
@@ -178,49 +154,66 @@ uvarpro <- function(data,
   dots.entropy$data <- data
   ## set the dimension
   p <- ncol(x)
+  entropy.values <- NULL
   ## extract entropy
-  if (length(keep.rules) > 0) {
-    impO <- papply(keep.rules, function(i) {
-      ordernms <- c(xreleaseId[i], setdiff(1:p, xreleaseId[i]))
-      dots.entropy$oobMembership <- oobMembership[[i]]
-      dots.entropy$compMembership <- compMembership[[i]]
-      xO <- x[oobMembership[[i]], ordernms, drop = FALSE]
-      xC <- x[compMembership[[i]], ordernms, drop = FALSE]
-      val <- do.call("entropy.function", c(list(xC, xO), dots.entropy))
-      if (!is.list(val)) {
-        list(imp = val, attr = NULL, xvar = xreleaseId[i])
+  if (length(keep.rules) > 0L) {
+    ## if entropy is the package default, ordering does not matter and we can
+    ## avoid building per-rule column permutations.
+    need.order <- isTRUE(custom.entropy.flag)
+    dots.entropy.base <- dots.entropy
+    res.list <- lapply(keep.rules, function(i) {
+      ## per-rule args (membership)
+      de <- dots.entropy.base
+      de$oobMembership <- oobMembership[[i]]
+      de$compMembership <- compMembership[[i]]
+      ## subset (and optionally re-order) so the release variable is first
+      if (need.order) {
+        rel <- xreleaseId[i]
+        ## faster than setdiff(1:p, rel)
+        ordernms <- c(rel, seq_len(p)[-rel])
+        xO <- x[oobMembership[[i]], ordernms, drop = FALSE]
+        xC <- x[compMembership[[i]], ordernms, drop = FALSE]
+      } else {
+        xO <- x[oobMembership[[i]], , drop = FALSE]
+        xC <- x[compMembership[[i]], , drop = FALSE]
       }
-      else {
-        list(imp = val[[1]], attr = val[[2]], xvar = xreleaseId[i])
+      val <- do.call(entropy.function, c(list(xC, xO), de))
+      if (!is.list(val)) {
+        list(imp = val, attr = NULL)
+      } else {
+        list(imp = val[[1]], attr = val[[2]])
       }
     })
-    ## extract importance
-    imp <- unlist(lapply(impO, "[[", 1))
+    ## extract importance (robust to length>1 outputs)
+    imp <- vapply(res.list,
+                  function(z) {
+                    v <- z$imp
+                    v <- as.numeric(v)
+                    if (length(v)) v[1] else NA_real_
+                  },
+                  FUN.VALUE = numeric(1))
     results$imp[keep.rules] <- imp
-    ## extract entropy values -- this allows for customization via the second slot
-    entropy.values <- lapply(impO, "[[", 2)
-    if (length(!sapply(entropy.values, is.null)) == 0) {
+    ## build entropy values grouped by released variable
+    attr.list <- lapply(res.list, `[[`, "attr")
+    has.attr <- !vapply(attr.list, is.null, logical(1))
+    if (any(has.attr)) {
+      rel.id <- xreleaseId[keep.rules]
+      rel.id <- rel.id[has.attr]
+      urel <- sort(unique(rel.id))
+      entropy.values <- setNames(vector("list", length(urel)), xvar.names[urel])
+      ## append in keep.rules order (matches original behavior)
+      idx <- which(has.attr)
+      for (j in idx) {
+        nm <- xvar.names[xreleaseId[keep.rules][j]]
+        entropy.values[[nm]] <- c(entropy.values[[nm]], list(attr.list[[j]]))
+      }
+    } else {
       entropy.values <- NULL
     }
-    else {
-      xreleaseId <- unlist(lapply(impO, "[[", 3))
-      xreleaseIdUnq <- sort(unique(xreleaseId))
-      entropy.values <- lapply(xreleaseIdUnq, function(k) {
-        ii <- entropy.values[xreleaseId == k]
-        ii[!sapply(ii, is.null)]        
-      })
-      names(entropy.values) <- xvar.names[xreleaseIdUnq]
-    }
-  }
-  ## no viable rules
-  else {
-    entropy.values <- NULL
   }
   ##------------------------------------------------------------------
   ##
-  ##
   ## gets default entropy values and packages them up nicely
-  ##
   ##
   ##------------------------------------------------------------------
   if (!custom.entropy.flag) {
@@ -231,14 +224,12 @@ uvarpro <- function(data,
     if (length(diffnames) > 0) {
       dots.get <- append(dots.get, formals(get.entropy)[diffnames])
     }
-    entropy.values <- do.call("get.entropy",
-                           c(list(entropy.values, xvar.names), dots.get))
+    entropy.values <- do.call(get.entropy,
+                              c(list(entropy.values, xvar.names), dots.get))
   }
   ##------------------------------------------------------------------
   ##
-  ##
   ## package results up as a varpro object
-  ##
   ##
   ##------------------------------------------------------------------
   rO <- list()

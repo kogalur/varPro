@@ -32,14 +32,11 @@ importFrom("survival", "survdiff", "Surv")
 
 importFrom("utils", "combn", "capture.output")
 
-importFrom("umap", "umap")
-
 
 
 export(
   bart.learner,
   beta.varpro,
-  clusterpro,
   cv.varpro,
   get.beta.entropy,
   get.iso.performance,
@@ -52,8 +49,6 @@ export(
   importance,
   importance.varpro,
   ivarpro,
-  ivarpro.partial,
-  ivarpro.shap,
   isopro,
   outpro,
   outpro.null,
@@ -61,17 +56,17 @@ export(
   predict.uvarpro,
   predict.varpro,
   partialpro,
-  plot.clusterpro,
+  partial.ivarpro,
   plot.partialpro,
   rf.learner,
   roughfix,
   sdependent,
+  shap.ivarpro,
   uvarpro,
   varpro,
   varpro.news,
   varpro.strength)
 
-S3method(plot, clusterpro)
 
 S3method(plot, partialpro)
 

@@ -5,8 +5,7 @@ partialpro <- function(object,
                        learner,
                        newdata,
                        method = c("unsupv", "rnd", "auto"),
-                       verbose = FALSE,
-                       papply = mclapply, ...)
+                       verbose = FALSE, ...)
 {
   ## ------------------------------------------------------------------------
   ##
@@ -63,7 +62,7 @@ partialpro <- function(object,
   ## -------------------
   ## regression
   if (is.numeric(yvar)) {
-    target <- 1    
+    target <- 1
   }
   ## classification
   else if (is.factor(yvar)) {
@@ -94,7 +93,7 @@ partialpro <- function(object,
   hidden <- get.partialpro.hidden(list(...))
   cut <- hidden$cut
   nsmp <- hidden$nsmp
-  nvirtual <- hidden$nvirtual
+  nvirtual0 <- hidden$nvirtual
   nmin <- hidden$nmin
   alpha <- hidden$alpha
   df <- round(max(1, hidden$df))
@@ -102,15 +101,8 @@ partialpro <- function(object,
   ntree <- hidden$ntree
   nodesize <- hidden$nodesize
   mse.tolerance <- hidden$mse.tolerance
-  ## set formula (do not use "y" for the yvar name)
-  yfkname <- "y123XYZ9999abc"
-  f <- paste0(yfkname, "~1+x")
-  if (df > 1) {
-    f <- paste0(f, paste(sapply(2:df, function(k) {paste0("+I(x^", k, ")")}), collapse = ""))
-  }
-  f <- as.formula(f)
   ## is UVT at play?
-  cut.flag <- cut !=0
+  cut.flag <- cut != 0
   ## ------------------------------------------------------------------------
   ##
   ## process the requested variables
@@ -119,6 +111,17 @@ partialpro <- function(object,
   variables <- object$xvar.names[as.numeric(na.omit(match(xvar.names, object$xvar.names)))]
   if (length(variables) == 0) {
     return(NULL)
+  }
+  ## ------------------------------------------------------------------------
+  ##
+  ## validate and align newdata once (if supplied)
+  ##
+  ## ------------------------------------------------------------------------
+  if (predict.flag) {
+    if (sum(!(colnames(xvar) %in% colnames(newdata))) > 0) {
+      stop("x-variables in newdata does not match original data")
+    }
+    newdata <- newdata[, colnames(xvar), drop = FALSE]
   }
   ## ------------------------------------------------------------------------
   ##
@@ -136,6 +139,28 @@ partialpro <- function(object,
   }
   ## ------------------------------------------------------------------------
   ##
+  ## helpers (internal)
+  ##
+  ## ------------------------------------------------------------------------
+  ## robust/fast polynomial fit using precomputed design matrices
+  .safe_lm_fit <- function(X, y) {
+    ## lm.fit does not tolerate NA/NaN/Inf
+    ok <- is.finite(y) & (rowSums(is.finite(X)) == ncol(X))
+    if (!any(ok)) {
+      return(NULL)
+    }
+    X <- X[ok, , drop = FALSE]
+    y <- y[ok]
+    tryCatch(stats::lm.fit(x = X, y = y), error = function(e) NULL)
+  }
+  .safe_pred <- function(fit, Xnew) {
+    if (is.null(fit)) {
+      return(rep(NA_real_, nrow(Xnew)))
+    }
+    drop(Xnew %*% fit$coefficients)
+  }
+  ## ------------------------------------------------------------------------
+  ##
   ## loop over requested variables obtaining partial plots
   ##
   ## ------------------------------------------------------------------------
@@ -148,179 +173,160 @@ partialpro <- function(object,
     xorg <- xvar[, xnm]
     nxorg <- length(unique(xorg))
     binary.variable <- nxorg == 2
-    xvirtual <- myunique(xorg, nvirtual, alpha)
+    xvirtual <- myunique(xorg, nvirtual0, alpha)
     nvirtual <- length(xvirtual)
     ## --------------------------------------------------------
-    ## make fake partial data
+    ## make fake partial data (vectorized; avoids per-case rbind)
     ## --------------------------------------------------------
-    ## default setting (using training data)
-    ## draw random cases
     if (!predict.flag) {
-      smp <- sample(1:n, size = min(n, nsmp), replace = FALSE)
-      xfake <- do.call(rbind, papply(smp, function(i) {
-        dfake <- xvar[i,, drop = FALSE]
-        dfake <- dfake[rep(1, nvirtual),, drop = FALSE]
-        dfake[, xnm] <- xvirtual
-        data.frame(case = i, train = mytrainsample(nvirtual), goodvt = 1, dfake)
-      }))
+      smp <- sample.int(n, size = min(n, nsmp), replace = FALSE)
+      baseX <- xvar[smp, , drop = FALSE]
+      case_ids <- smp
+    } else {
+      baseX <- newdata
+      case_ids <- seq_len(nrow(baseX))
     }
-    ## newdata is present - use this for creating the fake data
-    else {
-      if (sum(!(colnames(xvar)  %in% colnames(newdata))) > 0) {
-        stop("x-variables in newdata does not match original data")
-      }
-      newdata <- newdata[, colnames(xvar), drop=FALSE]
-      xfake <- do.call(rbind, papply(1:nrow(newdata), function(i) {
-        dfake <- newdata[i,, drop = FALSE]
-        dfake <- dfake[rep(1, nvirtual),, drop = FALSE]
-        dfake[, xnm] <- xvirtual
-        data.frame(case = i, train = mytrainsample(nvirtual), goodvt = 1, dfake)
-      }))
+    ncase <- nrow(baseX)
+    if (ncase == 0L || nvirtual == 0L) {
+      return(NULL)
     }
+    ## replicate cases in blocks (case1 repeated nvirtual times, etc)
+    idx_rep <- rep(seq_len(ncase), each = nvirtual)
+    xfake <- baseX[idx_rep, , drop = FALSE]
+    xfake[[xnm]] <- rep(xvirtual, times = ncase)
+    ## training split per case (stored as ncase x nvirtual matrix)
+    train_mat <- matrix(0L, nrow = ncase, ncol = nvirtual)
+    for (ii in seq_len(ncase)) {
+      train_mat[ii, ] <- mytrainsample(nvirtual)
+    }
+    train_mat <- (train_mat == 1L)
     ## unlimited virtual twins step: identify bad virtual twins
+    goodvt_mat <- matrix(TRUE, nrow = ncase, ncol = nvirtual)
     if (cut.flag) {
-      howbad <- predict.isopro(o.iso, xfake)
+      howbad <- tryCatch({
+        ## prefer the columns used to train the isolation forest
+        predict.isopro(o.iso, xfake[, topvars, drop = FALSE])
+      }, error = function(e) {
+        predict.isopro(o.iso, xfake)
+      })
       if (sum(howbad >= cut) == 0) {
         return(NULL)
       }
-      xfake$goodvt[howbad < cut] <- 0
+      goodvt_mat <- matrix(howbad >= cut, nrow = ncase, ncol = nvirtual, byrow = TRUE)
     }
     ## obtain predicted value for fake partial data
-    yhat <- as.numeric(cbind(learner(xfake))[, target])
+    ## (IMPORTANT: pass only feature columns to learner; case/train/goodvt are internal)
+    pred <- learner(xfake)
+    yhat <- as.numeric(cbind(pred)[, target])
     if (family == "class") {
       yhat <- mylogodds(yhat)
     }
+    ## reshape predictions into case-by-virtual matrix
+    yhat_mat <- matrix(yhat, nrow = ncase, ncol = nvirtual, byrow = TRUE)
     ## --------------------------------------------------------------------------
     ##
-    ## loop over cases, obtaining nonparametric supersmooth fit
+    ## loop over cases: local polynomial fit (fast path via lm.fit)
     ##
     ## --------------------------------------------------------------------------
-    rOcase <- papply(unique(xfake$case), function(i) {
-      ## pointers for case i
-      pt <- xfake$case == i
-      train <- xfake$train[pt] == 1
-      goodvt <- xfake$goodvt[pt] == 1
-      ## need a reasonable number of good twins
-      ## -  over-ride for binary case
-      ## -  make exception for discrete value x's
-      if (sum(goodvt) >= min(nmin, nxorg / 2) || binary.variable) {
-        ## extract the x, y data
-        xi <- xvirtual[goodvt]
-        yi <- yhat[pt][goodvt]
-        yalli <- yhat[pt]
-        yhat.nonpar <- rep(NA, nvirtual)
-        bhat <- rep(NA, df + 1)
-        ## --------------------------------------------------------------------------
-        ##
+    ## preallocate outputs
+    keep_case <- logical(ncase)
+    goodvt_out <- matrix(NA_real_, nrow = ncase, ncol = nvirtual)
+    yhat_nonpar_out <- matrix(NA_real_, nrow = ncase, ncol = nvirtual)
+    yhat_causal_out <- matrix(NA_real_, nrow = ncase, ncol = nvirtual)
+    bhat_out <- matrix(NA_real_, nrow = ncase, ncol = df + 1)
+    ## design matrix for polynomial regression: [1, x, x^2, ... x^df]
+    ## only needed for continuous variables
+    Xfull <- NULL
+    if (!binary.variable) {
+      Xfull <- outer(xvirtual, 0:df, `^`)
+    }
+    ## threshold for sufficient good twins
+    min_good <- min(nmin, nxorg / 2)
+    for (ii in seq_len(ncase)) {
+      goodvt <- goodvt_mat[ii, ]
+      train <- train_mat[ii, ]
+      if (sum(goodvt) >= min_good || binary.variable) {
+        keep_case[ii] <- TRUE
+        ## store goodvt as 1/NA (same convention as original)
+        goodvt_out[ii, ] <- ifelse(goodvt, 1, NA_real_)
+        ## y predictions for this case across virtual values
+        yalli <- yhat_mat[ii, ]
+        ## container
+        yhat.nonpar <- rep(NA_real_, nvirtual)
+        bhat <- rep(NA_real_, df + 1)
+        ## ------------------------------------------------------------
         ## continuous variable fit
-        ##
-        ## --------------------------------------------------------------------------
+        ## ------------------------------------------------------------
         if (!binary.variable) {
-          ##----------------------------------
-          ##
-          ## local polynomial estimation
-          ##
-          ##----------------------------------
-          ## make sure o.lm always exists
-          o.lm <- NULL
-          if (cut.flag && sum(train[goodvt]) > (nmin / 2)) {
-            o.lm.cut <- tryCatch({suppressWarnings(lm(f,
-               setNames(data.frame(yi[train[goodvt]], xi[train[goodvt]]), c(yfkname, "x"))))},
-                      error = function(ex) {NULL})
-            o.lm.nocut <- tryCatch({suppressWarnings(lm(f,
-               setNames(data.frame(yalli[train], xvirtual[train]), c(yfkname, "x"))))},
-                      error = function(ex) {NULL})
-            ## switch to no cut based on out-of-sample mse performance
-            if (!is.null(o.lm.cut) && !is.null(o.lm.nocut)) {
-              ytest.cut <- predict.lm(o.lm.cut, data.frame(x = xvirtual[!train]))
-              ytest.nocut <- predict.lm(o.lm.nocut, data.frame(x = xvirtual[!train]))
+          fit_sel <- NULL
+          ## out-of-sample comparison of cut vs nocut
+          if (cut.flag && sum(train & goodvt) > (nmin / 2)) {
+            fit_cut <- .safe_lm_fit(Xfull[train & goodvt, , drop = FALSE], yalli[train & goodvt])
+            fit_nocut <- .safe_lm_fit(Xfull[train, , drop = FALSE], yalli[train])
+            if (!is.null(fit_cut) && !is.null(fit_nocut)) {
+              ## predictions on held-out virtual values
               ytest <- yalli[!train]
+              ytest.cut <- .safe_pred(fit_cut, Xfull[!train, , drop = FALSE])
+              ytest.nocut <- .safe_pred(fit_nocut, Xfull[!train, , drop = FALSE])
+              ## switch to no cut based on out-of-sample mse performance
               if (mymse(ytest, ytest.nocut) < (mymse(ytest, ytest.cut) - mse.tolerance)) {
-                o.lm <- lm(f, setNames(data.frame(yalli, xvirtual), c(yfkname, "x")))
-                yhat.nonpar <- o.lm$fitted
-              }
-              else {
-                o.lm <- lm(f, setNames(data.frame(yi, xi), c(yfkname, "x")))
-                yhat.nonpar <- predict.lm(o.lm, data.frame(x = xvirtual))
+                fit_sel <- .safe_lm_fit(Xfull, yalli)
+              } else {
+                fit_sel <- .safe_lm_fit(Xfull[goodvt, , drop = FALSE], yalli[goodvt])
               }
             }
-            else {
-              NULL
-            }
           }
-          ## cut.flag is off or not enough data for out-of-sample performace
-          else {
-            o.lm <- tryCatch({suppressWarnings(lm(f, setNames(data.frame(yi, xi), c(yfkname, "x"))))},
-                  error = function(ex) {NULL})
-            if (!is.null(o.lm)) {
-              yhat.nonpar <- predict.lm(o.lm, data.frame(x = xvirtual)) 
-            }
-            else {
-              NULL
-            }
+          ## cut.flag is off OR not enough data for out-of-sample performance
+          ## (match original behavior: only run this fallback when the OOS branch
+          ## is NOT entered; if OOS is entered but fitting fails, leave NA's)
+          if (is.null(fit_sel) && !(cut.flag && sum(train & goodvt) > (nmin / 2))) {
+            fit_sel <- .safe_lm_fit(Xfull[goodvt, , drop = FALSE], yalli[goodvt])
           }
-          if (!is.null(o.lm)) {
-            bhat <- o.lm$coef
+          if (!is.null(fit_sel)) {
+            bhat <- fit_sel$coefficients
+            yhat.nonpar <- .safe_pred(fit_sel, Xfull)
+            ## center by intercept (matches original)
             yhat.nonpar <- yhat.nonpar - bhat[1]
           }
         }
-        ## --------------------------------------------------------------------------
-        ##
+        ## ------------------------------------------------------------
         ## binary variable fit
-        ##
-        ## --------------------------------------------------------------------------
-        ## both virtual twins must be available since extrapolation not possible
-        ## if one is missing, set entire case to NA
+        ## ------------------------------------------------------------
         else {
-          binary.yhat <- tapply(yi, xi, mean, na.rm = TRUE)
-          if (length(binary.yhat) == 2) {
-            nm <- names(binary.yhat)
-            if (as.character(xvirtual[1]) %in% nm) {
-              yhat.nonpar[1] <- binary.yhat[as.character(xvirtual[1])]
-            }
-            if (as.character(xvirtual[2]) %in% nm) {
-              yhat.nonpar[2] <- binary.yhat[as.character(xvirtual[2])]
+          ## both virtual twins must be available since extrapolation not possible
+          ## if one is missing, set entire case to NA
+          if (nvirtual >= 2L && any(goodvt)) {
+            x_chr <- as.character(xvirtual)
+            xi_chr <- x_chr[goodvt]
+            yi <- yalli[goodvt]
+            ## match original behavior: only populate if BOTH virtual values are present
+            if (any(xi_chr == x_chr[1]) && any(xi_chr == x_chr[2])) {
+              yhat.nonpar[1] <- mean(yi[xi_chr == x_chr[1]], na.rm = TRUE)
+              yhat.nonpar[2] <- mean(yi[xi_chr == x_chr[2]], na.rm = TRUE)
             }
           }
         }
-        ## --------------------------------------------------------------------------
-        ##
         ## causal estimate
-        ##
-        ## --------------------------------------------------------------------------
         yhat.causal <- yhat.nonpar - yhat.nonpar[1]
-        ## --------------------------------------------------------------------------
-        ##
-        ## track the virtual twins by using NA's for bad cases (used for processing later)
-        ##
-        ## --------------------------------------------------------------------------
-        goodvt <- 1 * goodvt
-        goodvt[goodvt != 1] <- NA
-        ## --------------------------------------------------------------------------
-        ##
-        ## return goodies
-        ##
-        ## --------------------------------------------------------------------------
-        list(case = i,
-             goodvt = goodvt,
-             bhat = bhat,
-             yhat.nonpar = yhat.nonpar,
-             yhat.causal = yhat.causal)
+        ## store
+        yhat_nonpar_out[ii, ] <- yhat.nonpar
+        yhat_causal_out[ii, ] <- yhat.causal
+        bhat_out[ii, ] <- bhat
       }
-      else {
-        NULL
-      }
-    })
+    }
     ## --------------------------------------------------------------------------
     ##
-    ## final processing
+    ## final processing (drop NULL cases)
     ##
     ## --------------------------------------------------------------------------
-    ## remove null cases
-    rOcase <- rOcase[!sapply(rOcase, is.null)]
-    if (length(rOcase) == 0) {
+    if (!any(keep_case)) {
       return(NULL)
     }
+    case_out <- case_ids[keep_case]
+    goodvt_out <- goodvt_out[keep_case, , drop = FALSE]
+    yhat_nonpar_out <- yhat_nonpar_out[keep_case, , drop = FALSE]
+    yhat_causal_out <- yhat_causal_out[keep_case, , drop = FALSE]
+    bhat_out <- bhat_out[keep_case, , drop = FALSE]
     ## --------------------------------------------------------------------------
     ##
     ## final processing of estimators:
@@ -329,34 +335,34 @@ partialpro <- function(object,
     ##
     ## --------------------------------------------------------------------------
     if (!binary.variable) {
-      bhat.all <- do.call(rbind, lapply(rOcase, function(oo) {oo$bhat}))
-      bhat <- colMeans(bhat.all, na.rm = TRUE)
-      bhat[is.na(bhat)] <- 0
-      global.mean <- bhat[1]
-      #yhat.par <- global.mean +
-      #   rowSums(do.call(cbind, lapply(1:df, function(k) {bhat[1+k] * xvirtual ^ k})), na.rm = TRUE)
-      yhat.par <- global.mean + t(apply(bhat.all, 1, function(bhat) {
-        rowSums(do.call(cbind, lapply(1:df, function(k) {bhat[1+k] * xvirtual ^ k})), na.rm=TRUE)
-      }))
-      yhat.nonpar <- do.call(rbind, lapply(rOcase, function(oo) {oo$yhat.nonpar + global.mean}))       
+      ## global mean intercept
+      bhat_mean <- colMeans(bhat_out, na.rm = TRUE)
+      bhat_mean[!is.finite(bhat_mean)] <- 0
+      global.mean <- bhat_mean[1]
+      ## fast parametric curve per case: global.mean + sum_k beta_k * x^k
+      Xpow <- Xfull[, -1, drop = FALSE]                # nvirtual x df
+      B <- bhat_out[, -1, drop = FALSE]                # ncase x df
+      B[!is.finite(B)] <- 0                            # emulate na.rm=TRUE in original rowSums
+      yhat.par <- global.mean + tcrossprod(B, Xpow)    # ncase x nvirtual
+      ## add back the global mean to the centered nonparametric curve
+      yhat.nonpar <- yhat_nonpar_out + global.mean
     }
     else {
-      yhat.par <- yhat.nonpar <- do.call(rbind, lapply(rOcase, function(oo) {oo$yhat.nonpar}))
+      yhat.par <- yhat.nonpar <- yhat_nonpar_out
     }
     ## --------------------------------------------------------------------------
     ##
     ## return the blob (for further processing downstream)
     ##
     ## --------------------------------------------------------------------------
-    list(case = sapply(rOcase, function(oo) {oo$case}),
+    list(case = case_out,
          xorg = xorg,
          xvirtual = xvirtual,
-         goodvt = do.call(rbind, lapply(rOcase, function(oo) {oo$goodvt})),
+         goodvt = goodvt_out,
          yhat.par = yhat.par,
          yhat.nonpar = yhat.nonpar,
-         yhat.causal = do.call(rbind, lapply(rOcase, function(oo) {oo$yhat.causal}))
-         )
-  })### ends loop over variables
+         yhat.causal = yhat_causal_out)
+  }) ## ends loop over variables
   ## ------------------------------------------------------------------------
   ##
   ## finalize: return

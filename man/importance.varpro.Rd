@@ -11,7 +11,6 @@
   cutoff = 0.79, trim = 0.1, plot.it = FALSE, conf = TRUE, sort = TRUE,
   ylab = if (conf) "Importance" else "Standardized Importance",
   max.rules.tree, max.tree,
-  papply = mclapply,
   ...)
 }
 
@@ -38,8 +37,6 @@
   \item{max.rules.tree}{Optional. Maximum number of rules per tree. Defaults to the value stored in the \code{varpro} object if unspecified.}
 
   \item{max.tree}{Optional. Maximum number of trees used for rule extraction. Defaults to the value from the \code{varpro} object if unspecified.}
-
-  \item{papply}{Apply method for parallelization; typically \code{mclapply} or \code{lapply}.}
 
   \item{...}{Additional arguments passed to internal methods.}
 

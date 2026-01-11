@@ -1,6 +1,8 @@
 \name{varpro}
 \alias{varpro}
-\title{Model-Independent Variable Selection via the Rule-based Variable Priority (VarPro)}
+\title{Model-Independent Variable Selection via the Rule-based Variable
+  Priority (VarPro)}
+
 
 \description{
 Model-Independent Variable Selection via the Rule-based Variable Priority (VarPro)
@@ -11,8 +13,7 @@ for Regression, Multivariate Regression, Classification and Survival.
 varpro(f, data, nvar = 30, ntree = 500, 
        split.weight = TRUE, split.weight.method = NULL, sparse = TRUE,
        nodesize = NULL, max.rules.tree = 150, max.tree = min(150, ntree),
-       parallel = TRUE, cores = get.mc.cores(),
-       papply = mclapply, verbose = FALSE, seed = NULL, ...)
+       parallel = TRUE, cores = get.mc.cores(), verbose = FALSE, seed = NULL, ...)
 }
 
 \arguments{
@@ -50,14 +51,6 @@ varpro(f, data, nvar = 30, ntree = 500,
   \item{cores}{Number of cores for parallel processing. Defaults to
     \code{parallel::detectCores()}.}
   
-  
-  \item{papply}{Apply function used for R parallelization 
-    (e.g., \code{mclapply} or \code{lapply}). The default is
-    \code{mclapply}, which uses multicore parallelism on Unix-like systems
-    (including macOS) and falls back to serial evaluation on Windows.
-    Users can supply \code{lapply} or other apply-like functions if
-    desired.}
-    
   \item{verbose}{Print verbose output?}
 
   \item{seed}{Seed for reproducibility.}
@@ -74,14 +67,39 @@ forests, are widely used for variable selection. These nonparametric
 methods require no model specification and accommodate various outcomes
 including regression, classification, survival, and longitudinal data.
 
-Although permutation variable importance (VIMP) and knockoff methods have been extensively studied, their effectiveness can be limited in practice. Both approaches rely on the quality of artificially generated covariates, which may not perform well in complex or high-dimensional settings.
+Although permutation variable importance (VIMP) and knockoff methods
+have been extensively studied, their effectiveness can be limited in
+practice. Both approaches rely on the quality of artificially generated
+covariates, which may not perform well in complex or high-dimensional
+settings.
 
-To address these limitations, we introduce a new framework called variable priority (VarPro). Instead of generating synthetic covariates, VarPro constructs *release rules* to assess the impact of each covariate on the response. Neighborhoods of existing data are used for estimation, avoiding the need for artificial data generation. Like VIMP and knockoffs, VarPro imposes no assumptions on the conditional distribution of the response.
+
+To address these limitations, we introduce a new framework called
+variable priority (VarPro). Instead of generating synthetic covariates,
+VarPro constructs *release rules* to assess the impact of each covariate
+on the response. Neighborhoods of existing data are used for estimation,
+avoiding the need for artificial data generation. Like VIMP and
+knockoffs, VarPro imposes no assumptions on the conditional distribution
+of the response.
+
 
 The VarPro algorithm proceeds as follows: 
-A forest of \code{ntree} trees is grown using guided tree-splitting, where candidate variables for node splitting are selected with probability proportional to their split-weights. These split-weights are computed in a preprocessing step. A subset of \code{max.tree} trees is randomly selected from the forest, and \code{max.rules.tree} branches are sampled from each selected tree. The resulting rules form the basis of the VarPro importance estimator. The method supports regression, multivariate regression, multiclass classification, and survival outcomes.
+A forest of \code{ntree} trees is grown using guided tree-splitting,
+where candidate variables for node splitting are selected with
+probability proportional to their split-weights. These split-weights are
+computed in a preprocessing step. A subset of \code{max.tree} trees is
+randomly selected from the forest, and \code{max.rules.tree} branches
+are sampled from each selected tree. The resulting rules form the basis
+of the VarPro importance estimator. The method supports regression,
+multivariate regression, multiclass classification, and survival
+outcomes.
 
-Guided tree-splitting encourages rule construction to favor influential features. Thus, \code{split.weight} should generally remain \code{TRUE}, especially for high-dimensional problems. If disabled, it is recommended to increase \code{nodesize} to improve estimator precision.
+
+Guided tree-splitting encourages rule construction to favor influential
+features. Thus, \code{split.weight} should generally remain \code{TRUE},
+especially for high-dimensional problems. If disabled, it is recommended
+to increase \code{nodesize} to improve estimator precision.
+
 
 By default, split-weights are computed via a lasso-plus-tree
 strategy. Specifically, the split-weight of a variable is defined as the
@@ -92,13 +110,29 @@ variable's absolute permutation importance. Note: variables are one-hot
 encoded for use in lasso, and all inputs are converted to numeric
 values.
 
-To customize split-weight construction, use the \code{split.weight.method} argument with one or more of the following strings: \code{"lasso"}, \code{"tree"}, or \code{"vimp"}. For example, \code{"lasso"} uses only lasso coefficients; \code{"lasso tree"} combines lasso and shallow trees; \code{"lasso vimp"} combines lasso with permutation importance. See examples below.
+To customize split-weight construction, use the
+\code{split.weight.method} argument with one or more of the following
+strings: \code{"lasso"}, \code{"tree"}, or \code{"vimp"}. For example,
+\code{"lasso"} uses only lasso coefficients; \code{"lasso tree"}
+combines lasso and shallow trees; \code{"lasso vimp"} combines lasso
+with permutation importance. See examples below.
 
-Variables are ranked by importance, with higher values indicating greater influence. Cross-validation can be used to determine a cutoff threshold. See \code{cv.varpro} for details.
 
-Run time can be reduced by using smaller values of \code{ntree} or larger values of \code{nodesize}. Additional runtime tuning options are discussed in the examples.
+Variables are ranked by importance, with higher values indicating
+greater influence. Cross-validation can be used to determine a cutoff
+threshold. See \code{cv.varpro} for details.
 
-In class-imbalanced two-class settings, the algorithm automatically switches to random forest quantile classification (RFQ; see O'Brien and Ishwaran, 2019) using the geometric mean (gmean) metric. This behavior can be overridden via the hidden option \code{use.rfq}.
+
+Run time can be reduced by using smaller values of \code{ntree} or
+larger values of \code{nodesize}. Additional runtime tuning options are
+discussed in the examples.
+
+
+In class-imbalanced two-class settings, the algorithm automatically
+switches to random forest quantile classification (RFQ; see O'Brien and
+Ishwaran, 2019) using the geometric mean (gmean) metric. This behavior
+can be overridden via the hidden option \code{use.rfq}.
+
 
 }
 \value{
@@ -127,10 +161,12 @@ In class-imbalanced two-class settings, the algorithm automatically switches to 
   \command{\link{cv.varpro}}
   \command{\link{glioma}}
   \command{\link{importance.varpro}}
+  \command{\link{partialpro}}
   \command{\link{predict.varpro}}  
   \command{\link{isopro}}
+  \command{\link{ivarpro}}
+  \command{\link{outpro}}
   \command{\link{uvarpro}}
-  
 }
 
 \examples{
