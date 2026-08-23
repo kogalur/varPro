@@ -5,7 +5,9 @@ partialpro <- function(object,
                        learner,
                        newdata,
                        method = c("unsupv", "rnd", "auto"),
-                       verbose = FALSE, ...)
+                       verbose = FALSE,
+                       vt.filter = c("isopro", "outpro", "none"),
+                       ...)
 {
   ## ------------------------------------------------------------------------
   ##
@@ -29,8 +31,9 @@ partialpro <- function(object,
   n <- nrow(xvar)
   ## pull the family
   family <- object$family
-  ## set UVT method
+  ## set UVT method and filter
   method <- match.arg(method, c("unsupv", "rnd", "auto"))
+  vt.filter <- match.arg(vt.filter, c("isopro", "outpro", "none"))
   ## the default learner used for prediction is the varpro random forest object
   if (missing(learner)) {
     learner <- function(newx) {
@@ -101,8 +104,16 @@ partialpro <- function(object,
   ntree <- hidden$ntree
   nodesize <- hidden$nodesize
   mse.tolerance <- hidden$mse.tolerance
+  out.distancef <- hidden$out.distancef
+  out.neighbor <- hidden$out.neighbor
+  out.reduce <- hidden$out.reduce
+  out.cutoff <- hidden$out.cutoff
+  out.max.rules.tree <- hidden$out.max.rules.tree
+  out.max.tree <- hidden$out.max.tree
+  out.knn.chunk.size <- hidden$out.knn.chunk.size
+  out.null <- hidden$out.null
   ## is UVT at play?
-  cut.flag <- cut != 0
+  cut.flag <- (cut != 0) && !identical(vt.filter, "none")
   ## ------------------------------------------------------------------------
   ##
   ## process the requested variables
@@ -125,10 +136,10 @@ partialpro <- function(object,
   }
   ## ------------------------------------------------------------------------
   ##
-  ## isopro for isolation forests
+  ## UVT filter setup
   ##
   ## ------------------------------------------------------------------------
-  if (cut.flag) {
+  if (cut.flag && identical(vt.filter, "isopro")) {
     ## unsupervised method cannot be used if only one variable is present
     if (length(topvars) == 1 && method == "unsupv") {
       method <- "rnd"
@@ -136,6 +147,108 @@ partialpro <- function(object,
     ## isopro call
     o.iso <- isopro(data = xvar[, topvars, drop = FALSE], method = method,
                     sampsize = sampsize, ntree = ntree, nodesize = nodesize)
+  }
+  if (cut.flag && identical(vt.filter, "outpro")) {
+    if (!exists("outpro", mode = "function")) {
+      stop("vt.filter = 'outpro' requires the outpro function")
+    }
+    if (!exists("outpro.null", mode = "function")) {
+      stop("vt.filter = 'outpro' requires the outpro.null function")
+    }
+  }
+  ## cache outpro null calibrations by selected subspace and options
+  out.null.cache <- new.env(parent = emptyenv())
+  .out_reduce_for <- function(xnm) {
+    if (is.null(out.reduce)) {
+      ## Default: evaluate support in the top VarPro subspace and
+      ## always include the feature being profiled.
+      reduce <- unique(c(topvars, xnm))
+    }
+    else if (is.character(out.reduce)) {
+      reduce <- unique(c(out.reduce, xnm))
+    }
+    else if (is.numeric(out.reduce) && !is.null(names(out.reduce))) {
+      reduce <- out.reduce
+      if (!(xnm %in% names(reduce))) {
+        reduce <- c(reduce, stats::setNames(1, xnm))
+      }
+    }
+    else {
+      ## TRUE, FALSE, and other outpro-native values are passed through.
+      reduce <- out.reduce
+    }
+    reduce
+  }
+  .out_reduce_key <- function(reduce) {
+    if (is.null(reduce)) {
+      return("NULL")
+    }
+    if (is.logical(reduce)) {
+      return(paste0("logical:", paste(as.character(reduce), collapse = ",")))
+    }
+    if (is.numeric(reduce) && !is.null(names(reduce))) {
+      return(paste0("weighted:",
+                    paste(paste(names(reduce), signif(reduce, 14), sep = "="),
+                          collapse = ",")))
+    }
+    paste0("vars:", paste(as.character(reduce), collapse = ","))
+  }
+  .out_get_null <- function(xnm, reduce) {
+    ## User-supplied calibration: either a single outpro.null object
+    ## or a named list of such objects, keyed by variable name.
+    if (!is.null(out.null)) {
+      out.null.user <- out.null
+      if (is.list(out.null) && !is.null(out.null[[xnm]]) &&
+          is.list(out.null[[xnm]]) && !is.null(out.null[[xnm]]$distance)) {
+        out.null.user <- out.null[[xnm]]
+      }
+      if (is.null(out.null.user$distance)) {
+        stop("out.null must be an outpro.null object or a named list of outpro.null objects")
+      }
+      if (is.null(out.null.user$cdf)) {
+        out.null.user$cdf <- ecdf(out.null.user$distance)
+      }
+      return(out.null.user)
+    }
+    key <- paste(out.distancef,
+                 if (is.null(out.neighbor)) "NULL" else out.neighbor,
+                 if (is.null(out.cutoff)) "NULL" else out.cutoff,
+                 out.max.rules.tree,
+                 out.max.tree,
+                 out.knn.chunk.size,
+                 .out_reduce_key(reduce),
+                 sep = "\r")
+    if (exists(key, envir = out.null.cache, inherits = FALSE)) {
+      return(get(key, envir = out.null.cache, inherits = FALSE))
+    }
+    null.obj <- outpro.null(object,
+                            neighbor = out.neighbor,
+                            distancef = out.distancef,
+                            reduce = reduce,
+                            cutoff = out.cutoff,
+                            max.rules.tree = out.max.rules.tree,
+                            max.tree = out.max.tree,
+                            knn.chunk.size = out.knn.chunk.size)
+    assign(key, null.obj, envir = out.null.cache)
+    null.obj
+  }
+  .out_vt_score <- function(xfake, xnm) {
+    reduce <- .out_reduce_for(xnm)
+    null.obj <- .out_get_null(xnm, reduce)
+    op <- outpro(object,
+                 newdata = xfake,
+                 neighbor = out.neighbor,
+                 distancef = out.distancef,
+                 reduce = reduce,
+                 cutoff = out.cutoff,
+                 max.rules.tree = out.max.rules.tree,
+                 max.tree = out.max.tree,
+                 knn.chunk.size = out.knn.chunk.size,
+                 newdata.xscale = TRUE)
+    ## outpro is an outlyingness distance. Convert it to a support
+    ## score so the existing partialpro convention is preserved:
+    ## larger scores are more acceptable, and cut = 0 disables UVT.
+    1 - null.obj$cdf(op$distance)
   }
   ## ------------------------------------------------------------------------
   ##
@@ -200,19 +313,26 @@ partialpro <- function(object,
       train_mat[ii, ] <- mytrainsample(nvirtual)
     }
     train_mat <- (train_mat == 1L)
-    ## unlimited virtual twins step: identify bad virtual twins
+    ## unlimited virtual twins step: identify admissible virtual twins
     goodvt_mat <- matrix(TRUE, nrow = ncase, ncol = nvirtual)
     if (cut.flag) {
-      howbad <- tryCatch({
-        ## prefer the columns used to train the isolation forest
-        predict.isopro(o.iso, xfake[, topvars, drop = FALSE])
-      }, error = function(e) {
-        predict.isopro(o.iso, xfake)
-      })
-      if (sum(howbad >= cut) == 0) {
+      vt.score <- if (identical(vt.filter, "isopro")) {
+        tryCatch({
+          ## prefer the columns used to train the isolation forest
+          predict.isopro(o.iso, xfake[, topvars, drop = FALSE])
+        }, error = function(e) {
+          predict.isopro(o.iso, xfake)
+        })
+      } else if (identical(vt.filter, "outpro")) {
+        .out_vt_score(xfake, xnm)
+      } else {
+        rep(1, nrow(xfake))
+      }
+      goodvt <- is.finite(vt.score) & (vt.score >= cut)
+      if (sum(goodvt) == 0) {
         return(NULL)
       }
-      goodvt_mat <- matrix(howbad >= cut, nrow = ncase, ncol = nvirtual, byrow = TRUE)
+      goodvt_mat <- matrix(goodvt, nrow = ncase, ncol = nvirtual, byrow = TRUE)
     }
     ## obtain predicted value for fake partial data
     ## (IMPORTANT: pass only feature columns to learner; case/train/goodvt are internal)

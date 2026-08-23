@@ -21,7 +21,7 @@ void stackForestObjectsAuxOnly(char        mode,
                                uint     ***mwcpPT,
                                uint     ***mwcpCT) {
   uint i;
-  if (mode != RF_GROW) {
+    if (mode != RF_GROW) {
     *parmID   = (int **)    new_vvector(1, 1, NRUTIL_UPTR);
     *contPT   = (double **) new_vvector(1, 1, NRUTIL_DPTR);
     *mwcpSZ   = (uint **)   new_vvector(1, 1, NRUTIL_UPTR);

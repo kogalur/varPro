@@ -7,16 +7,27 @@ out.distance <- function(out,
                                        "mahalanobis",
                                        "manhattan",
                                        "minkowski",
-                                       "kernel"),
+                                       "kernel",
+                                       "knn"),
                          weights = TRUE,
                          normalize.weights = TRUE,
                          p = 4,
-                         epsilon = NULL) {
+                         epsilon = NULL,
+                         knn.chunk.size = 100L) {
   distancef <- match.arg(distancef)
   dO <- out$distance.object
-  dist.xvar <- dO$dist.xvar
-  dims <- dim(dist.xvar[[1]])
-  k <- length(dist.xvar)
+  if (identical(distancef, "knn")) {
+    dist.xvar <- NULL
+    dims <- NULL
+    k <- ncol(dO$xorg.scale)
+  } else {
+    dist.xvar <- dO$dist.xvar
+    if (is.null(dist.xvar) || length(dist.xvar) == 0) {
+      stop("forest-neighborhood distance ingredients are missing")
+    }
+    dims <- dim(dist.xvar[[1]])
+    k <- length(dist.xvar)
+  }
   ## weights handling
   if (is.logical(weights)) {
     if (weights) {
@@ -31,6 +42,22 @@ out.distance <- function(out,
   if (normalize.weights) {
     s <- sum(weights)
     weights <- if (s > 0) weights / s else rep(1 / k, k)
+  }
+  if (distancef == "knn") {
+    dist.vec <- out.knn.distance(dO, weights, chunk.size = knn.chunk.size)
+    return(list(
+      distance = dist.vec,
+      args = list(
+        distancef = distancef,
+        weights.used = weights,
+        normalize.weights = normalize.weights,
+        p = p,
+        epsilon.used = NA_real_,
+        knn.neighbor.used = attr(dist.vec, "knn.neighbor.used"),
+        knn.self.excluded = attr(dist.vec, "knn.self.excluded"),
+        knn.chunk.size = attr(dist.vec, "knn.chunk.size")
+      )
+    ))
   }
   ## automatic epsilon for prod, based on standardized absolute deltas
   if (is.null(epsilon) && identical(distancef, "prod")) {
@@ -114,6 +141,50 @@ out.distance <- function(out,
       epsilon.used = if (!is.null(epsilon)) epsilon else NA_real_
     )
   )
+}
+out.knn.distance <- function(dO, weights, chunk.size = 100L) {
+  xorg <- as.matrix(dO$xorg.scale)
+  xnew <- as.matrix(dO$xnew.scale)
+  if (ncol(xorg) != length(weights)) {
+    stop("length of weights does not match number of variables")
+  }
+  n.org <- nrow(xorg)
+  n.new <- nrow(xnew)
+  exclude.self <- isTRUE(dO$oob.bits == 0) && n.new == n.org
+  neighbor <- dO$neighbor
+  if (is.null(neighbor) || !is.finite(neighbor)) {
+    neighbor <- out.get.neighbor(n.org)
+  }
+  max.neighbor <- n.org - as.integer(exclude.self)
+  if (max.neighbor < 1L) {
+    stop("cannot compute KNN score with fewer than two training cases")
+  }
+  k <- as.integer(round(neighbor))
+  k <- max(1L, min(k, max.neighbor))
+  chunk.size <- as.integer(chunk.size)
+  if (length(chunk.size) != 1L || is.na(chunk.size) || chunk.size < 1L) {
+    stop("chunk.size must be a positive integer")
+  }
+  score <- rep(NA_real_, n.new)
+  for (st in seq.int(1L, n.new, by = chunk.size)) {
+    en <- min(n.new, st + chunk.size - 1L)
+    idx <- st:en
+    dmat <- matrix(0, nrow = length(idx), ncol = n.org)
+    for (j in seq_len(ncol(xorg))) {
+      dmat <- dmat + weights[j] *
+        abs(outer(xnew[idx, j], xorg[, j], "-"))
+    }
+    if (exclude.self) {
+      dmat[cbind(seq_along(idx), idx)] <- Inf
+    }
+    score[idx] <- apply(dmat, 1L, function(z) {
+      mean(sort(z, partial = k)[seq_len(k)], na.rm = TRUE)
+    })
+  }
+  attr(score, "knn.neighbor.used") <- k
+  attr(score, "knn.self.excluded") <- exclude.self
+  attr(score, "knn.chunk.size") <- chunk.size
+  score
 }
 ###################################################################
 ### Helper functions

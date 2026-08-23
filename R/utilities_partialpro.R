@@ -9,8 +9,16 @@ get.partialpro.hidden <- function(dots) {
        df = if (is.null(dots$df)) 2 else dots$df,
        sampsize = if (is.null(dots$sampsize)) function(x){min(2^8, .632 * x)} else dots$sampsize,
        ntree =  if (is.null(dots$ntree)) 500 else dots$ntree,
-       nodesize = if (is.null(dots$ntree)) 1 else dots$nodesize,
-       mse.tolerance = if (is.null(dots$mse.tolerance)) 0 else dots$mse.tolerance
+       nodesize = if (is.null(dots$nodesize)) 1 else dots$nodesize,
+       mse.tolerance = if (is.null(dots$mse.tolerance)) 0 else dots$mse.tolerance,
+       out.distancef = if (is.null(dots$out.distancef)) "knn" else dots$out.distancef,
+       out.neighbor = if (is.null(dots$out.neighbor)) NULL else dots$out.neighbor,
+       out.reduce = if (is.null(dots$out.reduce)) NULL else dots$out.reduce,
+       out.cutoff = if (is.null(dots$out.cutoff)) NULL else dots$out.cutoff,
+       out.max.rules.tree = if (is.null(dots$out.max.rules.tree)) 150 else dots$out.max.rules.tree,
+       out.max.tree = if (is.null(dots$out.max.tree)) 150 else dots$out.max.tree,
+       out.knn.chunk.size = if (is.null(dots$out.knn.chunk.size)) 100L else dots$out.knn.chunk.size,
+       out.null = if (is.null(dots$out.null)) NULL else dots$out.null
        )
 }
 ## robust log-odds

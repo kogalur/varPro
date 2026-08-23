@@ -1,3 +1,22 @@
+# varPro 3.2.0
+
+## New features
+
+* `partialpro()` gains a new `vt.filter` argument for selecting the virtual-twin filtering engine.  The default, `vt.filter = "isopro"`, preserves the existing isolation-forest filtering behavior.  New alternatives are `vt.filter = "outpro"`, which uses `outpro`-based out-of-distribution support, and `vt.filter = "none"`, which disables VT filtering.
+* Added `outpro`-based VT filtering to `partialpro()`.  For `vt.filter = "outpro"`, virtual twins are scored by an `outpro` distance, calibrated against an `outpro.null()` reference distribution, and converted to a support score.  The existing `cut` option is retained: larger values require stronger support and `cut = 0` disables VT filtering.
+* Added `distancef = "knn"` to `outpro()`.  The KNN distance is computed in the standardized selected predictor subspace and provides a faster option for large prediction or virtual-twin grids because it does not require the forest-neighborhood distance construction.
+* The `outpro` VT filter in `partialpro()` uses KNN distance by default through the hidden option `out.distancef = "knn"`.  Additional advanced controls are available through `...`, including `out.neighbor`, `out.reduce`, `out.cutoff`, `out.max.rules.tree`, `out.max.tree`, `out.knn.chunk.size`, and `out.null`.
+* `outpro()` now supports `newdata.xscale`, allowing package-internal callers to pass new data that are already aligned to the fitted VarPro x-scale.  This is useful for functions such as `partialpro()`, where virtual data are constructed directly from the stored VarPro design matrix.
+* `outpro.null()` now supports `nulldata.xscale`, providing the corresponding x-scale option for null/reference data.
+
+## Documentation
+* Expanded the `partialpro()` help file with a fuller description of the case-local partial-profile method, virtual-twin filtering, local polynomial smoothing, classification log-odds handling, binary-variable handling, and advanced options passed through `...`.
+* Expanded the `outpro()` documentation to describe the KNN distance option and the x-scale handling used by package-internal calls.
+
+## Bug fixes and refinements
+* Fixed hidden-option parsing in `partialpro()` so that `nodesize` is read from `nodesize`, not from `ntree`.
+* `outpro.null()` now uses `cutoff = NULL` by default, matching the main `outpro()` cutoff-selection rule and keeping null calibration consistent with ordinary `outpro()` calls.
+
 # varPro 3.1.0
 
 ## Breaking changes

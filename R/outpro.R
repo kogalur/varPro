@@ -1,13 +1,20 @@
 outpro <- function(object,
                    newdata,
                    neighbor = NULL,
-                   distancef = "prod",
+                   distancef = "knn",
                    reduce = TRUE,
                    cutoff = NULL,
                    max.rules.tree = 150,
-                   max.tree = 150) {
+                   max.tree = 150,
+                   knn.chunk.size = 100L,
+                   newdata.xscale = FALSE) {
   ## track whether user supplied newdata
   newdata.flag <- TRUE
+  ## newdata.xscale is an internal/package-developer option for
+  ## varpro objects.  When TRUE, newdata is assumed to already be on
+  ## the fitted varPro x-scale, i.e. already hot-encoded and aligned
+  ## to object$x / object$rf$xvar.names.
+  newdata.xscale <- isTRUE(newdata.xscale)
   ## allow varpro objects or rfsrc grow objects
   if (!inherits(object, "varpro")) {
     if (!all(c("rfsrc", "grow") %in% class(object))) {
@@ -30,11 +37,21 @@ outpro <- function(object,
     o <- object$rf
     xvar.names <- o$xvar.names
     xorg <- object$x
+    if (!all(xvar.names %in% colnames(xorg))) {
+      stop("fitted forest variables are not found in object$x.")
+    }
     if (missing(newdata)) {
       newdata <- xorg
       newdata.flag <- FALSE
     } else {
-      newdata <- get.hotencode.test(object$x, newdata)
+      if (newdata.xscale) {
+        if (!all(xvar.names %in% colnames(newdata))) {
+          stop("newdata.xscale = TRUE requires newdata to contain the fitted x-scale columns.")
+        }
+        newdata <- newdata[, xvar.names, drop = FALSE]
+      } else {
+        newdata <- get.hotencode.test(object$x, newdata)
+      }
     }
   }
   ## set oob bit
@@ -79,15 +96,30 @@ outpro <- function(object,
   if (is.null(neighbor)) neighbor <- out.get.neighbor(nrow(xorg))
   neighbor <- max(1, min(round(neighbor), nrow(xorg)))
   ## metric default
-  if (is.null(distancef)) distancef <- "prod"
+  distance.choices <- c("prod",
+                        "euclidean",
+                        "mahalanobis",
+                        "manhattan",
+                        "minkowski",
+                        "kernel",
+                        "knn")
+  if (is.null(distancef)) distancef <- "knn"
+  distancef <- match.arg(distancef, distance.choices)
   ## call varpro.strength with test data option
-  score <- varpro.strength(object = o,
-                           newdata = newdata,
-                           neighbor = neighbor,
-                           reduce = whichx,
-                           max.rules.tree = max.rules.tree,
-                           max.tree = max.tree,
-                           oob.bits = oob.bits)$score
+  ## distancef = "knn" uses an ordinary nearest-neighbor reference set
+  ## in the selected subspace and therefore does not require the
+  ## forest-derived neighbor frames.
+  if (identical(distancef, "knn")) {
+    score <- NULL
+  } else {
+    score <- varpro.strength(object = o,
+                             newdata = newdata,
+                             neighbor = neighbor,
+                             reduce = whichx,
+                             max.rules.tree = max.rules.tree,
+                             max.tree = max.tree,
+                             oob.bits = oob.bits)$score
+  }
   ## package for distance utilities
   out.object <- list(
     score = score,
@@ -96,13 +128,18 @@ outpro <- function(object,
     xnew = if (newdata.flag) newdata[, xvar.names, drop = FALSE] else xorg[, xvar.names, drop = FALSE],
     xvar.names = xvar.names,
     xvar.selected = whichx,
-    xvar.selected.wt = whichx.wt
+    xvar.selected.wt = whichx.wt,
+    oob.bits = oob.bits
   )
   ## build distance ingredients (standardize, drop zero sd)
   distance.object <- out.make.distance(out.object)
   ## compute distance and capture args used
-  distance.res <- out.distance(list(distance.object = distance.object),
-                               distancef = distancef)
+  distance.call <- list(out = list(distance.object = distance.object),
+                        distancef = distancef)
+  if (identical(distancef, "knn")) {
+    distance.call$knn.chunk.size <- knn.chunk.size
+  }
+  distance.res <- do.call(out.distance, distance.call)
   ## assemble return with more provenance
   res <- list(
     distance = distance.res$distance,
@@ -117,6 +154,7 @@ outpro <- function(object,
     dropped.zero.sd.variables = distance.object$dropped.zero.sd.variables,
     means = distance.object$means,
     sds = distance.object$sds,
+    newdata.xscale = newdata.xscale,
     call = match.call()
   )
   res
@@ -127,11 +165,13 @@ outpro <- function(object,
 outpro.null <- function(object,
                         nulldata = NULL,
                         neighbor = NULL,
-                        distancef = "prod",
+                        distancef = "knn",
                         reduce = TRUE,
-                        cutoff = .79,
+                        cutoff = NULL,
                         max.rules.tree = 150,
-                        max.tree = 150) {
+                        max.tree = 150,
+                        knn.chunk.size = 100L,
+                        nulldata.xscale = FALSE) {
   dots <- list()
   dots$neighbor <- neighbor
   dots$distancef <- distancef
@@ -139,6 +179,8 @@ outpro.null <- function(object,
   dots$cutoff <- cutoff
   dots$max.rules.tree <- max.rules.tree
   dots$max.tree <- max.tree
+  dots$knn.chunk.size <- knn.chunk.size
+  dots$newdata.xscale <- nulldata.xscale
   if (!is.null(nulldata)) {
     dots$newdata <- nulldata
   }
@@ -151,8 +193,11 @@ outpro.null <- function(object,
 ### Distance utilities
 ###################################################################
 out.make.distance <- function(out) {
-  ## raw neighbor frames, expect an 'id' column per case
-  raw <- lapply(out$score, as.data.frame)
+  ## raw neighbor frames, expect an 'id' column per case.  These are
+  ## absent for distancef = "knn", where the reference set is ordinary
+  ## nearest neighbors in the selected subspace.
+  has.score <- !is.null(out$score)
+  raw <- if (has.score) lapply(out$score, as.data.frame) else NULL
   ## selected variables
   xvar.names <- out$xvar.names[out$xvar.selected]
   xorg.raw <- out$xorg[, xvar.names, drop = FALSE]
@@ -171,14 +216,19 @@ out.make.distance <- function(out) {
   sds <- sds[keep]
   xorg <- scale(xorg.raw[, keep, drop = FALSE], center = means, scale = sds)
   xnew <- scale(xnew.raw[, keep, drop = FALSE], center = means, scale = sds)
-  ## absolute coordinate differences to neighbors in standardized space
-  dist.xvar <- lapply(seq_along(xvar.names), function(j) {
-    do.call(cbind, lapply(seq_len(length(raw)), function(t) {
-      id <- raw[[t]][["id"]]
-      xcf <- xnew[t, j]
-      abs(xorg[id, j] - xcf)
-    }))
-  })
+  ## absolute coordinate differences to forest-selected neighbors in
+  ## standardized space.  These are not needed for distancef = "knn".
+  dist.xvar <- if (has.score) {
+    lapply(seq_along(xvar.names), function(j) {
+      do.call(cbind, lapply(seq_len(length(raw)), function(t) {
+        id <- raw[[t]][["id"]]
+        xcf <- xnew[t, j]
+        abs(xorg[id, j] - xcf)
+      }))
+    })
+  } else {
+    NULL
+  }
   ## coordinate weights from selection weights; normalize and square
   sel.wt <- out$xvar.selected.wt[keep]
   sel.wt[!is.finite(sel.wt)] <- 0
@@ -190,6 +240,7 @@ out.make.distance <- function(out) {
   list(
     score = out$score,
     neighbor = out$neighbor,
+    oob.bits = if (!is.null(out$oob.bits)) out$oob.bits else NA_integer_,
     xvar.names = xvar.names,
     xvar.wt = xvar.wt,
     dist.xvar = dist.xvar,
