@@ -31,7 +31,10 @@ varpro.strength(object,
 
   \item{max.tree}{Maximum number of trees used for rule extraction.}
 
-  \item{stat}{Statistic to output. Options include \code{"importance"}, \code{"complement mean"}, and \code{"oob mean"}.}
+  \item{stat}{Statistic to return: \code{"importance"} for release
+    importance, \code{"complement"} for the complementary-region
+    response summary, \code{"oob"} for the original-region OOB response
+    summary, or \code{"none"} to omit response summaries.}
 
   \item{membership}{Return out-of-bag and complementary membership indices for each rule?}
 
@@ -69,10 +72,10 @@ data(BostonHousing, package = "mlbench")
 o <- randomForestSRC::rfsrc(medv~., BostonHousing, ntree=100)
 
 ## call varpro.strength
-varpro.strength(object = o, max.rules.tree = 10, max.tree = 15)
+vs <- varpro.strength(object = o, max.rules.tree = 10, max.tree = 15)
 
 ## call varpro.strength with test data
-varpro.strength(object = o, newdata = BostonHousing[1:3,], max.rules.tree = 10, max.tree = 15)
+vs <- varpro.strength(object = o, newdata = BostonHousing[1:3,], max.rules.tree = 10, max.tree = 15)
 
 }
 }

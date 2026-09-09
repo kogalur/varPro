@@ -1,3 +1,62 @@
+# varPro 3.2.1
+
+## New features
+
+* `cv.varpro()` gains optional outer cross-validation through `cv.folds` and
+  `foldid`, with held-out prediction errors, selection frequencies, and
+  importance-stability summaries for all three selection rules. The default,
+  `cv.folds = 0`, retains OOB-based selection without outer cross-validation.
+* `varpro()` objects now include `model.info`, recording original and working
+  responses, survival targets and RMST horizons, class-label mappings, and
+  effective forest settings.
+
+## Interface changes
+
+* Removed iVarPro cut-ladder storage and plotting bands. `plot()` for iVarPro
+  objects no longer supports `ladder`, `ladder.cuts`, or `ladder.max.segments`;
+  remove these arguments from existing calls.
+
+## Bug fixes and refinements
+
+* Importance summaries now map encoded columns to original predictors exactly,
+  avoiding substring and regular-expression name collisions and incorrect
+  pooling across responses. `get.orgvimp()` now reuses a supplied `vmp` summary.
+* Fixed multivariate importance-column handling and CV importance extraction
+  for empty selections and forced one-variable models.
+* Improved hot-encoding of single-level factors and factors with nonsyntactic
+  names. Internal survival-response names now avoid predictor-name collisions.
+* Fixed `ivarpro()` to honor `scale = "global"` and `scale = "none"` throughout
+  neighborhood searches and exclude invalid local fits with `use.loo = FALSE`.
+* Corrected multivariate VarPro OOB-prediction extraction in `ivarpro()` and
+  preserved all columns of user-supplied `y.external` responses.
+* Fixed iVarPro prediction to reuse training hot-encoding, preserve row
+  alignment, honor `noise.na` overrides, and restore training OOB scores when
+  `predict()` is called without `newdata`, including on a prediction result.
+* Improved iVarPro plotting with a single retained predictor, numeric gradient
+  matrices, and plotting data containing unrelated nonnumeric columns.
+* Corrected survival CRPS evaluation to use the evaluation outcomes and
+  matching censoring predictions, including in the fast fitting path.
+  Evaluation with `nblocks = 1` now respects supplied held-out data.
+* Improved `cv.varpro()` input validation, cutoff ordering, and handling of
+  unavailable prediction errors, with warnings when no candidate error is finite.
+* Applied RFQ imbalance controls consistently in the rule-generating forest
+  and cross-validation candidate forests.
+* Fixed `get.rmst()` to use full-ensemble survival estimates with an OOB
+  fallback, validate time horizons, and preserve matrix dimensions for small
+  inputs and response identities for multiple horizons.
+* Fixed `varpro.strength(..., stat = "oob")` to return `meanOOB` for regression.
+* Fixed `sdependent()` to align importance-matrix rows and columns by variable
+  name before clearing self-links, fill missing release rows with zeros, and
+  validate matrix values and names.
+
+## Documentation
+
+* Expanded documentation and examples for VarPro selection, cross-validation,
+  iVarPro fitting and prediction, outPro scoring and calibration, and UVarPro
+  local lasso analysis and dependence graphs.
+* Documented `shap.ivarpro()` with the iVarPro plotting methods and
+  `get.beta.entropy()` and `sdependent()` with `uvarpro()`.
+
 # varPro 3.2.0
 
 ## New features

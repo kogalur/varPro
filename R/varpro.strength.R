@@ -438,7 +438,7 @@ varpro.strength <- function(object,
                                               nativeOutput$statComplement[1:strengthArraySize]))
           strengthArrayHeader <- c(strengthArrayHeader, "meanComplement")
       }
-      else if(stat == "branch") {
+      else if(stat == "oob") {
           strengthArray = as.data.frame(cbind(strengthArray,
                                               nativeOutput$statBranch[1:strengthArraySize]))
           strengthArrayHeader <- c(strengthArrayHeader, "meanOOB")

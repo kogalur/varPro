@@ -1,463 +1,468 @@
 \name{varpro}
 \alias{varpro}
-\title{Model-Independent Variable Selection via the Rule-based Variable
-  Priority (VarPro)}
-
+\title{Model-Independent Variable Selection via the Rule-Based Variable Priority (VarPro)}
 
 \description{
-Model-Independent Variable Selection via the Rule-based Variable Priority (VarPro)
-for Regression, Multivariate Regression, Classification and Survival.
+  Identifies predictors associated with a response by comparing forest
+  rule regions with their near-miss sets. Supports regression, multivariate
+  regression, classification, and right-censored survival. The returned
+  object contains the rule-generating forest and rule-level scores;
+  \code{importance} summarizes these scores and \code{cv.varpro} selects
+  an importance cutoff using predictive performance.
 }
 
 \usage{
-varpro(formula, data, nvar = 30, ntree = 500, 
+varpro(formula, data, nvar = 30, ntree = 500,
        split.weight = TRUE, split.weight.method = NULL, sparse = TRUE,
        nodesize = NULL, max.rules.tree = 150, max.tree = min(150, ntree),
-       parallel = TRUE, cores = get.mc.cores(), verbose = FALSE, seed = NULL, ...)
+       parallel = TRUE, cores = get.mc.cores(),
+       verbose = FALSE, seed = NULL, ...)
 }
 
 \arguments{
+  \item{formula}{Formula specifying the response and predictors, such as
+    \code{y ~ .}, \code{cbind(y1, y2) ~ .}, or
+    \code{Surv(time, status) ~ .}. Use a factor response for
+    classification and numeric responses for regression. Survival
+    status is coded 0 for censoring and 1 for an event.}
 
-  \item{formula}{Formula specifying the model to be fit.}
+  \item{data}{Data frame containing the response and predictors.
+    Incomplete observations are removed, unused factor levels are
+    dropped, and categorical predictors are hot-encoded. See Details.}
 
-  \item{data}{Data frame containing the training data.}
+  \item{nvar}{Maximum number of processed predictor columns retained
+    by split-weight screening before rule generation. A categorical
+    predictor can contribute several columns. Applies when computed
+    or custom split-weights are used; \code{split.weight = FALSE}
+    without custom weights uses all processed predictors.}
 
-  \item{nvar}{Maximum number of variables to return.}
+  \item{ntree}{Number of trees in the rule-generating forest.}
 
-  \item{ntree}{Number of trees to grow.}
+  \item{split.weight}{Should preliminary split-weights guide rule
+    generation? Positive-weight predictors are screened to at most
+    \code{nvar} columns, and candidate split variables are sampled
+    according to their retained weights.}
 
-  \item{split.weight}{Use guided tree-splitting? Candidate variables for
-  splitting are selected with probability proportional to a
-  split-weight, obtained by default from a preliminary lasso+tree step.}
+  \item{split.weight.method}{Character string or vector selecting
+    preliminary weighting methods: \code{"lasso"}, \code{"tree"}, and
+    \code{"vimp"}. Methods can be combined, for example
+    \code{c("lasso", "tree")}. The default \code{NULL} selects a
+    combination automatically. See Details.}
 
+  \item{sparse}{Should preliminary weighting concentrate more strongly
+    on promising predictors? Useful when relatively few predictors
+    are expected to carry signal. See Details.}
 
-  \item{split.weight.method}{Character string (or vector) specifying
-  method used to generate split-weights. Defaults to lasso+tree. See
-  \code{Details}.}
+  \item{nodesize}{Minimum terminal node size for the rule-generating
+    forest. Larger values produce broader regions with more
+    observations for the local comparisons. The default is chosen
+    automatically from the data dimensions.}
 
+  \item{max.rules.tree}{Maximum number of tree branches sampled per
+    selected tree. A branch can yield several comparisons, one for
+    each variable released from its rule.}
 
-  \item{sparse}{Use sparse split-weights?}
+  \item{max.tree}{Maximum number of trees sampled for rule extraction.
+    Increasing this value provides more trees for importance
+    aggregation, up to the number grown.}
 
-  \item{nodesize}{Minimum terminal node size. If not specified, value is
-    set internally based on sample size and dimension.}
-  
+  \item{parallel}{Should the preliminary lasso cross-validation folds
+    run in parallel?}
 
-  \item{max.rules.tree}{Maximum number of rules per tree.}
+  \item{cores}{Number of cores for lasso-fold parallelism. The default
+    respects \code{options(mc.cores = ...)} or \env{MC_CORES}.
+    Forest parallelism is controlled separately by
+    \pkg{randomForestSRC}.}
 
-  \item{max.tree}{Maximum number of trees used to extract rules.}
+  \item{verbose}{Should progress messages and preliminary
+    split-weights be printed?}
 
-  \item{parallel}{Use parallel execution for lasso folds using \pkg{doMC}.}
+  \item{seed}{Seed supplied to the main forest calculations. Use
+    \code{set.seed} before the call to also control R-level sampling,
+    lasso folds, and auxiliary calculations. See Note.}
 
-  \item{cores}{Number of cores for parallel processing. Defaults to
-    \code{parallel::detectCores()}.}
-  
-  \item{verbose}{Print verbose output?}
-
-  \item{seed}{Seed for reproducibility.}
-
-  \item{...}{Additional arguments for advanced use.}
-
+  \item{...}{Additional named controls for split-weight construction,
+    rule generation, and external survival estimation. The supported
+    controls used most often are described in Details.}
 }
 
 \details{
+  \subsection{What VarPro measures}{
+    VarPro studies a predictor's contribution by comparing responses
+    in a rule region and its near-miss set. In regression, the target is
+    the conditional mean of the response; in classification, it is
+    the vector of conditional class probabilities. Survival analysis
+    uses a forest estimate of mortality or restricted mean survival
+    time as its response summary.
 
-Rule-based models, such as decision rules, rule learning, trees, boosted
-trees, Bayesian additive regression trees, Bayesian forests, and random
-forests, are widely used for variable selection. These nonparametric
-methods require no model specification and accommodate various outcomes
-including regression, classification, survival, and longitudinal data.
+    The workflow has three steps. \code{varpro} prepares the data,
+    generates rules, and stores their release comparisons.
+    \code{importance} combines the comparisons into variable-level
+    scores. \code{cv.varpro} uses the scores to form candidate variable
+    sets and chooses among them using forest prediction error.
+  }
 
-Although permutation variable importance (VIMP) and knockoff methods
-have been extensively studied, their effectiveness can be limited in
-practice. Both approaches rely on the quality of artificially generated
-covariates, which may not perform well in complex or high-dimensional
-settings.
+  \subsection{Rules and near-miss comparisons}{
+    A root-to-terminal-node path defines a region \eqn{R} by combining
+    its split conditions. Releasing predictor \eqn{s} removes every
+    condition involving that predictor while retaining the conditions
+    on the other predictors. This produces the enlarged release region
+    \eqn{R^{(s)}}{R^(s)}. The code compares responses
+    in \eqn{R} with those in the near-miss set
+    \deqn{
+      C_s = R^{(s)} \setminus R = R^c \cap R^{(s)}.
+    }{
+      C_s = R^(s) minus R = (complement of R) intersect R^(s).
+    }
 
+    For example, a rule \eqn{x_1 \leq 0.5,\ x_2 > 0.3}{x1 <= 0.5 and x2 > 0.3}
+    becomes \eqn{x_2 > 0.3}{x2 > 0.3} when \eqn{x_1}{x1} is released.
+    Its near-miss set contains observations with
+    \eqn{x_1 > 0.5,\ x_2 > 0.3}{x1 > 0.5 and x2 > 0.3}.
+    Comparing responses in the original region and the near-miss set
+    measures the local contribution of \eqn{x_1}{x1} while preserving
+    the restriction on \eqn{x_2}{x2}.
 
-To address these limitations, we introduce a new framework called
-variable priority (VarPro). Instead of generating synthetic covariates,
-VarPro constructs *release rules* to assess the impact of each covariate
-on the response. Neighborhoods of existing data are used for estimation,
-avoiding the need for artificial data generation. Like VIMP and
-knockoffs, VarPro imposes no assumptions on the conditional distribution
-of the response.
+    Rules are extracted from the forest. At most \code{max.tree} trees and
+    \code{max.rules.tree} branches per selected tree contribute to the
+    analysis. Original-region observations are out-of-bag for the
+    corresponding tree. Repeated comparisons allow a predictor to
+    contribute differently in different regions of the feature space.
+  }
 
+  \subsection{Guided rule generation and the lasso}{
+    Preliminary split-weights help the forest form informative rules.
+    Three sources of information are available:
+    \describe{
+      \item{\code{"lasso"}}{Absolute coefficients from a cross-validated
+        penalized regression on standardized predictors. This favors
+        predictors with strong linear effects or categorical contrasts.}
+      \item{\code{"tree"}}{Split frequencies from a shallow forest,
+        which can identify nonlinear effects and interactions.}
+      \item{\code{"vimp"}}{Positive permutation importance from a
+        preliminary forest, measuring a predictor's contribution
+        to prediction accuracy.}
+    }
+    Combining methods uses complementary evidence when forming the
+    weights. With \code{split.weight.method = NULL}, the combination
+    is chosen automatically. Set an explicit method to control which
+    sources are used.
 
-The VarPro algorithm proceeds as follows: 
-A forest of \code{ntree} trees is grown using guided tree-splitting,
-where candidate variables for node splitting are selected with
-probability proportional to their split-weights. These split-weights are
-computed in a preprocessing step. A subset of \code{max.tree} trees is
-randomly selected from the forest, and \code{max.rules.tree} branches
-are sampled from each selected tree. The resulting rules form the basis
-of the VarPro importance estimator. The method supports regression,
-multivariate regression, multiclass classification, and survival
-outcomes.
+    The lasso penalty is selected by cross-validation. The weights use
+    the more regularized solution within one standard error of the
+    minimum error. Coefficient magnitudes are combined across responses
+    or classes when needed. For survival, the lasso uses the response
+    summary described below.
 
+    With \code{sparse = TRUE}, stronger preliminary weights receive
+    greater emphasis. Use \code{FALSE} to spread the emphasis more
+    broadly. At most \code{nvar} positive-weight processed columns are
+    retained for rule generation. Increase \code{nvar} to explore more
+    predictors, or use \code{split.weight = FALSE} to generate rules
+    using all processed predictors without preliminary weighting.
 
-Guided tree-splitting encourages rule construction to favor influential
-features. Thus, \code{split.weight} should generally remain \code{TRUE},
-especially for high-dimensional problems. If disabled, it is recommended
-to increase \code{nodesize} to improve estimator precision.
+    The retained weights guide candidate-variable sampling in the
+    forest. Final VarPro importance is calculated from the resulting
+    release comparisons.
+  }
 
+  \subsection{Importance scores and selection}{
+    Call \code{importance(o)} to summarize a \code{varpro} object.
+    Its default \code{local.std = TRUE} recomputes locally
+    standardized comparisons from the region memberships. For
+    regression, the score comparing \eqn{R} and its near-miss set
+    \eqn{C_s} is the absolute Welch statistic
+    \deqn{
+      T = \frac{|\bar y_R - \bar y_{C_s}|}
+        {\sqrt{s_R^2/n_R + s_{C_s}^2/n_{C_s}}}.
+    }{
+      T = abs(mean(y_R) - mean(y_Cs)) /
+          sqrt(var(y_R) / n_R + var(y_Cs) / n_Cs).
+    }
+    The same calculation is applied separately to each numeric
+    response, including external survival
+    summaries. For classification, the overall comparison is the
+    square root of a Pearson chi-squared statistic divided by its
+    degrees of freedom, with continuity correction for two-class
+    tables. Class-specific comparisons use absolute
+    standardized differences in proportions.
 
-By default, split-weights are computed via a lasso-plus-tree
-strategy. Specifically, the split-weight of a variable is defined as the
-product of the absolute standardized lasso coefficient and the
-variable's split frequency from a forest of shallow trees. If sample
-size and dimension are both moderate, this may be replaced by the
-variable's absolute permutation importance. Note: variables are one-hot
-encoded for use in lasso, and all inputs are converted to numeric
-values.
+    Within each tree, comparisons for a predictor are averaged with
+    weights equal to their original-region sample sizes. Class-specific
+    summaries use the corresponding class counts. The tree-level
+    scores are then averaged after winsorization at the
+    lower and upper 10 percent quantiles by default. With local
+    standardization, this mean is the reported \code{z} score. With
+    \code{local.std = FALSE},
+    \code{importance} summarizes the stored rule scores and divides
+    their winsorized mean by their winsorized standard deviation
+    across trees.
 
-To customize split-weight construction, use the
-\code{split.weight.method} argument with one or more of the following
-strings: \code{"lasso"}, \code{"tree"}, or \code{"vimp"}. For example,
-\code{"lasso"} uses only lasso coefficients; \code{"lasso tree"}
-combines lasso and shallow trees; \code{"lasso vimp"} combines lasso
-with permutation importance. See examples below.
+    Larger scores indicate stronger response changes under release.
+    The default \code{importance} cutoff of 0.79 is used
+    to highlight variables in its plots. To choose a cutoff
+    from predictive performance, use \code{cv.varpro}. Its optional
+    \code{cv.folds} argument assesses the complete selection procedure
+    on held-out folds and appends stability summaries to the returned
+    importance tables. See
+    \code{\link{importance.varpro}} for the summary and plotting
+    controls.
+  }
 
+  \subsection{Categorical predictors and outcome families}{
+    Numeric predictors retain their values. Two-level categorical
+    predictors become binary columns; predictors with more levels
+    become indicator columns. Screening, forest rules, and
+    \code{importance(o)} operate on these processed columns.
+    \code{o$x} stores the complete processed predictor data, while
+    \code{o$xvar.names} identifies the columns retained for rule
+    generation.
 
-Variables are ranked by importance, with higher values indicating
-greater influence. Cross-validation can be used to determine a cutoff
-threshold. See \code{cv.varpro} for details.
+    \code{get.orgvimp(o)} summarizes scores at the original-variable
+    level using the largest score among a predictor's encoded
+    columns. For multivariate regression it also takes the maximum
+    across outcomes. \code{cv.varpro} uses this original-variable
+    summary for its candidate sets. \code{get.vimp(o)} returns named
+    scores for the represented processed columns. With
+    \code{pretty = FALSE}, \code{get.vimp} and \code{get.orgvimp}
+    return all processed or original predictors, respectively,
+    filling absent scores with zero.
 
+    In binary classification, the working response labels are 0 for
+    the majority class and 1 for the minority class. For imbalanced
+    classes, the default handling uses AUC
+    splitting and RFQ with geometric-mean performance for the
+    preliminary permutation-importance calculation. The original
+    response labels remain in \code{y.org} and the rule-generating
+    forest. The controls \code{use.rfq} and \code{iratio.threshold}
+    modify this behavior.
+  }
 
-Run time can be reduced by using smaller values of \code{ntree} or
-larger values of \code{nodesize}. Additional runtime tuning options are
-discussed in the examples.
+  \subsection{Survival targets}{
+    A preliminary survival forest estimates a numeric response
+    summary for each training observation. By default, this is
+    forest mortality. Supplying \code{rmst = tau} requests restricted
+    mean survival time, obtained by integrating the estimated
+    survival curve up to \code{tau}. A vector of horizons supplies
+    one numeric response per horizon.
 
+    These full-ensemble training summaries are used for preliminary
+    weighting and the default locally standardized importance.
+    With mortality or one RMST horizon, rules are generated using
+    the original survival outcome. With multiple RMST horizons,
+    rule generation uses multivariate regression on the RMST
+    responses. Thus the horizons determine the survival features
+    being prioritized. The controls \code{ntree.external},
+    \code{nodesize.external}, and \code{ntime.external} govern the
+    preliminary survival forest.
+  }
 
-In class-imbalanced two-class settings, the algorithm automatically
-switches to random forest quantile classification (RFQ; see O'Brien and
-Ishwaran, 2019) using the geometric mean (gmean) metric. This behavior
-can be overridden via the hidden option \code{use.rfq}.
+  \subsection{Additional controls and computation}{
+    Useful arguments supplied through \code{...} include
+    \code{nfolds} for lasso cross-validation, \code{rmst} for the
+    survival target, and \code{ntree.external} for the preliminary
+    survival forest.
 
+    Custom split-weights can be supplied as a named numeric vector
+    through \code{split.weight.custom}. Names must refer to processed
+    predictor columns; omitted columns receive zero weight. Use
+    \code{get.splitweight.custom(formula, data)} to obtain a correctly
+    named starting vector, then assign positive weights to the
+    predictors of interest.
 
+    Reducing \code{ntree}, \code{max.tree}, or \code{max.rules.tree}
+    reduces computation. Increasing \code{nodesize} produces larger
+    comparison groups with less local detail. The \code{parallel} and
+    \code{cores} arguments control lasso-fold parallelism; forest
+    threading is controlled by \pkg{randomForestSRC}.
+  }
 }
+
 \value{
-
-  Output containing VarPro estimators used to calculate importance. See
-  \command{importance.varpro}.  Also see \command{cv.varpro} for
-  automated variable selection.
-  
+  An object of class \code{"varpro"} with the following components:
+  \item{rf}{The rule-generating \code{rfsrc} forest.}
+  \item{split.weight}{Named weights for the retained predictor columns,
+    or \code{NULL} when computed and custom weighting are both absent.}
+  \item{split.weight.raw}{List of untransformed preliminary components
+    actually calculated, named \code{lasso}, \code{tree}, or
+    \code{vimp}. Empty when preliminary estimation is skipped.}
+  \item{results}{Rule-level data frame with tree and branch identifiers,
+    released-variable index, original-region sample size \code{n.oob},
+    and importance columns. Indices refer to \code{xvar.names}.
+    Classification includes class-specific counts and scores;
+    multivariate regression includes one score per response.
+    \code{importance} supplies the variable-level summary.}
+  \item{x}{Complete-case processed predictor data, including columns
+    removed by preliminary screening. Encoding information is stored
+    as attributes.}
+  \item{xvar.names}{Processed predictor names retained for rule
+    generation.}
+  \item{xvar.org.names}{Original predictor names before encoding.}
+  \item{y}{Working response: numeric response(s), recoded class labels,
+    or external survival summary values.}
+  \item{y.org}{Original response values for the retained observations.
+    For survival, these are the observed times and event indicators.}
+  \item{yvar.names}{Names of the working response columns.}
+  \item{family}{Family of the rule-generating forest: \code{"regr"},
+    \code{"regr+"}, \code{"class"}, or \code{"surv"}. Multiple
+    RMST horizons use \code{"regr+"}.}
+  \item{max.rules.tree, max.tree}{Stored rule-extraction limits used by
+    subsequent importance calculations.}
+  \item{model.info}{Compact description of the analysis.}
 }
 
-\author{
-  Min Lu and Hemant Ishwaran
+\note{
+  For reproducible serial analyses, call \code{set.seed} immediately
+  before \code{varpro} and use \code{parallel = FALSE}. The
+  \code{seed} argument controls only the forest calls to which it is
+  passed. Rule resampling and lasso folds also use random numbers.
+  Calling \code{importance} again can resample rules; retain a summary
+  for repeated inspection of the same calculation.
+
+  The \code{...} controls are consumed by specific stages. General
+  \code{rfsrc} arguments such as \code{na.action}, \code{splitrule},
+  and \code{perf.type} are not forwarded wholesale. Perform any
+  desired imputation before calling \code{varpro}.
 }
+
+\author{Min Lu and Hemant Ishwaran}
 
 \references{
-
-  Ishwaran H. (2025). \emph{Multivariate Statistics: Classical Foundations and
-  Modern Machine Learning}.  Chapman and Hall/CRC.
-
-  Ishwaran H. and Blackstone E.H. (2025).  Harnessing the power of
-  virtual (digital) twins: Graphical causal tools for understanding
-  patient and hospital differences. \emph{Computational and Structural
-    Biotechnology Journal}, 28:312.
-  
   Lu, M. and Ishwaran, H. (2024). Model-independent variable selection
-  via the rule-based variable priority. arXiv e-prints, pp.arXiv-2409.
+  via the rule-based variable priority. arXiv:2409.09003.
+  \doi{10.48550/arXiv.2409.09003}.
 
-  Lu, M. and Ishwaran, H. (2025). Individual variable priority: a
-  model-independent local gradient method for variable importance.
-  \emph{Artificial Intelligence Review}, 58:407.
-  
-  Zhou L., Lu M. and Ishwaran H. (2026).  Variable priority for
-  unsupervised variable selection.  \emph{Pattern Recognition},
-  172:112727.
+  Friedman, J., Hastie, T. and Tibshirani, R. (2010). Regularization
+  paths for generalized linear models via coordinate descent.
+  \emph{Journal of Statistical Software}, 33(1), 1--22.
+  \doi{10.18637/jss.v033.i01}.
 
+  O'Brien, R. and Ishwaran, H. (2019). A random forests quantile
+  classifier for class imbalanced data. \emph{Pattern Recognition},
+  90, 232--249.
+
+  Ishwaran, H. (2025). \emph{Multivariate Statistics: Classical
+  Foundations and Modern Machine Learning}. Chapman and Hall/CRC.
 }
 
 \seealso{
-  \command{\link{alzheimers}}
-  \command{\link{cv.varpro}}
-  \command{\link{glioma}}
-  \command{\link{hrrecov}}
-  \command{\link{importance.varpro}}
-  \command{\link{partialpro}}
-  \command{\link{predict.varpro}}  
-  \command{\link{isopro}}
-  \command{\link{ivarpro}}
-  \command{\link{outpro}}
-  \command{\link{uvarpro}}
+  \code{\link{importance.varpro}}, \code{\link{cv.varpro}},
+  \code{\link{predict.varpro}}, \code{\link{ivarpro}},
+  \code{\link{uvarpro}}, \code{\link{partialpro}},
+  \code{\link{outpro}}, \code{\link{isopro}},
+  \code{\link[randomForestSRC:rfsrc]{randomForestSRC::rfsrc}},
+  \code{\link[glmnet:cv.glmnet]{glmnet::cv.glmnet}}.
 }
 
 \examples{
-
-## ------------------------------------------------------------
-## toy example - needed to pass CRAN test
-## ------------------------------------------------------------
-
-## mtcars regression
+## Small regression example.
 o <- varpro(mpg ~ ., mtcars, ntree = 1)
 
 \donttest{
+## Nonlinear regression with five signal and five noise predictors.
+set.seed(137)
+n <- 300
+x <- matrix(runif(n * 10), nrow = n)
+colnames(x) <- sprintf("x\%02d", seq_len(ncol(x)))
+mu <- 10 * sin(pi * x[, 1] * x[, 2]) +
+      20 * (x[, 3] - 0.5)^2 + 10 * x[, 4] + 5 * x[, 5]
+d <- data.frame(y = mu + rnorm(n), x)
+signal <- colnames(x)[1:5]
 
-## ------------------------------------------------------------
-## classification example: iris 
-## ------------------------------------------------------------
-
-## apply varpro to the iris data
-o <- varpro(Species ~ ., iris, max.tree = 5)
-
-## call the importance function and print the results
-print(importance(o))
-
-## ------------------------------------------------------------
-## regression example: boston housing
-## ------------------------------------------------------------
-
-## load the data
-data(BostonHousing, package = "mlbench")
-
-## call varpro
-o <- varpro(medv~., BostonHousing)
-
-## extract and print importance values
+## Shallow-tree-guided rule generation.
+o <- varpro(y ~ ., d, ntree = 25, ntree.reduce = 25,
+            split.weight.method = "tree", nodesize = 10,
+            max.tree = 25, max.rules.tree = 20, parallel = FALSE)
 imp <- importance(o)
-print(imp)
+print(data.frame(variable = rownames(imp), z = imp$z,
+                 signal = rownames(imp) \%in\% signal))
 
-## another way to extract and print importance values
-print(get.vimp(o))
-print(get.vimp(o, pretty = FALSE))
-
-## plot importance values
-importance(o, plot.it = TRUE)
-
-## ------------------------------------------------------------
-## regression example: boston housing illustrating hot-encoding
-## ------------------------------------------------------------
-
-## load the data
-data(BostonHousing, package = "mlbench")
-
-## convert some of the features to factors
-Boston <- BostonHousing
-Boston$zn <- factor(Boston$zn)
-Boston$chas <- factor(Boston$chas)
-Boston$lstat <- factor(round(0.2 * Boston$lstat))
-Boston$nox <- factor(round(20 * Boston$nox))
-Boston$rm <- factor(round(Boston$rm))
-
-## call varpro and print the importance
-print(importance(o <- varpro(medv~., Boston)))
-
-## get top variables
-get.topvars(o)
-
-## map importance values back to original features
-print(get.orgvimp(o))
-
-## same as above ... but for all variables
-print(get.orgvimp(o, pretty = FALSE))
-
-## ------------------------------------------------------------
-## regression example: friedman 1
-## ------------------------------------------------------------
-
-o <- varpro(y~., data.frame(mlbench::mlbench.friedman1(1000)))
-print(importance(o))
-
-## ------------------------------------------------------------
-## example without guided tree-splitting
-## ------------------------------------------------------------
-
-o <- varpro(y~., data.frame(mlbench::mlbench.friedman2(1000)),
-            nodesize = 10, split.weight = FALSE)
-print(importance(o))
-
-## ------------------------------------------------------------
-## regression example: all noise
-## ------------------------------------------------------------
-
-x <- matrix(rnorm(100 * 50), 100, 50)
-y <- rnorm(100)
-o <- varpro(y~., data.frame(y = y, x = x))
-print(importance(o))
-
-## ------------------------------------------------------------
-## multivariate regression example: boston housing
-## ------------------------------------------------------------
-
-data(BostonHousing, package = "mlbench")
-
-## using rfsrc multivariate formula call
-importance(varpro(Multivar(lstat, nox) ~., BostonHousing))
-
-## using cbind multivariate formula call
-importance(varpro(cbind(lstat, nox) ~., BostonHousing))
-
-##----------------------------------------------------------------
-##  class imbalanced problem 
-## 
-## - simulation example using the caret R-package
-## - creates imbalanced data by randomly sampling the class 1 values
-## 
-##----------------------------------------------------------------
-
-if (library("caret", logical.return = TRUE)) {
-
-  ## experimental settings
-  n <- 5000
-  q <- 20
-  ir <- 6
-  f <- as.formula(Class ~ .)
- 
-  ## simulate the data, create minority class data
-  d <- twoClassSim(n, linearVars = 15, noiseVars = q)
-  d$Class <- factor(as.numeric(d$Class) - 1)
-  idx.0 <- which(d$Class == 0)
-  idx.1 <- sample(which(d$Class == 1), sum(d$Class == 1) / ir , replace = FALSE)
-  d <- d[c(idx.0,idx.1),, drop = FALSE]
-  d <- d[sample(1:nrow(d)), ]
-
-  ## varpro call
-  print(importance(varpro(f, d)))
-
-}
-
-## ------------------------------------------------------------
-## multiclass example: wine data 
-## ------------------------------------------------------------
-data(wine, package = "randomForestSRC")
-wine$quality <- factor(wine$quality)
-o <- varpro(quality~., wine) 
-print(importance(o))
-
-## ------------------------------------------------------------
-## survival example: pbc 
-## ------------------------------------------------------------
-data(pbc, package = "randomForestSRC")
-o <- varpro(Surv(days, status)~., pbc)
-print(importance(o))
-
-## ------------------------------------------------------------
-## pbc survival with rmst (restricted mean survival time)
-## functional of interest is RMST at 500 days
-## ------------------------------------------------------------
-data(pbc, package = "randomForestSRC")
-o <- varpro(Surv(days, status)~., pbc, rmst = 500)
-print(importance(o))
-
-## ------------------------------------------------------------
-## pbc survival with rmst vector
-## variable importance is a list for each rmst value
-## ------------------------------------------------------------
-data(pbc, package = "randomForestSRC")
-o <- varpro(Surv(days, status)~., pbc, rmst = c(500, 1000))
-print(importance(o))
-
-## ------------------------------------------------------------
-## survival example with more variables
-## ------------------------------------------------------------
-data(peakVO2, package = "randomForestSRC")
-o <- varpro(Surv(ttodead, died)~., peakVO2)
+## Automatic weighting with more trees and comparisons.
+set.seed(137)
+o <- varpro(y ~ ., d, ntree = 150, max.tree = 100,
+            max.rules.tree = 50, nfolds = 5, parallel = FALSE)
 imp <- importance(o, plot.it = TRUE)
 print(imp)
+print(get.vimp(o))
+print(get.vimp(o, pretty = FALSE))
+print(get.topvars(o))
 
-## ------------------------------------------------------------
-## high dimensional survival example
-## ------------------------------------------------------------
-data(vdv, package = "randomForestSRC")
-o <- varpro(Surv(Time, Censoring)~., vdv)
-print(importance(o))
+## Choose a variable set using predictive performance.
+set.seed(137)
+## Add cv.folds = 5 to assess selection and obtain stability summaries.
+cv <- cv.varpro(y ~ ., d, ntree = 100,
+                zcut = seq(0.1, 3, length.out = 12), nblocks = 6,
+                max.tree = 75, max.rules.tree = 40,
+                nfolds = 5, parallel = FALSE)
+print(cv$imp)
+print(cv$imp.conserve)
 
-## ------------------------------------------------------------
-## high dimensional survival example without sparse option
-## ------------------------------------------------------------
-data(vdv, package = "randomForestSRC")
-o <- varpro(Surv(Time, Censoring)~., vdv, sparse = FALSE)
-print(importance(o))
-
-## ----------------------------------------------------------------------
-## high dimensional survival example using different split-weight methods
-## ----------------------------------------------------------------------
-data(vdv, package = "randomForestSRC")
-f <- as.formula(Surv(Time, Censoring)~.)
-
-## lasso only
-print(importance(varpro(f, vdv, split.weight.method = "lasso")))
-
-## lasso and vimp
-print(importance(varpro(f, vdv, split.weight.method = "lasso vimp")))
-
-## lasso, vimp and shallow trees
-print(importance(varpro(f, vdv, split.weight.method = "lasso vimp tree")))
-
-## ------------------------------------------------------------
-## largish data (iowa housing data)
-## to speed up calculations convert data to all real
-## ------------------------------------------------------------
-
-## first we roughly impute the data
-data(housing, package = "randomForestSRC")
-dta <- roughfix(housing)
-dta <- data.frame(data.matrix(dta))
-
-## varpro call
-o <- varpro(SalePrice~., dta)
-print(importance(o))
-
-## ------------------------------------------------------------
-## large data: illustrates different ways to improve speed
-## ------------------------------------------------------------
-
-n <- 25000
-p <- 50
-d <- data.frame(y = rnorm(n), x = matrix(rnorm(n * p), n))
-
-## use large nodesize
-print(system.time(o <- varpro(y~., d, ntree = 100, nodesize = 200)))
-print(importance(o))
-
-## use large nodesize, smaller bootstrap 
-print(system.time(o <- varpro(y~., d, ntree = 100, nodesize = 200,
-           sampsize = 100)))
-print(importance(o))
-
-
-## ------------------------------------------------------------
-## custom split-weights (hidden option)
-## ------------------------------------------------------------
-
-## load the data
+## Hot-encoding: compare processed-column and original-variable scores.
+## Several predictors are converted to factors before analysis.
 data(BostonHousing, package = "mlbench")
-
-## make some features into factors
 Boston <- BostonHousing
 Boston$zn <- factor(Boston$zn)
 Boston$chas <- factor(Boston$chas)
 Boston$lstat <- factor(round(0.2 * Boston$lstat))
 Boston$nox <- factor(round(20 * Boston$nox))
 Boston$rm <- factor(round(Boston$rm))
+set.seed(137)
+b <- varpro(medv ~ ., Boston, ntree = 100,
+            max.tree = 75, max.rules.tree = 40,
+            nfolds = 5, parallel = FALSE)
 
-## get default custom split-weights: a named real vector
-swt <- get.splitweight.custom(medv~.,Boston)
+## Calculate the processed-column importance
+set.seed(137)
+b.imp <- importance(b)
+print(b.imp)
 
-## define custom splits weight
-swt <- swt[grepl("crim", names(swt)) |
-           grepl("zn", names(swt)) |
-           grepl("nox", names(swt)) |
-           grepl("rm", names(swt)) |
-           grepl("lstat", names(swt))]
-           
-swt[grepl("nox", names(swt))] <- 4
-swt[grepl("lstat", names(swt))] <- 4
+## Map max scores back to original predictors.
+set.seed(137)
+b.org <- get.orgvimp(b)
+print(b.org)
+print(get.orgvimp(b, vmp = b.imp)) ## should be identical; no seed required
 
-swt <- c(swt, strange=99999)
+## Include every original predictor, filling absent scores with zero.
+set.seed(137)
+print(get.orgvimp(b, pretty = FALSE))
 
-cat("custom split-weight\n")
-print(swt)
-  
-## call varpro with the custom split-weights
-o <- varpro(medv~.,Boston,split.weight.custom=swt,verbose=TRUE,sparse=FALSE)
-cat("varpro result\n")
-print(importance(o))
-print(get.vimp(o, pretty=FALSE))
-print(get.orgvimp(o, pretty=FALSE))
 
+## Multiclass classification: overall and class-specific importance.
+data(wine, package = "randomForestSRC")
+wine$quality <- factor(wine$quality)
+set.seed(137)
+w <- varpro(quality ~ ., wine, ntree = 100,
+            max.tree = 75, max.rules.tree = 40,
+            nfolds = 5, parallel = FALSE)
+w.imp <- importance(w)
+print(w.imp$unconditional)
+print(w.imp$conditional.z)
+
+## Survival: canonical example
+data(peakVO2, package = "randomForestSRC")
+s <- varpro(Surv(ttodead, died)~., peakVO2)
+print(importance(s))
+
+
+## Survival: prioritize variables affecting RMST through 500 days.
+data(pbc, package = "randomForestSRC")
+pbc <- na.omit(pbc)
+set.seed(137)
+s <- varpro(Surv(days, status) ~ ., pbc, rmst = 500,
+            ntree = 100, max.tree = 75, max.rules.tree = 40,
+            nfolds = 5, parallel = FALSE)
+print(importance(s))
+print(get.orgvimp(s))
+print(get.vimp(s, pretty = FALSE))
+
+## Multiple horizons give one importance summary per horizon.
+set.seed(137)
+s.multi <- varpro(Surv(days, status) ~ ., pbc,
+                  rmst = c(500, 1000), ntree = 100,
+                  max.tree = 75, max.rules.tree = 40,
+                  nfolds = 5, parallel = FALSE)
+print(importance(s.multi))
 }
 }
-\keyword{varpro}
+\keyword{models}
+\keyword{tree}

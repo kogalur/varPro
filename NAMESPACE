@@ -26,7 +26,8 @@ importFrom("stats", "as.formula", "coef", "median", "qnorm",
            "rnorm", "ecdf", "qt", "glm",
            "t.test", "chisq.test", "prop.test",
            "binomial", "logLik", "pchisq", "cov",
-           "hatvalues", "resid")
+           "hatvalues", "resid",
+           "complete.cases")
 
 importFrom("survival", "survdiff", "Surv")
 

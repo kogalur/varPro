@@ -30,9 +30,12 @@
   if (is.null(target)) {
     sel_idx <- 1L
   } else if (is.numeric(target) && length(target) == 1L && is.finite(target)) {
+    if (target != floor(target) || target < 1L || target > m) {
+      stop("target must be an integer index between 1 and ", m, ".")
+    }
     sel_idx <- as.integer(target)
-    if (sel_idx < 1L || sel_idx > m) stop("target index is out of range.")
-  } else if (is.character(target) && length(target) == 1L) {
+  } else if (is.character(target) && length(target) == 1L &&
+             !is.na(target) && nzchar(target)) {
     if (is.null(nm)) stop("target was supplied as a name but ivarpro list has no names.")
     sel_idx <- match(target, nm)
     if (is.na(sel_idx)) {
@@ -42,7 +45,7 @@
   } else {
     stop("target must be NULL, a single numeric index, or a single character name.")
   }
-  sel_lab <- if (!is.null(nm) && length(nm) >= sel_idx && nzchar(nm[sel_idx])) nm[sel_idx] else as.character(sel_idx)
+  sel_lab <- if (!is.null(nm) && length(nm) >= sel_idx && !is.na(nm[sel_idx]) && nzchar(nm[sel_idx])) nm[sel_idx] else as.character(sel_idx)
   if (isTRUE(warn) && is.null(target)) {
     if (is.null(caller)) caller <- "ivarpro"
     warning(caller, ": ivar is a list (multivariate/multiclass); defaulting to first element (",
@@ -78,18 +81,17 @@ shap.ivarpro <- function(ivar,
   if (is.null(dat)) {
     stop("need to supply data from the original varpro call")
   }
-  ## --- remove importance with all missing values, or all zeroes ---
-  bad <- sapply(data.frame(ivar), function(x) {all(is.na(x) | x == 0)})
-  if (sum(!bad) == 0) stop("all importance values are zero or NA")
-  ivar <- ivar[, !bad]
-  ## conversion to matrices
-  ivar_mat <- as.matrix(ivar)
-  dat_mat  <- as.matrix(dat)
-  ## coherence checks
-  if (nrow(ivar_mat) != nrow(dat_mat)) {
-    stop("ivar_mat and dat_mat must have the same number of rows.")
+  ## Keep the gradient matrix two-dimensional, including one-feature plots.
+  if (!(is.data.frame(ivar) || is.matrix(ivar)) ||
+      any(!vapply(as.data.frame(ivar), is.numeric, logical(1)))) {
+    stop("ivar must be a numeric data frame or matrix")
   }
-  n  <- nrow(ivar_mat)
+  ivar_mat <- as.matrix(ivar)
+  dat_mat <- if (is.data.frame(dat)) dat else as.matrix(dat)
+  if (nrow(ivar_mat) != nrow(dat_mat)) {
+    stop("ivar and dat must have the same number of rows.")
+  }
+  n <- nrow(ivar_mat)
   pI <- ncol(ivar_mat)
   ## --- Feature names for ivar_mat ---
   if (is.null(colnames(ivar_mat))) {
@@ -135,6 +137,16 @@ shap.ivarpro <- function(ivar,
            "cannot automatically align features.")
     }
   }
+  ## Coerce only the aligned columns, so unused nonnumeric columns in dat
+  ## do not change the type of the plotted feature values.
+  if (any(!vapply(as.data.frame(dat_mat_sub), is.numeric, logical(1)))) {
+    stop("Plotting values must be numeric; use the stored processed data")
+  }
+  dat_mat_sub <- as.matrix(dat_mat_sub)
+  keep.feature <- colSums(is.finite(ivar_mat) & ivar_mat != 0) > 0L
+  if (!any(keep.feature)) stop("all importance values are zero or nonfinite")
+  ivar_mat <- ivar_mat[, keep.feature, drop = FALSE]
+  dat_mat_sub <- dat_mat_sub[, keep.feature, drop = FALSE]
   ## --- Order features by global importance: mean |iVarPro| ---
   mean_abs <- colMeans(abs(ivar_mat), na.rm = TRUE)
   ord      <- order(mean_abs, decreasing = TRUE)
@@ -319,7 +331,7 @@ shap.ivarpro <- function(ivar,
        xlab = "iVarPro value (local gradient)",
        ylab = "",
        yaxt = "n",
-       main = "iVarPro SHAP summary plot",
+       main = "iVarPro summary plot",
        xaxs = "i")  # no extra padding on x
   axis(2, at = seq_len(p), labels = feature_labels, las = 1, cex.axis = 0.8)
   abline(v = 0, lty = 2)
@@ -367,9 +379,6 @@ plot.ivarpro <- function(x,
       size.var = NULL,
       data = NULL,
       target = NULL,
-      ladder = FALSE,
-      ladder.cuts = NULL,
-      ladder.max.segments = 3000,
       pch = 16,
       cex = 0.8,
       cex.range = c(0.5, 2),
@@ -662,9 +671,8 @@ plot.ivarpro <- function(x,
   dots$smooth.min.n <- dots$smooth.n.grid <- NULL
   dots$col.legend.probs <- dots$col.legend.n <- NULL
   dots$smooth.probs <- dots$smooth.n <- NULL
-  ## We draw points ourselves (after ladder bands), so suppress plot() points.
+  ## We draw points ourselves, so suppress plot() points.
   if (!is.null(dots$type)) dots$type <- NULL
-  ivar_full <- ivar
   ivar_is_list <- is.list(ivar) && !inherits(ivar, "data.frame")
   ## special handling for multivariate / multiclass ivarpro output
   if (ivar_is_list) {
@@ -672,8 +680,6 @@ plot.ivarpro <- function(x,
       data <- attr(ivar, "data")
     }
     ivar <- .ivarpro_select_target(ivar, target = target, warn = TRUE, caller = "plot.ivarpro")
-  } else {
-    ivar_full <- NULL
   }
   ## resolve feature matrix: also add y if possible
   if (is.null(data) && !is.null(attr(ivar, "data"))) {
@@ -682,11 +688,18 @@ plot.ivarpro <- function(x,
   if (is.null(data)) {
     stop("need to supply data from the original varpro call")
   }
-  ## variable name
-  if (is.character(var)) {
+  if (!(is.data.frame(ivar) || is.matrix(ivar)) ||
+      !(is.data.frame(data) || is.matrix(data)) ||
+      nrow(ivar) != nrow(data)) {
+    stop("x and data must be data frames or matrices with the same number of rows")
+  }
+  if (is.character(var) && length(var) == 1L && !is.na(var)) {
     var_name <- var
-  } else {
+  } else if (is.numeric(var) && length(var) == 1L && is.finite(var) &&
+             var == floor(var) && var >= 1 && var <= ncol(ivar)) {
     var_name <- colnames(ivar)[as.integer(var)]
+  } else {
+    stop("var must be a single variable name or column index")
   }
   if (is.null(var_name) || !(var_name %in% colnames(ivar))) {
     stop("Could not resolve 'var' in ivar columns.")
@@ -694,25 +707,13 @@ plot.ivarpro <- function(x,
   if (!(var_name %in% colnames(data))) {
     stop("Plotting requires that 'data' contains the plotted variable.")
   }
-  xv <- data[, var_name]
-  yv <- ivar[[var_name]]
-  ## check if requested var has all missing values
-  if (all(is.na(yv))) {
-    stop("requested variable has gradient with all missing values:", var, "\n")
+  xv <- data[, var_name, drop = TRUE]
+  yv <- ivar[, var_name, drop = TRUE]
+  if (!is.numeric(xv) || !is.numeric(yv)) {
+    stop("The plotted predictor and gradient must be numeric")
   }
-  ## compute ladder band if requested and available
-  band_df <- NULL
-  if (isTRUE(ladder)) {
-    ## ivarpro_band() will error if membership is not stored; in that case
-    ## the plot still works, just without ladder info.
-    band_df <- tryCatch(
-      ivarpro_band(if (ivar_is_list) ivar_full else ivar,
-                   var = var_name,
-                   cuts = ladder.cuts,
-                   return.matrix = FALSE,
-                   target = target),
-      error = function(e) NULL
-    )
+  if (!any(is.finite(xv) & is.finite(yv))) {
+    stop("No finite predictor/gradient pairs for variable: ", var_name)
   }
   ## colors
   col_pt <- rep("black", length(yv))
@@ -773,21 +774,12 @@ plot.ivarpro <- function(x,
   }
   ## finite plotting set
   ok <- is.finite(xv) & is.finite(yv)
-  if (!is.null(band_df)) {
-    ok <- ok & is.finite(band_df$main)
-  }
   xv <- xv[ok]
   yv <- yv[ok]
   col_pt <- col_pt[ok]
   if (!is.null(col_grp)) col_grp <- col_grp[ok]
   cex_pt <- cex_pt[ok]
   if (!is.null(cv)) cv <- cv[ok]
-  if (!is.null(band_df)) {
-    lo <- band_df$lower[ok]
-    hi <- band_df$upper[ok]
-  } else {
-    lo <- hi <- NULL
-  }
   ## optional: small horizontal dodge when colouring by a factor (helps
   ## discrete x + heavy overlap). col.dodge is interpreted as a fraction
   ## of the x-range (e.g. 0.01 means 1% of range).
@@ -821,7 +813,7 @@ plot.ivarpro <- function(x,
   ## plot
   if (is.null(main)) main <- paste0(var_name, " vs iVarPro gradient")
   if (is.null(xlab)) xlab <- var_name
-  ## draw axes first, then ladder bands, then zero line, then points
+  ## Draw axes first, then distribution strips, reference line, and points.
   do.call(graphics::plot,
           c(list(x = x_plot, y = yv,
                  xlab = xlab, ylab = ylab,
@@ -915,21 +907,6 @@ plot.ivarpro <- function(x,
           }
         }
       }
-    }
-  }
-  ## add ladder band as vertical segments (thinned if necessary)
-  if (!is.null(lo) && !is.null(hi)) {
-    okb <- is.finite(lo) & is.finite(hi)
-    if (any(okb)) {
-      nn <- sum(okb)
-      take <- which(okb)
-      if (nn > ladder.max.segments) {
-        take <- take[round(seq(1, nn, length.out = ladder.max.segments))]
-      }
-      band_col <- grDevices::adjustcolor("gray60", alpha.f = 0.35)
-      graphics::segments(x0 = x_plot[take], y0 = lo[take],
-                         x1 = x_plot[take], y1 = hi[take],
-                         col = band_col, lwd = 1)
     }
   }
   ## x-axis distribution strip (fill pass behind points)
@@ -1207,142 +1184,4 @@ plot.ivarpro <- function(x,
     }
   }
   invisible(TRUE)
-}
-## Path helper: per-variable bands from rule-level ladder
-## Compute per-case ladder summary for ONE variable.
-## Returns a data.frame with main gradient + lower/upper band across ladder cuts.
-ivarpro_band <- function(ivar,
-                         var,
-                         cuts = NULL,
-                         return.matrix = FALSE,
-                         target = NULL) {
-  path_common <- NULL
-  path_spec <- NULL
-  if (is.list(ivar) && !inherits(ivar, "data.frame")) {
-    path_common <- attr(ivar, "ivarpro.path")
-    ivar <- .ivarpro_select_target(ivar, target = target, warn = TRUE, caller = "ivarpro_band")
-    path_spec <- attr(ivar, "ivarpro.path")
-  } else {
-    path_spec <- attr(ivar, "ivarpro.path")
-  }
-  .pick <- function(name) {
-    if (!is.null(path_spec) && !is.null(path_spec[[name]])) return(path_spec[[name]])
-    if (!is.null(path_common) && !is.null(path_common[[name]])) return(path_common[[name]])
-    NULL
-  }
-  path <- path_spec
-  if (is.null(path)) path <- path_common
-  if (is.null(path)) {
-    stop("No 'ivarpro.path' attribute found. This object was likely created with an older ivarpro(). Re-run ivarpro() using this script to attach path information.")
-  }
-  memb0 <- .pick("oobMembership")
-  ladder0 <- .pick("rule.imp.ladder")
-  if (is.null(memb0) || is.null(ladder0)) {
-    stop("Path info is missing membership and/or ladder gradients. Make sure path.store.membership=TRUE (default) when calling ivarpro().")
-  }
-  xn <- .pick("xvar.names")
-  if (is.character(var)) {
-    j <- match(var, xn)
-    if (is.na(j)) stop("Unknown 'var': not found in xvar.names.")
-    var_name <- var
-  } else {
-    j <- as.integer(var)
-    if (!is.finite(j) || j < 1L || j > length(xn)) stop("Invalid 'var' index.")
-    var_name <- xn[j]
-  }
-  n <- nrow(ivar)
-  main <- ivar[[var_name]]
-  ladder <- ladder0
-  cut.ladder <- .pick("cut.ladder")
-  L <- length(cut.ladder)
-  if (L == 0L || ncol(ladder) == 0L) {
-    ## nothing to summarize
-    out <- data.frame(main = main,
-                      lower = NA_real_,
-                      upper = NA_real_,
-                      n.rules = 0L)
-    attr(out, "cut.ladder") <- cut.ladder
-    attr(out, "var") <- var_name
-    return(out)
-  }
-  ## choose which ladder cuts to include
-  if (is.null(cuts)) {
-    kk <- seq_len(L)
-  } else {
-    ## if integer-ish, treat as indices; else treat as cut values
-    if (all(is.finite(cuts)) && all(abs(cuts - round(cuts)) < 1e-8) &&
-        all(cuts >= 1) && all(cuts <= L)) {
-      kk <- unique(as.integer(cuts))
-    } else {
-      kk <- match(cuts, cut.ladder)
-      kk <- kk[is.finite(kk)]
-      kk <- unique(as.integer(kk))
-    }
-    if (!length(kk)) stop("No valid ladder cuts selected.")
-  }
-  ## select rules for this release variable
-  ridx <- which(.pick("rule.variable") == j)
-  memb <- memb0
-  ## alloc (only for selected kk)
-  K <- length(kk)
-  sum_mat <- matrix(0, nrow = n, ncol = K)
-  cnt_mat <- matrix(0L, nrow = n, ncol = K)
-  cnt_rules <- integer(n)
-  ## accumulate
-  for (rr in ridx) {
-    idx <- memb[[rr]]
-    if (!length(idx)) next
-    cnt_rules[idx] <- cnt_rules[idx] + 1L
-    v <- ladder[rr, kk, drop = TRUE]
-    ## v can be scalar when K==1
-    if (K == 1L) {
-      if (is.finite(v)) {
-        sum_mat[idx, 1] <- sum_mat[idx, 1] + v
-        cnt_mat[idx, 1] <- cnt_mat[idx, 1] + 1L
-      }
-    } else {
-      for (t in seq_len(K)) {
-        vt <- v[t]
-        if (is.finite(vt)) {
-          sum_mat[idx, t] <- sum_mat[idx, t] + vt
-          cnt_mat[idx, t] <- cnt_mat[idx, t] + 1L
-        }
-      }
-    }
-  }
-  ## compute means for each selected ladder cut
-  means <- sum_mat / cnt_mat  ## NaN where cnt_mat==0
-  ## handle variables absent for a case (match ivarpro semantics)
-  if (isTRUE(.pick("noise.na"))) {
-    means[cnt_rules == 0L, ] <- NA_real_
-  } else {
-    means[cnt_rules == 0L, ] <- 0
-  }
-  ## lower/upper across selected ladder cuts (ignore NA/NaN/Inf)
-  lower <- rep(NA_real_, n)
-  upper <- rep(NA_real_, n)
-  for (t in seq_len(K)) {
-    z <- means[, t]
-    ok <- is.finite(z)
-    if (any(ok)) {
-      if (all(is.na(lower))) {
-        ## initialize
-        lower[ok] <- z[ok]
-        upper[ok] <- z[ok]
-      } else {
-        lower[ok] <- pmin(lower[ok], z[ok], na.rm = TRUE)
-        upper[ok] <- pmax(upper[ok], z[ok], na.rm = TRUE)
-      }
-    }
-  }
-  out <- data.frame(main = main,
-                    lower = lower,
-                    upper = upper,
-                    n.rules = cnt_rules)
-  if (isTRUE(return.matrix)) {
-    attr(out, "means") <- means
-  }
-  attr(out, "cut.ladder") <- cut.ladder[kk]
-  attr(out, "var") <- var_name
-  out
 }

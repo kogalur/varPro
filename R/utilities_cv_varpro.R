@@ -1,11 +1,27 @@
 ## random forest censoring distribution
-get.cens.dist <- function(data, ntree, nodesize, ssize) {
-  colnames(data)[1:2] <- c("time", "cens")
-  data$cens <- 1 * (data$cens == 0)
+get.cens.dist <- function(data, ntree, nodesize, ssize, newdata = NULL) {
+  data <- as.data.frame(data)
+  input.names <- colnames(data)
+  cens.names <- .varpro.fresh.names(c("time", "cens"), input.names[-(1:2)])
+  colnames(data)[1:2] <- cens.names
+  data[[cens.names[2L]]] <- 1 * (data[[cens.names[2L]]] == 0)
+  f <- as.formula(call("~",
+                      call("Surv", as.name(cens.names[1L]), as.name(cens.names[2L])),
+                      as.name(".")))
   ssize <- min(ssize, eval(formals(randomForestSRC::rfsrc.fast)$sampsize)(nrow(data)), na.rm = TRUE)
-  cens.o <- randomForestSRC::rfsrc(Surv(time, cens) ~ ., data, splitrule = "random",
+  cens.o <- randomForestSRC::rfsrc(f, data, splitrule = "random",
                        ntree = ntree, nodesize = nodesize, sampsize = ssize, perf.type = "none")
-  list(surv = cens.o$survival.oob, time.interest = cens.o$time.interest)
+  if (is.null(newdata)) {
+    list(surv = cens.o$survival.oob, time.interest = cens.o$time.interest)
+  } else {
+    ## The censoring forest is trained once, then evaluated on the same
+    ## observations (and in the same order) as the candidate predictions.
+    newdata <- as.data.frame(newdata)[, input.names, drop = FALSE]
+    colnames(newdata)[1:2] <- cens.names
+    newdata[[cens.names[2L]]] <- 1 * (newdata[[cens.names[2L]]] == 0)
+    cens.pred <- predict.rfsrc(cens.o, newdata = newdata, perf.type = "none")
+    list(surv = cens.pred$survival, time.interest = cens.pred$time.interest)
+  }
 }
 get.crps <- function (o, papply = lapply, cens.dist = NULL)  {
   if (!is.null(o$survival.oob)) {
@@ -13,9 +29,20 @@ get.crps <- function (o, papply = lapply, cens.dist = NULL)  {
   }
   else {
     surv.ensb <- t(o$survival)
-    o$yvar <- o$forest$yvar
+  }
+  ## Prediction objects already contain the evaluation outcomes.
+  ## Replacing them with forest$yvar would substitute training outcomes.
+  if (is.null(o$yvar) || NROW(o$yvar) != ncol(surv.ensb)) {
+    stop("survival predictions and evaluation outcomes must have the same number of rows")
   }
   event.info <- randomForestSRC:::get.event.info(o)
+  if (length(event.info$time) != ncol(surv.ensb) ||
+      length(event.info$cens) != ncol(surv.ensb) ||
+      length(event.info$time.interest) != nrow(surv.ensb)) {
+    stop("survival predictions, outcomes, and evaluation times are not aligned")
+  }
+  if (length(event.info$time.interest) < 2L ||
+      max(event.info$time.interest) <= 0) return(NA_real_)
   ## KM censoring distribution estimator
   if (is.null(cens.dist)) {
     cens.model <- "km"
@@ -38,8 +65,12 @@ get.crps <- function (o, papply = lapply, cens.dist = NULL)  {
   }
   else {## random forest censoring distribution
     cens.model <- "rfsrc"
+    if (NROW(cens.dist$surv) != ncol(surv.ensb) ||
+        NCOL(cens.dist$surv) != length(cens.dist$time.interest)) {
+      stop("censoring predictions must match the evaluation rows and censoring times")
+    }
     censTime.pt <- c(sIndex(cens.dist$time.interest, event.info$time.interest))
-    cens.dist <- t(cbind(1, cens.dist$surv)[, 1 + censTime.pt])
+    cens.dist <- t(cbind(1, cens.dist$surv)[, 1 + censTime.pt, drop = FALSE])
   }
   ## brier calculation
   brier.matx <- do.call(rbind, papply(1:ncol(surv.ensb), function(i) {
@@ -134,6 +165,10 @@ get.sderr <- function(obj, nblocks,
                       newdata = NULL,
                       imbalanced.obj = NULL,
                       cens.dist = NULL) {
+  if (length(nblocks) != 1L || !is.numeric(nblocks) ||
+      !is.finite(nblocks) || nblocks < 1 || nblocks != floor(nblocks)) {
+    stop("nblocks must be a positive integer")
+  }
   ## error metrics are normalized so that > 1.0 is bad.
   ## use normalized brier score for classification
   ## brier score is over-ridden with gmean for imbalanced two class setting
@@ -157,7 +192,7 @@ get.sderr <- function(obj, nblocks,
   ## trivial case
   if (nblocks == 1) {
     return(c(get.sderr.workhorse(predict.rfsrc(obj,
-          perf.type = perf.type), outcome.target = outcome.target,
+          newdata = newdata, perf.type = perf.type), outcome.target = outcome.target,
           crps = crps, papply = papply, cens.dist = cens.dist), 0))
   }
   ## extract error rates for blocks of trees
@@ -175,7 +210,9 @@ get.sderr <- function(obj, nblocks,
     } 
   })
   ## return the mean and standard deviation of the blocked error rates
-  c(mean(err, na.rm = TRUE), sd(err, na.rm = TRUE))
+  err <- err[is.finite(err)]
+  if (!length(err)) return(c(NA_real_, NA_real_))
+  c(mean(err), if (length(err) > 1L) sd(err) else 0)
 }
 trapz <- function (x, y) {
   idx = 2:length(x)

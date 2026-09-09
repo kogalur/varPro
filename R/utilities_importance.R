@@ -12,87 +12,69 @@ get.splitweight.custom <- function(f, data, namedvec = NULL) {
   swt
 }
 get.orgvimp <- function(o, pretty = TRUE, local.std = TRUE, vmp = NULL) {
-  ## input value must be a varpro, cv.varpro or uvarpro object
-  if (!(inherits(o, "varpro") ||
-        inherits(o, "cv.varpro") ||
-        inherits(o, "uvarpro")))  {
+  if (!(inherits(o, "varpro") || inherits(o, "cv.varpro") ||
+        inherits(o, "uvarpro"))) {
     stop("object must be a varpro, cv.varpro or uvarpro object")
   }
-  ## first deal with cv.varpro since it's already encoded for original variables
-  ## (to get hot-encoded importance we use get.vimp()
   if (inherits(o, "cv.varpro")) {
-    ## nothing to do unless pretty = FALSE
-    if (pretty) {
-      return(o)
-    }
-    else {
-      nms <- attr(o, "xvar.org.names")
-      z.min <- z.conserve <- z.liberal <- rep(0, length(nms))
-      names(z.min) <- names(z.conserve) <- names(z.liberal) <- nms
-      z.min[o$imp$variable] <- o$imp$z
-      z.conserve[o$imp.conserve$variable] <- o$imp.conserve$z
-      z.liberal[o$imp.liberal$variable] <- o$imp.liberal$z
-      return(data.frame(imp=z.min, imp.conserve=z.conserve, imp.liberal=z.liberal))
-    }
-  }
-  ## hereafter we are dealing with a varpro object  
-  ## extract the vimp 
-  vmp <- importance(o, local.std = local.std)
-  if (o$family == "regr+") {
-      vmp <- do.call(rbind, vmp)
-  }
-  if (o$family == "class") {
-    vmp <- vmp$unconditional
-  }
-  ## pull original xvar names 
-  xvar.org.names <- o$xvar.org.names
-  ## we are finished if: i) data not hotencoded; and (ii) not a regr+ family
-  if (!attr(o$x, "hotencode") && o$family != "regr+") {
-    vars <- rownames(vmp)
-    vars.z <- vmp$z
-  }
-  ## data was hotencoded or family is regr+ ... so we need to map names appropriately
-  else {
-    ## we only need the rownames for vimp from the varpro object hereafter
-    rownms <- rownames(vmp)
-    ## match original variable names to varpro names which uses hot encode data
-    vars <- xvar.org.names[which(unlist(lapply(xvar.org.names, function(nn) {
-      if (any(grepl(nn, rownms))) {
-        TRUE
+    if (pretty) return(o)
+    nms <- attr(o, "xvar.org.names")
+    out <- lapply(c("imp", "imp.conserve", "imp.liberal"), function(nm) {
+      z <- setNames(numeric(length(nms)), nms)
+      v <- o[[nm]]
+      if (!is.null(v) && nrow(v) > 0L) {
+        z[v$variable] <- v$z
       }
-      else {
-        FALSE
-      }
-    })))]
-    ## obtain z for mapped variables
-    vars.z <- lapply(xvar.org.names, function(nn) {
-      if (any((pt <- grepl(nn, rownms)))) {
-        if (!all(is.na(vmp[pt, "z"]))) {
-          max(vmp[pt, "z"], na.rm = TRUE)
-        }
-        else {
-          0
-        }
-      }
-      else {
-        NULL
-      }
+      z[is.na(z)] <- 0
+      z
     })
-    ## remove NULL entries
-    vars.z <- unlist(vars.z[!sapply(vars.z, is.null)])
+    names(out) <- c("imp", "imp.conserve", "imp.liberal")
+    return(as.data.frame(out))
   }
-  ## make nice table for return
+  ## Reuse a supplied summary, including its local-standardization settings.
+  if (is.null(vmp)) vmp <- importance(o, local.std = local.std)
+  v <- .get.vimp.rows(vmp, o$family)
+  original <- o$xvar.org.names
+  map <- .get.hotencode.map(o$x)
+  pos <- match(v$names, names(map))
+  if (anyNA(pos)) {
+    stop("importance variable names do not match the processed predictors")
+  }
+  source <- unname(map[pos])
+  if (!all(source %in% original)) {
+    stop("hot-encoding map does not match the original predictors")
+  }
+  ## Keep variable identity separate from row names when pooling outcomes.
+  vars <- original[original %in% source]
+  z <- vapply(vars, function(nn) {
+    values <- v$z[source == nn]
+    if (all(is.na(values))) 0 else max(values, na.rm = TRUE)
+  }, numeric(1))
   if (pretty) {
-    topvars <- data.frame(variable = vars, z = vars.z)
-    topvars[order(topvars$z, decreasing = TRUE),, drop = FALSE]
+    out <- data.frame(variable = vars, z = unname(z))
+    out[order(out$z, decreasing = TRUE), , drop = FALSE]
+  } else {
+    out <- setNames(numeric(length(original)), original)
+    out[vars] <- z
+    out
   }
-  ## return named vector with z values (0 if not selected)
-  else {
-    z <- rep(0, length(xvar.org.names))
-    names(z) <- xvar.org.names
-    z[vars] <- vars.z
-    z
+}
+## Flatten an importance summary without relying on rbind row-name suffixes.
+## Retain all score columns, the exact predictor name, and outcome identity.
+.get.vimp.rows <- function(vmp, family) {
+  if (family == "class") vmp <- vmp$unconditional
+  summaries <- if (family == "regr+") vmp else list(vmp)
+  rows <- lapply(seq_along(summaries), function(j) {
+    v <- as.data.frame(summaries[[j]])
+    if (!("z" %in% names(v))) stop("importance summary must contain a 'z' column")
+    v$names <- rownames(v)
+    v$outcome <- rep.int(j, nrow(v))
+    v
+  })
+  if (!length(rows)) {
+    return(data.frame(z = numeric(), names = character(), outcome = integer()))
   }
+  do.call(rbind, rows)
 }
 ## extract names of signal variables from varpro analysis
 get.topvars <- function(o, local.std = TRUE) {
@@ -115,111 +97,63 @@ get.topvars <- function(o, local.std = TRUE) {
 }
 ## extract vimp
 get.vimp <- function(o, pretty = TRUE, local.std = TRUE) {
-  ## input value must be a varpro, cv.varpro or uvarpro object
-  if (!(inherits(o, "varpro") ||
-        inherits(o, "cv.varpro") ||
-        inherits(o, "uvarpro")))  {
+  if (!(inherits(o, "varpro") || inherits(o, "cv.varpro") ||
+        inherits(o, "uvarpro"))) {
     stop("object must be a varpro, cv.varpro or uvarpro object")
   }
-  ## varpro, uvarpro object
-  if (inherits(o, "varpro") || inherits(o, "uvarpro")) {
-    ## extract vimp + names
-    vmp <- importance(o, local.std = local.std)
-    ## mv-regression
-    if (o$family == "regr+") {
-      vmp <- do.call(rbind, lapply(1:length(vmp), function (j) {
-        data.frame(vmp[[j]], names=rownames(vmp[[j]]), outcome=j)
-      }))
-    }
-    ## other families
-    else {
-      if (o$family == "class") {
-        vmp <- vmp$unconditional
-      }
-      vmp$names <- rownames(vmp)
-      vmp$outcome <- 1
-    }
-    ##return the goodies
-    if (pretty) {
-      z <- vmp$z
-      names(z) <- vmp$names
-      z[is.na(z)] <- 0
-      if (o$family == "regr+") {
-        split(z, vmp$outcome)
-      }
-      else {
-        z
-      }
-    }
-    else {## not seleted variables are mapped to 0
-      zO <- lapply(split(vmp, vmp$outcome), function(v) {
-        z <- rep(0, ncol(o$x))
-        names(z) <- colnames(o$x)
-        z[v$names] <- v$z
-        z[is.na(z)] <- 0
-        z
-      })
-      if (length(zO) == 1) {
-        zO[[1]]
-      }
-      else {
-        zO
-      }
-    }
-  }
-  ## cv.varpro object
-  else {
-    ## pull the original vimp
-    vmp <- attr(o, "imp.org")   
-    ## mv-regression
-    if (attr(o, "family") == "regr+") {
-      vmp <- do.call(rbind, lapply(1:length(vmp), function (j) {
-        data.frame(vmp[[j]], names=rownames(vmp[[j]]), outcome=j)
-      }))
-    }
-    ## other families
-    else {
-      if (attr(o, "family") == "class") {
-        vmp <- vmp$unconditional
-      }
-      vmp$names <- rownames(vmp)
-      vmp$outcome <- 1
-    }
-    ## threshold using cv zcut values
-    zO <- lapply(split(vmp, vmp$outcome), function(v) {
-      v$outcome <- NULL
-      rownames(v) <- v$names
+  is.cv <- inherits(o, "cv.varpro")
+  family <- if (is.cv) attr(o, "family") else o$family
+  vmp <- if (is.cv) attr(o, "imp.org") else importance(o, local.std = local.std)
+  outcomes <- if (family == "regr+") seq_along(vmp) else 1L
+  vmp <- .get.vimp.rows(vmp, family)
+  result <- lapply(outcomes, function(j) {
+    v <- vmp[vmp$outcome == j, , drop = FALSE]
+    rownames(v) <- v$names
+    if (!is.cv) {
       if (pretty) {
-        v$names <- NULL
+        z <- setNames(v$z, v$names)
+      } else {
+        z <- setNames(numeric(ncol(o$x)), colnames(o$x))
+        z[v$names] <- v$z
       }
-      v.min <- v[v$z >= o$zcut,, drop = FALSE]
-      v.conserve <- v[v$z >= o$zcut.conserve,, drop = FALSE]
-      v.liberal <- v[v$z >= o$zcut.liberal,, drop = FALSE]
-      ## return the goodies
-      if (pretty) {        
-        list(imp = v.min,
-             imp.conserve = v.conserve,
-             imp.liberal = v.liberal)
+      z[is.na(z)] <- 0
+      return(z)
+    }
+    cuts <- c(o$zcut, o$zcut.conserve, o$zcut.liberal)
+    selections <- c("imp", "imp.conserve", "imp.liberal")
+    values <- lapply(seq_along(selections), function(k) {
+      ## A NULL/empty selection remains empty even when its cutoff is zero.
+      active <- !is.null(o[[selections[k]]]) && NROW(o[[selections[k]]]) > 0L
+      cv.info <- attr(o[[selections[k]]], "cv")
+      if (active && isTRUE(cv.info$fallback)) {
+        ## A forced one-variable model is defined by its original-variable
+        ## identity, not by a cutoff (which could also select tied variables).
+        map <- attr(o, "xvar.map")
+        pos <- match(v$names, names(map))
+        if (is.null(map) || anyNA(pos)) {
+          stop("CV fallback extraction requires the encoded-to-original variable map")
+        }
+        keep <- which(!is.na(v$z) &
+                      unname(map[pos]) %in% o[[selections[k]]]$variable)
+      } else {
+        keep <- if (active) which(!is.na(v$z) & v$z >= cuts[k]) else integer()
       }
-      else {
+      if (pretty) {
+        v[keep, setdiff(names(v), c("names", "outcome")), drop = FALSE]
+      } else {
         nms <- attr(o, "xvar.names")
-        z.min <- z.conserve <- z.liberal <- rep(0, length(nms))
-        names(z.min) <- names(z.conserve) <- names(z.liberal) <- nms
-        z.min[v.min$names] <- v.min$z
-        z.conserve[v.conserve$names] <- v.conserve$z
-        z.liberal[v.liberal$names] <- v.liberal$z
-        data.frame(imp=na.omit(z.min),
-                   imp.conserve=na.omit(z.conserve),
-                   imp.liberal=na.omit(z.liberal))
+        z <- setNames(numeric(length(nms)), nms)
+        z[v$names[keep]] <- v$z[keep]
+        z
       }
     })
-    if (length(zO) == 1) {
-      zO[[1]]
-    }
-    else {
-      zO
-    }
-  }
+    names(values) <- selections
+    if (pretty) values else as.data.frame(values)
+  })
+  names(result) <- as.character(outcomes)
+  ## Match the existing single-response and multivariate return structures.
+  if (!is.cv && family == "regr+" && pretty) return(result)
+  if (length(result) == 1L) result[[1L]] else result
 }
 ##  winsorized statistics
 winsorize <- function (x, trim = 0.1, na.rm = TRUE) {

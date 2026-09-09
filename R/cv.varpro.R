@@ -1,11 +1,67 @@
+## The OOB selector is unchanged when outer assessment is not requested.
 cv.varpro <- function(formula, data, nvar = 30, ntree = 150,
                       local.std = TRUE, zcut = seq(0.1, 2, length = 50), nblocks = 10,
                       split.weight = TRUE, split.weight.method = NULL, sparse = TRUE,
                       nodesize = NULL, max.rules.tree = 150, max.tree = min(150, ntree),
                       verbose = FALSE, seed = NULL,
                       fast = FALSE, crps = FALSE,
+                      cv.folds = 0, foldid = NULL,
+                      ...)
+{
+  if (length(cv.folds) != 1L || !is.numeric(cv.folds) ||
+      !is.finite(cv.folds) || cv.folds < 0 ||
+      cv.folds != floor(cv.folds) || cv.folds == 1) {
+    stop("cv.folds must be zero or an integer of at least two")
+  }
+  outer <- cv.folds > 0 || !is.null(foldid)
+  args <- c(list(formula = formula, data = data, nvar = nvar, ntree = ntree,
+                 local.std = local.std, zcut = zcut, nblocks = nblocks,
+                 split.weight = split.weight,
+                 split.weight.method = split.weight.method, sparse = sparse,
+                 nodesize = nodesize, max.rules.tree = max.rules.tree,
+                 max.tree = max.tree, verbose = verbose, seed = seed,
+                 fast = fast, crps = crps), list(...))
+  if (!outer) return(do.call(.cv.varpro.select, args))
+  if (!is.null(foldid) &&
+      (!is.numeric(foldid) || length(foldid) != NROW(data))) {
+    stop("foldid must be a numeric vector with one entry per input data row")
+  }
+  ## Run the ordinary full-data analysis first. Outer CV is then performed
+  ## in a saved RNG context, so it changes neither this analysis nor the
+  ## random-number state left by an ordinary call with the same inputs.
+  outer.seed <- if (is.null(seed)) {
+    .cv.varpro.with.seed(NULL, sample.int(.Machine$integer.max, 1L))
+  } else seed
+  args$.cv.keep <- TRUE
+  full <- do.call(.cv.varpro.select, args)
+  info <- attr(full, ".cv.info")
+  attr(full, ".cv.info") <- NULL
+  .cv.varpro.with.seed(NULL, {
+    .cv.varpro.outer(full, info, args, cv.folds, foldid, NROW(data), outer.seed)
+  })
+}
+.cv.varpro.select <- function(formula, data, nvar = 30, ntree = 150,
+                      local.std = TRUE, zcut = seq(0.1, 2, length = 50), nblocks = 10,
+                      split.weight = TRUE, split.weight.method = NULL, sparse = TRUE,
+                      nodesize = NULL, max.rules.tree = 150, max.tree = min(150, ntree),
+                      verbose = FALSE, seed = NULL,
+                      fast = FALSE, crps = FALSE, .cv.keep = FALSE,
                       ...)
 {		   
+  ## Validate the search before fitting any forests.
+  if (!is.numeric(zcut) || !length(zcut) || any(!is.finite(zcut)) ||
+      any(zcut <= 0)) {
+    stop("zcut must be a nonempty numeric vector of finite positive cutoffs")
+  }
+  zcut <- sort(unique(zcut))
+  if (length(nblocks) != 1L || !is.numeric(nblocks) ||
+      !is.finite(nblocks) || nblocks < 1 || nblocks != floor(nblocks)) {
+    stop("nblocks must be a positive integer")
+  }
+  if (length(ntree) != 1L || !is.numeric(ntree) ||
+      !is.finite(ntree) || ntree < 1 || ntree != floor(ntree)) {
+    stop("ntree must be a positive integer")
+  }
   ##--------------------------------------------------------------
   ##
   ## to avoid forking issues we run everything in serial in R
@@ -18,6 +74,7 @@ cv.varpro <- function(formula, data, nvar = 30, ntree = 150,
   ## re-define the original data in case there are missing values
   ##
   ##--------------------------------------------------------------
+  if (.cv.keep) input.data <- as.data.frame(data)
   stump <- get.stump(formula, data)
   n <- stump$n
   p <- length(stump$xvar.names)
@@ -48,8 +105,9 @@ cv.varpro <- function(formula, data, nvar = 30, ntree = 150,
     }
   }
   ## set rfq parameters for class imbalanced scenario
-  use.rfq <- get.varpro.hidden(NULL, NULL)$use.rfq
-  iratio.threshold <- get.varpro.hidden(NULL, NULL)$iratio.threshold
+  hidden <- get.varpro.hidden(dots, ntree)
+  use.rfq <- hidden$use.rfq
+  iratio.threshold <- hidden$iratio.threshold
   ##--------------------------------------------------------------
   ##
   ## default settings
@@ -112,12 +170,6 @@ cv.varpro <- function(formula, data, nvar = 30, ntree = 150,
   ## map importance values which are hot-encoded back to original data 
   ##
   ##--------------------------------------------------------------
-  ##--------------------------------------------------------------
-  ##
-  ## extract importance values
-  ## map importance values which are hot-encoded back to original data 
-  ##
-  ##--------------------------------------------------------------
   ## compute importance once and reuse it (avoid recomputation)
   vmp <- importance(o, local.std = local.std)
   vorg <- get.orgvimp(o, local.std = local.std, vmp = vmp)
@@ -159,7 +211,9 @@ cv.varpro <- function(formula, data, nvar = 30, ntree = 150,
   ##--------------------------------------------------------------
   if (family == "surv" && crps) {
     cens.dist <- get.cens.dist(data[trn, c(yvar.names, xvar.names), drop = FALSE],
-                        ntree, nodesize, ssize)
+                        ntree, nodesize, ssize,
+                        newdata = if (is.null(newdata)) NULL else
+                          newdata[, c(yvar.names, xvar.names), drop = FALSE])
   }  
   ##--------------------------------------------------------------
   ##
@@ -226,46 +280,35 @@ cv.varpro <- function(formula, data, nvar = 30, ntree = 150,
   ## return the importance values after filtering 
   ##
   ##--------------------------------------------------------------
-  ## minimum error
-  vmin <- vorg
-  zcut.min <- 0
-  if (!all(is.na(err[, 3]))) {
-    zcut.min <- zcut[which.min(err[, 3])]
-    if (verbose) {
-      cat("optimal cutoff value", zcut.min, "\n")
-    }
-    vmin <- vorg[imp >= zcut.min,, drop = FALSE]
-  }
-  ## 1sd error rule -conservative
-  v1sd.conserve <- vorg
-  zcut.1sd <- 0
-  if (!all(is.na(err[, 3]))) {
-    idx.opt <- which.min(err[, 3])
-    serr <- mean(err[, 4], na.rm = TRUE)
-    idx2.opt <- err[, 3] < 1 & (err[, 3] <= (err[idx.opt, 3] + serr))
-    idx2.opt[is.na(idx2.opt)] <- FALSE
-    if (sum(idx2.opt) > 0) {
-      zcut.1sd <- zcut[max(which(idx2.opt))]
-      if (verbose) {
-        cat("optimal 1sd + (conservative) cutoff value", zcut.1sd, "\n")
-      }
-      v1sd.conserve <- vorg[imp >= zcut.1sd,, drop = FALSE]
-    }
-    else {
+  ## Retain the existing unfiltered fallback when no model can be scored.
+  vmin <- v1sd.conserve <- v1sd.liberal <- vorg
+  zcut.min <- zcut.1sd <- zcut.liberal <- 0
+  valid <- which(is.finite(err[, "err"]))
+  if (length(valid)) {
+    idx.opt <- valid[which.min(err[valid, "err"])]
+    zcut.min <- zcut[idx.opt]
+    vmin <- vorg[imp >= zcut.min, , drop = FALSE]
+    deviations <- err[valid, "sd"]
+    deviations <- deviations[is.finite(deviations)]
+    serr <- if (length(deviations)) mean(deviations) else 0
+    eligible <- valid[err[valid, "err"] <= err[idx.opt, "err"] + serr]
+    ## Increasing cutoffs make the last eligible model the smallest.
+    conservative <- eligible[err[eligible, "err"] < 1]
+    if (length(conservative)) {
+      zcut.1sd <- zcut[max(conservative)]
+      v1sd.conserve <- vorg[imp >= zcut.1sd, , drop = FALSE]
+    } else {
       v1sd.conserve <- NULL
     }
-  }
-  ## 1sd error rule -liberal
-  v1sd.liberal <- vorg
-  zcut.liberal <- 0
-  if (!all(is.na(err[, 3]))) {
-    idx.opt <- which.min(err[, 3])
-    serr <- mean(err[, 4], na.rm = TRUE)
-    zcut.liberal <- zcut[min(which(err[, 3] <= (err[idx.opt, 3] + serr)), na.rm = TRUE)]
+    zcut.liberal <- zcut[min(eligible)]
+    v1sd.liberal <- vorg[imp >= zcut.liberal, , drop = FALSE]
     if (verbose) {
-      cat("optimal 1sd - (liberal) cutoff value", zcut.liberal, "\n")
+      cat("optimal cutoff value", zcut.min, "\n")
+      cat("optimal conservative cutoff value", zcut.1sd, "\n")
+      cat("optimal liberal cutoff value", zcut.liberal, "\n")
     }
-    v1sd.liberal <- vorg[imp >= zcut.liberal,, drop = FALSE]
+  } else {
+    warning("no candidate model has a finite prediction error; returning the unfiltered importance ranking")
   }
   rO <- list(imp = vmin,
              imp.conserve = v1sd.conserve,
@@ -280,12 +323,44 @@ cv.varpro <- function(formula, data, nvar = 30, ntree = 150,
   attr(rO, "xvar.names") <- o$xvar.names
   attr(rO, "xvar.org.names") <- o$xvar.org.names
   attr(rO, "family") <- o$family
+  ## Used only while assembling outer CV; removed before public return.
+  if (.cv.keep) {
+    rows <- .cv.varpro.analysis.rows(input.data, data)
+    attr(rO, ".cv.info") <- list(
+      data = input.data[rows, colnames(data), drop = FALSE],
+      rows = rows, family = family, yvar.names = yvar.names,
+      importance = vorg, xvar.map = .get.hotencode.map(o$x),
+      ntree = ntree, nodesize = nodesize, sampsize = ssize, fast = fast,
+      rfq = rfq, splitrule = splitrule,
+      perf.type = if (family == "class") {
+        if (is.null(imbalanced.obj)) "brier" else imbalanced.obj$perf.type
+      } else if (family == "surv" && crps) "none" else "default")
+  }
   return(rO)
 }
-## custom print object for cv to make attributes invisible
+## Keep the usual list display, followed by a compact assessment summary.
 print.cv.varpro <- function(x, ...) {
-  attr(x, "class") <- attr(x, "imp.org") <- attr(x, "xvar.names") <-
-    attr(x, "xvar.org.names") <- attr(x, "family") <- NULL
-  print(x)
+  rules <- c("imp", "imp.conserve", "imp.liberal")
+  meta <- lapply(x[rules], function(tab) attr(tab, "cv"))
+  out <- x
+  attributes(out) <- list(names = names(x))
+  for (nm in rules) {
+    if (!is.null(out[[nm]])) attr(out[[nm]], "cv") <- NULL
+  }
+  print(out, ...)
+  if (!is.null(attr(x, "cv"))) {
+    cat("\nOuter cross-validation (", attr(x, "cv")$folds,
+        " folds)\n", sep = "")
+    summary <- do.call(rbind, lapply(seq_along(rules), function(j) {
+      m <- meta[[j]]
+      data.frame(rule = rules[j], perf.type = m$perf.type,
+                 err = m$err, sd = m$sd,
+                 mean.nvar = mean(m$folds$nvar),
+                 fallbacks = sum(m$folds$fallback),
+                 row.names = NULL)
+    }))
+    print(summary, row.names = FALSE)
+  }
+  invisible(x)
 }
 print.cv <- print.cv.varpro

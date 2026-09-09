@@ -1,250 +1,124 @@
 \name{plot.ivarpro}
 \alias{plot.ivarpro}
-\title{Plot iVarPro Gradients for a Single Variable}
-
+\alias{shap.ivarpro}
+\title{Plot Individual Variable Priority}
 \description{
-  \code{plot.ivarpro()} draws a base-graphics scatterplot of case-specific
-  iVarPro gradients for one predictor: the x-axis is the predictor value and
-  the y-axis is the iVarPro local gradient. Points can be colored
-  (\code{col.var}), sized (\code{size.var}), optionally jittered, and
-  optionally overlaid with loess smooths stratified by \code{col.var}.
+  Display case-specific iVarPro gradients for one predictor, or compare
+  their distributions across predictors in a beeswarm-style summary.
 }
-
 \usage{
-\method{plot}{ivarpro}(x,
-    var,
-    col.var = NULL,
-    size.var = NULL,
-    data = NULL,
-    target = NULL,
-    ladder = FALSE,
-    ladder.cuts = NULL,
-    ladder.max.segments = 3000,
-    pch = 16,
-    cex = 0.8,
-    cex.range = c(0.5, 2),
-    main = NULL,
-    xlab = NULL,
-    ylab = "iVarPro gradient",
-    legend = TRUE,
-    ...)
+\method{plot}{ivarpro}(x, var, col.var = NULL, size.var = NULL,
+  data = NULL, target = NULL, pch = 16, cex = 0.8,
+  cex.range = c(0.5, 2), main = NULL, xlab = NULL,
+  ylab = "iVarPro gradient", legend = TRUE, ...)
+
+shap.ivarpro(ivar, dat = NULL, feature_names = NULL,
+  max.points = 5000, max.points.per.feature = NULL,
+  point.alpha = 1.0, point.size = 0.35, point.pch = 16,
+  scale.value = TRUE, style = c("blobby", "jitter"),
+  blobby.separation = 3, target = NULL)
 }
-
 \arguments{
+  \item{x, ivar}{An iVarPro object, or a numeric data frame or matrix
+    of case-specific gradients.}
+  \item{var}{Predictor to display, given by its column name or index
+    in the gradient table. Use the processed predictor name for a
+    hot-encoded factor.}
+  \item{col.var}{Optional column of the plotting data used to color
+    points. A factor gives group colors; a continuous variable gives
+    a color gradient.}
+  \item{size.var}{Optional column of the plotting data used to scale
+    point sizes.}
+  \item{data, dat}{Plotting data with rows in the same order as the
+    gradient table. By default, use the data stored by \code{ivarpro}
+    or \code{predict.ivarpro}. The plotted predictor columns must be
+    numeric; the stored data provide the appropriate hot-encoding.}
+  \item{target}{For a multi-target object, the response or class name,
+    or its integer position. If omitted, use the first target with
+    a warning.}
+  \item{pch, cex}{Point symbol and size for the single-predictor plot.
+    Group-specific point styles can override \code{pch}.}
+  \item{cex.range}{Range of point sizes when \code{size.var} is supplied.}
+  \item{main, xlab, ylab}{Plot title and axis labels.}
+  \item{legend}{Display the color legend in the single-predictor plot?}
+  \item{...}{Graphical arguments and optional display controls for
+    \code{plot}; see Details.}
+  \item{feature_names}{Names for an unnamed gradient matrix in the
+    summary plot. Existing column names take precedence.}
+  \item{max.points}{Maximum total number of points in the summary
+    plot. Larger collections are subsampled.}
+  \item{max.points.per.feature}{Optional additional limit on the
+    number of displayed points per predictor.}
+  \item{point.alpha, point.size, point.pch}{Point opacity, size and
+    symbol for the summary plot.}
+  \item{scale.value}{Rescale each predictor's displayed values to
+    the range zero to one for coloring? Default is \code{TRUE}.
+    This changes the colors, not the gradient scores.}
+  \item{style}{Summary-point arrangement: \code{"blobby"} separates
+    overlapping points into a beeswarm-like display; \code{"jitter"}
+    uses vertical jitter.}
+  \item{blobby.separation}{Spacing between points for
+    \code{style = "blobby"}. Larger values increase separation.}
+}
+\details{
+  \subsection{Single-predictor plot}{
+    \code{plot(x, var = "x1")} places predictor values on the
+    horizontal axis and their local gradients on the vertical axis.
+    A zero reference line helps distinguish positive and negative
+    relationships. Coloring by another predictor can reveal how the
+    relationship varies across cases.
 
-  \item{x}{An object returned by \code{\link{ivarpro}} or
-    \code{\link{predict.ivarpro}}. If \code{data} is not supplied,
-    \code{plot.ivarpro()} uses \code{attr(x, "data")} when available.}
+    Smooth curves are drawn by default, with separate curves for color
+    groups. Useful controls passed through \code{...} include
+    \code{smooth = FALSE} to suppress curves, \code{smooth.span} to
+    adjust smoothing, and \code{jitter = FALSE} to suppress horizontal
+    jitter. \code{jitter.seed} makes jitter reproducible.
 
-  \item{var}{Variable to plot (name or column index). Must exist in both the
-    iVarPro object and \code{data}.}
+    Use \code{x.dist = "rug"}, \code{"hist"}, or \code{"density"}
+    to show the predictor distribution along the horizontal axis.
+    Combinations such as \code{x.dist = c("hist", "rug")} are allowed.
+    \code{zero.line = FALSE} suppresses the reference line.
+    \code{col.style} selects \code{"auto"}, \code{"solid"},
+    \code{"outline"}, or \code{"binary"} point styling.
+  }
+  \subsection{Summary plot}{
+    \code{shap.ivarpro(x)} displays the iVarPro gradients for all
+    predictors. Horizontal position shows a gradient's sign and
+    magnitude; color shows the predictor value. Predictors are ordered
+    by mean absolute gradient. Columns containing only zero or
+    nonfinite scores are omitted.
 
-  \item{col.var}{Optional variable (column name in \code{data}) used for
-    coloring. If treated as categorical, colors are assigned per level; if
-    continuous, a color ramp is used and the legend shows selected quantiles.}
-
-  \item{size.var}{Optional variable (column name in \code{data}) used to scale
-    point sizes to \code{cex.range}.}
-
-  \item{data}{Optional data.frame or matrix of feature values used for the
-    x-axis variable and any auxiliary variables referenced by
-    \code{col.var} or \code{size.var}.}
-
-  \item{target}{Optional target/outcome coordinate when \code{x} is a
-    list-valued iVarPro result (for example multiclass or multivariate output).
-    May be specified as a single name or index. If omitted, the first element
-    is used.}
-
-  \item{ladder}{Logical. If \code{TRUE}, attempt to draw a ladder-based band
-    (vertical segments spanning the range across \code{ladder.cuts}) when path
-    membership information is present.}
-
-  \item{ladder.cuts}{Optional subset of ladder indices/values used for the
-    band.}
-
-  \item{ladder.max.segments}{Maximum number of ladder segments to draw.}
-
-  \item{pch}{Point character for the default point style.}
-
-  \item{cex}{Base point size (used when \code{size.var} is not supplied).}
-
-  \item{cex.range}{Min/max point sizes used when \code{size.var} is supplied.}
-
-  \item{main}{Main title (defaults to
-    \code{paste0(var, " vs iVarPro gradient")}).}
-
-  \item{xlab}{X-axis label (defaults to \code{var}).}
-
-  \item{ylab}{Y-axis label (defaults to \code{"iVarPro gradient"}).}
-
-  \item{legend}{Logical. If \code{TRUE} and \code{col.var} is supplied, draw a
-    legend describing the color mapping.}
-
-  \item{...}{Additional arguments passed to \code{graphics::plot()}, plus these
-    optional controls:
-
-    \describe{
-      \item{\code{smooth}}{Logical. Draw loess smooth curves. Default
-        \code{TRUE}. For categorical \code{col.var}, one curve per level. For
-        continuous \code{col.var}, curves are drawn for strata defined by
-        quantiles.}
-
-      \item{\code{smooth.span}}{Loess span (default \code{0.75}). Other loess
-        controls: \code{smooth.degree}, \code{smooth.family},
-        \code{smooth.lwd}, \code{smooth.lty}, \code{smooth.alpha},
-        \code{smooth.min.n}, \code{smooth.n.grid}.}
-
-      \item{\code{jitter}}{Logical or numeric. Default \code{TRUE}. Adds
-        horizontal jitter to the x-values to reduce overplotting. Related
-        options: \code{jitter.amount}, \code{jitter.fraction},
-        \code{jitter.seed}.}
-
-      \item{\code{x.dist}}{Character vector controlling an x-axis
-        distribution strip. Default \code{"none"}. Supported values
-        include \code{"rug"}, \code{"hist"}, \code{"density"}, and
-        \code{"auto"} (defaults to \code{c("hist","rug")}). Use
-        \code{x.dist = c("hist","rug")} (or \code{c("density","rug")})
-        to combine.
-
-        Related options:
-        \code{x.dist.side},
-        \code{x.dist.height}, \code{x.dist.pad}, \code{x.dist.col},
-        \code{x.dist.border}, \code{x.dist.lwd}, \code{x.dist.lty},
-        \code{x.dist.bins}, \code{x.dist.adjust}, \code{x.dist.n},
-        \code{x.dist.rug.col}, \code{x.dist.rug.lwd},
-        \code{x.dist.rug.ticksize}, \code{x.dist.rug.max}. By default,
-        an outline is drawn to keep the strip visible; set
-        \code{x.dist.lwd = 0} to suppress the outline.
-      }
-
-      \item{\code{col.legend.probs}, \code{col.legend.n}}{Quantiles shown in
-        the legend when \code{col.var} is continuous. Default is 5 quantiles:
-        \code{c(0.05, 0.25, 0.5, 0.75, 0.95)}.}
-
-      \item{\code{smooth.probs}, \code{smooth.n}}{Quantiles defining strata for
-        smooth curves when \code{col.var} is continuous. Default matches the
-        legend quantiles.}
-
-      \item{\code{zero.line}}{Logical. Default \code{TRUE}. Adds a dashed
-        reference line at gradient 0 (\code{y = 0}). Related options:
-        \code{zero.line.col}, \code{zero.line.lty}, \code{zero.line.lwd}.}
-
-      \item{\code{col.var.discrete.max}}{If \code{col.var} is numeric with at
-        most this many distinct values, treat it as categorical (default
-        \code{10}).}
-
-      \item{\code{col.style}}{How categorical colors are rendered:
-        \code{"auto"} (default), \code{"solid"}, \code{"outline"},
-        \code{"binary"}. Related options include \code{col.outline},
-        \code{col.binary.pch}, \code{col.dodge}.}
-    }
+    The gradient scale is set by the original \code{ivarpro} call.
+    In particular, \code{scale = "global"} expresses changes on a
+    common training-standard-deviation scale within each predictor,
+    while \code{scale = "none"} shows slopes in original predictor
+    units. See \code{\link{ivarpro}} for the three scaling choices.
   }
 }
-
-\details{
-  Jitter is applied for visualization only; loess smooths and the optional
-  x-axis distribution strip (\code{x.dist}) are computed using the
-  unjittered x-values.
-}
-
 \value{
-  Invisibly returns \code{TRUE}.
+  Called for its plotting side effect. \code{plot.ivarpro} returns
+  \code{TRUE} invisibly; \code{shap.ivarpro} returns \code{NULL}
+  invisibly.
 }
-
 \seealso{
-  \code{\link{ivarpro}}, \code{\link{varpro}}, \code{\link{shap.ivarpro}}
+  \code{\link{ivarpro}}, \code{\link{predict.ivarpro}}
 }
-
 \examples{
 \donttest{
-
-## ------------------------------------------------------------
-##
-## Survival example: peakVO2 plot
-##
-## ------------------------------------------------------------
-
+## Compare local mortality gradients and inspect peak oxygen uptake.
+library(survival)
 data(peakVO2, package = "randomForestSRC")
-
-ipv <- ivarpro(varpro(Surv(ttodead, died) ~ ., peakVO2))
-
-## Continuous col.var: legend + smooth strata default to 5 quantiles
-plot(ipv, var = "peak.vo2", col.var = "interval", size.var = "y")
-
-## Add an x-axis distribution strip (histogram + rug)
-plot(ipv, var = "peak.vo2", col.var = "interval", size.var = "y",
-     x.dist = c("hist", "rug"))
-
-## Increase legend/smooth strata (e.g., 7 quantiles)
-plot(ipv, var = "peak.vo2", col.var = "interval", size.var = "y",
-     col.legend.n = 7, smooth.n = 7)
-
-## Classic 3-quantile view (5\%, 50\%, 95\%)
-plot(ipv, var = "peak.vo2", col.var = "interval", size.var = "y",
-     col.legend.probs = c(0.05, 0.5, 0.95),
-     smooth.probs = c(0.05, 0.5, 0.95))
-
-## Factor col.var example: one smooth per level
-plot(ipv, var = "peak.vo2", col.var = "betablok", size.var = "y")
-
-## ------------------------------------------------------------
-##
-## multiclass example: iris (use target= to choose a class)
-##
-## ------------------------------------------------------------
-
-data(iris)
-
-vp.ir  <- varpro(Species ~ ., iris, ntree = 50)
-ivp.ir <- ivarpro(vp.ir)
-
-## Plot gradients for the "setosa" class (target selects the list element)
-plot(ivp.ir, var = "Petal.Length", target = "setosa",
-     col.var = "Species", data = iris)
-
-## Alternatively, color by the predicted class probability stored in ivp.ir
-plot(ivp.ir, var = "Petal.Length", target = "setosa",
-     col.var = "y.setosa")
-
-
-## ------------------------------------------------------------
-##
-## multiclass example: wine (advanced example)
-##
-## ------------------------------------------------------------
-
-data(wine, package = "randomForestSRC")
-
-## Give the class labels nicer names than "3", "4", ..., "9"
-wine$quality <- factor(wine$quality)
-levels(wine$quality) <- paste0("Q", levels(wine$quality))  # "Q3" "Q4" ... "Q9"
-
-vp  <- varpro(quality ~ ., wine, ntree = 50)
+peak <- na.omit(peakVO2)
+set.seed(137)
+vp <- varpro(Surv(ttodead, died) ~ ., peak,
+             split.weight = FALSE, ntree = 100,
+             parallel = FALSE)
 ivp <- ivarpro(vp)
-
-## Available targets correspond to class probability columns
-names(ivp)
-
-## Build a plotting data.frame that contains:
-##  - predictors (from attr(ivp,"data"))
-##  - predicted class probabilities (y.Q3, y.Q4, ..., y.Q9)
-##  - the observed class label (quality)
-xdat <- attr(ivp, "data")
-xdat$quality <- wine$quality
-
-## Plot gradients for the "Q7" class:
-## y-axis: d P(Y="Q7" | x) / d alcohol  (iVarPro gradient)
-## x-axis: alcohol
-## color: observed class label
-plot(ivp, var = "alcohol", target = "Q7",
-     data = xdat, col.var = "quality")
-
-## Alternatively, color by the model's predicted probability for the same class.
-## (These columns come from attr(ivp,"data") as y.<class>)
-plot(ivp, var = "alcohol", target = "Q7", col.var = "y.Q7")
-
-}
-}
-
+print(head(ivp))
+shap.ivarpro(ivp)
+plot(ivp, var = "peak.vo2", col.var = "interval")
+## scale points to "y" (here equal to mortality)
+plot(ivp, var = "peak.vo2", col.var = "interval", size.var = "y",
+     x.dist = c("hist", "rug"), jitter = FALSE)
+}}
 \keyword{hplot}
-\keyword{importance}

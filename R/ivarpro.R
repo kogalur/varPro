@@ -1,5 +1,5 @@
 ## ============================================================
-## iVarPro (case-specific variable importance) with cut-ladder path
+## iVarPro (case-specific variable importance)
 ## ============================================================
 ivarpro <- function(object,
                     adaptive = TRUE,
@@ -18,44 +18,99 @@ ivarpro <- function(object,
                     save.model = TRUE,
                     scale = c("local","global","none")) {
   scale <- match.arg(scale)
-  ## ------------------------------------------------------------
-  ## allows both varpro and rfsrc object
-  ## ------------------------------------------------------------
-  if (!inherits(object, "varpro")) {
-    if (!(inherits(object, "rfsrc") && inherits(object, "grow"))) {
-      stop("This function only works for objects of class 'varpro' or an 'rfsrc' grow object")
+  ## Validate the controls that determine the neighborhood search.
+  flags <- list(adaptive = adaptive, noise.na = noise.na,
+                use.loo = use.loo, use.abs = use.abs,
+                path.store.membership = path.store.membership,
+                save.data = save.data, save.model = save.model)
+  for (nn in names(flags)) {
+    z <- flags[[nn]]
+    if (!is.logical(z) || length(z) != 1L || is.na(z)) {
+      stop(nn, " must be TRUE or FALSE")
     }
-    if (object$family == "regr+" ||
-        object$family == "class+" ||
-        object$family == "mix+" ||
-        object$family == "unsupv") {
-      stop("This function does not handle multivariate or unsupervised forests")
+  }
+  counts <- list(nmin = nmin, nmax = nmax)
+  if (is.null(cut)) counts$ncut <- ncut
+  for (nn in names(counts)) {
+    z <- counts[[nn]]
+    lower <- if (nn == "ncut") 1L else 2L
+    if (!is.numeric(z) || length(z) != 1L || !is.finite(z) ||
+        z < lower || z != floor(z)) {
+      stop(nn, " must be an integer of at least ", lower)
     }
-    y <- data.matrix(object$predicted.oob)
-    object$yvar <- as.numeric(y)
-    xvar.names <- object$xvar.names
-    x <- object$xvar
-    if (any(sapply(x, is.factor))) {
-      stop("factors not allowed in x-features ... consider using a varpro object instead of a forest object")
+  }
+  if (is.null(cut)) {
+    if (!is.numeric(cut.max) || length(cut.max) != 1L ||
+        !is.finite(cut.max) || cut.max < 0) {
+      stop("cut.max must be a finite, nonnegative number")
     }
-  } else {
+  } else if (!is.numeric(cut) || !length(cut) ||
+             any(!is.finite(cut)) || any(cut < 0)) {
+    stop("cut must contain finite, nonnegative neighborhood sizes")
+  }
+  ## Resolve the rule-generating forest and its processed predictors.
+  if (inherits(object, "varpro")) {
     if (is.null(max.rules.tree)) max.rules.tree <- object$max.rules.tree
     if (is.null(max.tree))       max.tree       <- object$max.tree
-    ## we assign y to the varpro OOB predicted value
-    ## in the case where y is survival, this means y is always OOB mortality
-    ## regardless of whether rmst was requested
-    y <- data.matrix(object$rf$predicted.oob)
+    forest <- object$rf
     xvar.names <- object$xvar.names
-    x <- object$x[, xvar.names]
-  }
-  ## overwrite y if y.external is provided
-  if (!is.null(y.external)) {
-    y.external <- data.matrix(y.external)
-    if (nrow(y.external) != nrow(x)) {
-      stop("y.external must have the same number of rows as the feature matrix x")
+    x <- object$x[, xvar.names, drop = FALSE]
+  } else {
+    if (!(inherits(object, "rfsrc") && inherits(object, "grow"))) {
+      stop("object must be a varpro object or an rfsrc grow object")
     }
-    y <- y.external
+    if (object$family %in% c("regr+", "class+", "mix+", "unsupv")) {
+      stop("Direct rfsrc input must be a univariate supervised forest")
+    }
+    forest <- object
+    xvar.names <- object$xvar.names
+    x <- object$xvar[, xvar.names, drop = FALSE]
   }
+  if (!(is.data.frame(x) || is.matrix(x)) ||
+      !nrow(x) || !ncol(x)) {
+    stop("object must contain a nonempty predictor matrix")
+  }
+  if (any(!vapply(as.data.frame(x), is.numeric, logical(1)))) {
+    stop("Predictors must be numeric; use a varpro object to hot-encode factors")
+  }
+  ## Keep the original forest outcomes intact when extracting memberships.
+  ## For multivariate VarPro forests, use the standard prediction extractor
+  ## when predictions are stored in response-specific forest components.
+  external <- !is.null(y.external)
+  y <- if (external) y.external else forest$predicted.oob
+  if (is.null(y) && !external) {
+    y <- get.mv.predicted(forest, oob = TRUE)
+  }
+  if (is.null(y) ||
+      any(!vapply(as.data.frame(y), is.numeric, logical(1)))) {
+    stop("Numeric OOB predictions or a numeric y.external are required")
+  }
+  y <- data.matrix(y)
+  if (nrow(y) != nrow(x) || ncol(y) < 1L) {
+    stop("The response must have one row per processed training observation")
+  }
+  ## Record response labels before simplifying a single target to a vector.
+  response.names <- colnames(y)
+  if (is.null(response.names)) {
+    if (!external && length(forest$yvar.names) == ncol(y) &&
+        forest$family %in% c("regr", "regr+")) {
+      response.names <- forest$yvar.names
+    } else {
+      response.names <- paste0("response", seq_len(ncol(y)))
+    }
+  }
+  missing.name <- is.na(response.names) | !nzchar(response.names)
+  response.names[missing.name] <- paste0("response", which(missing.name))
+  response.names <- make.unique(response.names)
+  colnames(y) <- response.names
+  ## Binary forest probabilities retain the established first-class target.
+  ## A supplied response matrix, including a two-column matrix, keeps all
+  ## of its targets.
+  if (!external && identical(forest$family, "class") && ncol(y) == 2L) {
+    y <- y[, 1L, drop = FALSE]
+    response.names <- response.names[1L]
+  }
+  if (ncol(y) == 1L) y <- y[, 1L]
   ## global SD of predictors (used when scale="global")
   x_sd_global <- if (is.data.frame(x)) {
     v <- sapply(x, function(z) stats::sd(as.numeric(z), na.rm = TRUE))
@@ -89,25 +144,17 @@ ivarpro <- function(object,
   compMembership <- o$compMembership[keep.rules]
   xreleaseId     <- as.integer(o$strengthArray$xReleaseID[keep.rules])
   results        <- o$results[keep.rules, , drop = FALSE]
-  ## y is the OOB estimator - keep in mind that y can be multivariate
-  if (ncol(y) == 1 || (object$family == "class" && ncol(y) == 2)) {
-    y <- y[, 1]
-  }
-  ## ladder bookkeeping (exclude edges: cut[1] and cut[end])
-  nladder <- max(0L, length(cut) - 2L)
-  cut.ladder <- if (nladder > 0) cut[2:(length(cut) - 1)] else numeric(0)
   ## ------------------------------------------------------------
   ## rule-level gradient estimation
   ## ------------------------------------------------------------
   mresp <- if (is.matrix(y)) ncol(y) else 1L
   R <- length(xreleaseId)
-  n_imp_cols <- mresp * (1L + nladder)
-  n_cols <- 4L + n_imp_cols
+  n_cols <- 4L + mresp
   ruleMat <- matrix(NA_real_, nrow = R, ncol = n_cols)
   ## Extra per-rule metadata (used for interaction/Hessian diagnostics)
   ## - center: mean of released variable among OOB members (used for centering)
   ## - slope : unscaled slope estimate at chosen neighborhood
-  ## - scale : local scale factor used in standardization (Section 2.6)
+  ## - scale : local predictor scale at the chosen neighborhood
   ## - J     : effective neighborhood size used at the chosen cut
   ## - cut.idx: index of cut value at which the best estimate was attained
   rule.center <- rep(NA_real_, R)
@@ -155,8 +202,7 @@ ivarpro <- function(object,
       use.loo = use.loo,
       use.abs = use.abs,
       scale = scale,
-      sd.global = x_sd_global[var_id],
-      return.path = TRUE
+      sd.global = x_sd_global[var_id]
     )
     ex <- attr(imp, "ivarpro.extra", exact = TRUE)
     if (mresp == 1L) {
@@ -198,17 +244,6 @@ ivarpro <- function(object,
     rO <- cbind(rO.meta, ruleMat[, 5:(4 + mresp), drop = FALSE])
     colnames(rO)[5:(4 + mresp)] <- paste0("imp.", seq_len(mresp))
   }
-  ## ladder columns: response-major blocks of length nladder
-  rule.ladder <- vector("list", mresp)
-  if (nladder > 0) {
-    for (j in seq_len(mresp)) {
-      start <- 4 + mresp + (j - 1L) * nladder + 1L
-      end   <- start + nladder - 1L
-      rule.ladder[[j]] <- as.matrix(ruleMat[, start:end, drop = FALSE])
-    }
-  } else {
-    for (j in seq_len(mresp)) rule.ladder[[j]] <- matrix(numeric(0), nrow(ruleMat), 0)
-  }
   ## ------------------------------------------------------------
   ## case-specific aggregation (main output; unchanged)
   ## ------------------------------------------------------------
@@ -231,12 +266,10 @@ ivarpro <- function(object,
     rule.n.oob    <- as.integer(rO$n.oob)
     memb_store    <- if (isTRUE(path.store.membership)) csO$oobMembership else NULL
     comp_store    <- if (isTRUE(path.store.membership)) compMembership else NULL
-    ## Store a compact path for multivariate/multiclass output:
-    ## - common pieces (tree/branch/variable/membership/cut grid) stored once on the LIST
-    ## - per-response pieces (rule.imp, rule.imp.ladder, rule.scale, rule.J, rule.slope) stored on each element
+    ## Retain selected-rule diagnostics. Common metadata is stored on the
+    ## list; response-specific slopes and scales are stored on each element.
     attr(out, "ivarpro.path") <- list(
       cut = cut,
-      cut.ladder = cut.ladder,
       use.loo = use.loo,
       use.abs = use.abs,
       scale = scale,
@@ -257,7 +290,6 @@ ivarpro <- function(object,
     for (j in seq_along(out)) {
       attr(out[[j]], "ivarpro.path") <- list(
         rule.imp = as.numeric(rO[[4 + j]]),
-        rule.imp.ladder = rule.ladder[[j]],
         rule.slope = as.numeric(rule.slope[, j]),
         rule.scale = as.numeric(rule.scale[, j]),
         rule.J = as.integer(rule.J[, j]),
@@ -268,7 +300,6 @@ ivarpro <- function(object,
     out <- csimp.varpro.workhorse(csO, noise.na = noise.na)
     attr(out, "ivarpro.path") <- list(
       cut = cut,
-      cut.ladder = cut.ladder,
       use.loo = use.loo,
       use.abs = use.abs,
       scale = scale,
@@ -283,7 +314,6 @@ ivarpro <- function(object,
       oobMembership = if (isTRUE(path.store.membership)) csO$oobMembership else NULL,
       compMembership = if (isTRUE(path.store.membership)) compMembership else NULL,
       rule.imp = as.numeric(rO$imp),
-      rule.imp.ladder = rule.ladder[[1]],
       rule.slope = as.numeric(rule.slope),
       rule.scale = as.numeric(rule.scale),
       rule.J = as.integer(rule.J),
@@ -293,8 +323,23 @@ ivarpro <- function(object,
       rule.n.oob = as.integer(rO$n.oob)
     )
   }
+  ## Keep row identity and use unique names for responses in plotting data.
+  if (is.list(out) && !inherits(out, "data.frame")) {
+    for (j in seq_along(out)) rownames(out[[j]]) <- rownames(x)
+  } else {
+    rownames(out) <- rownames(x)
+  }
+  attr(out, "target") <- response.names
   if (isTRUE(save.data)) {
-    attr(out, "data") <- data.frame(x, y = y, check.names = FALSE)
+    proposed <- if (is.matrix(y)) paste0("y.", response.names) else "y"
+    data.names <- utils::tail(make.unique(c(xvar.names, proposed)),
+                             length(proposed))
+    responses <- as.data.frame(y, check.names = FALSE)
+    names(responses) <- data.names
+    rownames(responses) <- rownames(x)
+    saved <- data.frame(x, responses, check.names = FALSE)
+    attr(saved, "response.names") <- setNames(data.names, response.names)
+    attr(out, "data") <- saved
   }
   if (isTRUE(save.model)) {
     attr(out, "model") <- object
@@ -372,14 +417,9 @@ grad.est <- function(yO, yC, xO, xC,
                      nmin = 10, nmax = 20,
                      use.loo = TRUE, use.abs = FALSE,
                      scale = c("local","global","none"),
-                     sd.global = NA_real_,
-                     return.path = FALSE) {
-  nladder <- max(0L, length(cut) - 2L)
+                     sd.global = NA_real_) {
   out0 <- if (isTRUE(noise.na)) NA_real_ else 0
-  ## normalize scale argument once per call
-  if (length(scale) > 1L) scale <- scale[1]
-  scale <- as.character(scale)
-  if (is.na(scale) || !nzchar(scale)) scale <- "local"
+  scale <- match.arg(scale)
   ## combine OOB and complement
   x_all <- c(xO, xC)
   y_all <- c(yO, yC)
@@ -387,7 +427,7 @@ grad.est <- function(yO, yC, xO, xC,
   x_all <- x_all[ok]
   y_all <- y_all[ok]
   if (length(x_all) < nmin) {
-    out <- if (isTRUE(return.path)) c(out0, rep(out0, nladder)) else out0
+    out <- out0
     attr(out, "ivarpro.extra") <- list(slope = NA_real_, scale = NA_real_, J = NA_integer_, cut.idx = NA_integer_)
     return(out)
   }
@@ -397,7 +437,7 @@ grad.est <- function(yO, yC, xO, xC,
     n0 <- sum(x_all == 0)
     n1 <- sum(x_all == 1)
     if (n0 == 0L || n1 == 0L || (n0 + n1) < nmin) {
-      out <- if (isTRUE(return.path)) c(out0, rep(out0, nladder)) else out0
+      out <- out0
       attr(out, "ivarpro.extra") <- list(slope = NA_real_, scale = NA_real_, J = NA_integer_, cut.idx = NA_integer_)
       return(out)
     }
@@ -454,14 +494,14 @@ grad.est <- function(yO, yC, xO, xC,
       g <- b_x * sd_x
     }
     if (isTRUE(use.abs)) g <- abs(g)
-    out <- if (isTRUE(return.path)) c(g, rep(g, nladder)) else g
+    out <- g
     attr(out, "ivarpro.extra") <- list(slope = b_x, scale = sd_x, J = length(x_use), cut.idx = NA_integer_)
     return(out)
   }
   ## --- continuous branch ------------------------------------
   mn <- mean(xO, na.rm = TRUE)
   if (!is.finite(mn)) {
-    out <- if (isTRUE(return.path)) c(out0, rep(out0, nladder)) else out0
+    out <- out0
     attr(out, "ivarpro.extra") <- list(slope = NA_real_, scale = NA_real_, J = NA_integer_, cut.idx = NA_integer_)
     return(out)
   }
@@ -471,13 +511,13 @@ grad.est <- function(yO, yC, xO, xC,
   x <- x[ok2]
   y <- y[ok2]
   if (length(x) < nmin) {
-    out <- if (isTRUE(return.path)) c(out0, rep(out0, nladder)) else out0
+    out <- out0
     attr(out, "ivarpro.extra") <- list(slope = NA_real_, scale = NA_real_, J = NA_integer_, cut.idx = NA_integer_)
     return(out)
   }
   sdx <- sd(x, na.rm = TRUE)
   if (!is.finite(sdx) || sdx == 0) {
-    out <- if (isTRUE(return.path)) c(out0, rep(out0, nladder)) else out0
+    out <- out0
     attr(out, "ivarpro.extra") <- list(slope = NA_real_, scale = NA_real_, J = NA_integer_, cut.idx = NA_integer_)
     return(out)
   }
@@ -490,7 +530,6 @@ grad.est <- function(yO, yC, xO, xC,
   thr <- sdx * cut
   k_vec <- findInterval(thr, absx)  # number of points with abs(x) <= thr[t]
   nc <- length(cut)
-  best <- rep(out0, nc)
   ## track the best model and its diagnostics
   have <- FALSE
   if (isTRUE(use.loo)) {
@@ -515,7 +554,7 @@ grad.est <- function(yO, yC, xO, xC,
       g <- out0
       err <- if (isTRUE(use.loo)) NA_real_ else NA_real_
       slope <- NA_real_
-      scale <- NA_real_
+      scale.local <- NA_real_
       Jval <- k
     } else {
       J <- min(k, nmax)
@@ -530,7 +569,7 @@ grad.est <- function(yO, yC, xO, xC,
           g <- out0
           err <- if (isTRUE(use.loo)) NA_real_ else NA_real_
           slope <- NA_real_
-          scale <- NA_real_
+          scale.local <- NA_real_
         } else {
           if (identical(scale, "none")) {
             g <- st$slope
@@ -545,56 +584,48 @@ grad.est <- function(yO, yC, xO, xC,
           if (isTRUE(use.abs)) g <- abs(g)
           err <- st$loo
           slope <- st$slope
-          scale <- s0
+          scale.local <- s0
         }
         last_J <- J
         last_g <- g
         last_err <- err
         last_slope <- slope
-        last_scale <- scale
+        last_scale <- scale.local
       } else {
         g <- last_g
         err <- last_err
         slope <- last_slope
-        scale <- last_scale
+        scale.local <- last_scale
       }
     }
-    ## prefix-best update (same as maX.prefix())
+    ## Select one valid neighborhood over the complete candidate grid.
     if (isTRUE(use.loo)) {
-      if (is.finite(g) && is.finite(err)) {
+      if (is.finite(slope) && is.finite(g) && is.finite(err)) {
         if (!have || err < best_err) {
           have <- TRUE
           best_err <- err
           best_grad <- g
           best_slope <- slope
-          best_scale <- scale
+          best_scale <- scale.local
           best_J <- Jval
           best_cutidx <- t
         }
       }
-      best[t] <- if (have) best_grad else out0
     } else {
-      if (is.finite(g) && is.finite(Jval) && Jval > 0) {
+      if (is.finite(slope) && is.finite(g) && Jval >= nmin) {
         if (!have || Jval > best_Jcrit) {
           have <- TRUE
           best_Jcrit <- Jval
           best_grad <- g
           best_slope <- slope
-          best_scale <- scale
+          best_scale <- scale.local
           best_J <- Jval
           best_cutidx <- t
         }
       }
-      best[t] <- if (have) best_grad else out0
     }
   }
-  full <- best[nc]
-  if (!isTRUE(return.path)) {
-    out <- full
-  } else {
-    ladder <- if (nladder > 0L) best[2:(nc - 1L)] else numeric(0)
-    out <- c(full, ladder)
-  }
+  out <- if (have) best_grad else out0
   attr(out, "ivarpro.extra") <- list(
     slope = best_slope,
     scale = best_scale,
@@ -609,46 +640,27 @@ grad.est <- function(yO, yC, xO, xC,
 cs.local.importance <- function(yO, yC, xO, xC, idx = NULL,
                                 cut, noise.na, nmin, nmax,
                                 use.loo = TRUE, use.abs = FALSE,
-                                scale = c("local","global","none"),
-                                sd.global = NA_real_,
-                                return.path = FALSE) {
+                                scale = c("local", "global", "none"),
+                                sd.global = NA_real_) {
   if (!is.null(idx)) {
-    ## backward compat: old calling pattern passed xO/xC as matrices
     xO <- xO[, idx]
     xC <- xC[, idx]
   }
   if (!is.matrix(yC)) {
-    out <- grad.est(yO, yC, xO, xC,
+    return(grad.est(yO, yC, xO, xC,
                     cut, noise.na, nmin, nmax, use.loo, use.abs,
-                    scale = scale, sd.global = sd.global,
-                    return.path = return.path)
-    return(out)
-  } else {
-    m <- ncol(yC)
-    if (!isTRUE(return.path)) {
-      tmp <- lapply(seq_len(m), function(j) {
-        grad.est(yO[, j], yC[, j], xO, xC,
-                 cut, noise.na, nmin, nmax, use.loo, use.abs,
-                 scale = scale, sd.global = sd.global,
-                 return.path = FALSE)
-      })
-      out <- sapply(tmp, function(z) as.numeric(z[1]))
-      attr(out, "ivarpro.extra") <- lapply(tmp, function(z) attr(z, "ivarpro.extra"))
-      return(out)
-    } else {
-      tmp <- lapply(seq_len(m), function(j) {
-        grad.est(yO[, j], yC[, j], xO, xC,
-                 cut, noise.na, nmin, nmax, use.loo, use.abs,
-                 scale = scale, sd.global = sd.global,
-                 return.path = TRUE)
-      })
-      main   <- sapply(tmp, function(z) z[1])
-      ladder <- do.call(cbind, lapply(tmp, function(z) z[-1]))  ## nladder x m
-      out <- c(main, c(ladder))  ## response-major (columns stacked)
-      attr(out, "ivarpro.extra") <- lapply(tmp, function(z) attr(z, "ivarpro.extra"))
-      return(out)
-    }
+                    scale = scale, sd.global = sd.global))
   }
+  tmp <- lapply(seq_len(ncol(yC)), function(j) {
+    grad.est(yO[, j], yC[, j], xO, xC,
+             cut, noise.na, nmin, nmax, use.loo, use.abs,
+             scale = scale, sd.global = sd.global)
+  })
+  out <- vapply(tmp, function(z) as.numeric(z[1L]), numeric(1))
+  attr(out, "ivarpro.extra") <- lapply(tmp, function(z) {
+    attr(z, "ivarpro.extra", exact = TRUE)
+  })
+  out
 }
 ## ------------------------------------------------------------
 ## Case-specific aggregation workhorse

@@ -615,19 +615,34 @@ sdependent <- function(I,
   if (!requireNamespace("igraph", quietly = TRUE)) {
     stop("Package 'igraph' is required but not installed.")
   }
-  p <- nrow(I)
-  q <- ncol(I)
-  ## Pad rows with zero if needed
-  if (q > p) {
-    rownames(I) <- if (is.null(rownames(I))) paste0("x", 1:p) else rownames(I)
-    extra.rows <- matrix(0, nrow = q - p, ncol = q)
-    rownames(extra.rows) <- setdiff(colnames(I), rownames(I))
-    I <- rbind(I, extra.rows)
-    p <- nrow(I)  
+  if (!is.matrix(I) || !is.numeric(I) || ncol(I) == 0L) {
+    stop("'I' must be a numeric matrix with at least one column.")
   }
-  ## Ensure square and clean diagonal
+  if (any(!is.finite(I)) || any(I < 0)) {
+    stop("'I' must contain finite, nonnegative values.")
+  }
+  ## Columns define the variable universe; rows identify release variables.
+  vars <- colnames(I)
+  released <- rownames(I)
+  if (is.null(vars) || anyNA(vars) || any(!nzchar(vars)) ||
+      anyDuplicated(vars)) {
+    stop("'I' must have unique, nonempty column names without missing values.")
+  }
+  if (nrow(I) > 0L &&
+      (is.null(released) || anyNA(released) || any(!nzchar(released)) ||
+       anyDuplicated(released))) {
+    stop("'I' must have unique, nonempty row names without missing values.")
+  }
+  if (!all(released %in% vars)) {
+    stop("Every row name of 'I' must also be a column name.")
+  }
+  ## Align by variable name and supply zero rows for missing releases.
+  aligned <- matrix(0, nrow = length(vars), ncol = length(vars),
+                    dimnames = list(vars, vars))
+  if (nrow(I) > 0L) aligned[released, vars] <- I
+  I <- aligned
+  ## Clear self-links only after the two axes have been aligned.
   diag(I) <- 0
-  colnames(I) <- rownames(I) <- colnames(I)
   ## Compute column sums as global importance scores
   imp.score <- colSums(I, na.rm=TRUE)
   ## Minimum degree
@@ -649,7 +664,7 @@ sdependent <- function(I,
   I <- I[vertex.names, vertex.names, drop = FALSE]
   ## check that graph is not empty
   if (length(imp.score) == 0) {
-    return("graph is null after removing isolated nodes (degree zero) - increase threshold")
+    return("graph is null after removing isolated nodes (degree zero) - decrease threshold")
   }
   ## Compute node degrees (number of strong influences)
   ##

@@ -151,12 +151,15 @@ importance.varpro <- function(x, local.std = TRUE, y.external = NULL,
   ## ------------------------------------------------------------------------
   else {
     lapply(1:ncol(o$y), function(j) {
-      o$results <- o$results[, c((1:4), 4+j)]
+      o$results <- o$results[, c(seq_len(4L), 4L + j), drop = FALSE]
+      colnames(o$results)[5L] <- "imp"
       .importance.varpro.workhorse(o = o,
                                   cutoff = cutoff,
                                   trim = trim,
                                   plot.it = FALSE,
+                                  conf = conf,
                                   sort = sort,
+                                  ylab = ylab,
                                   local.std = local.std,
                                   ...)
     })

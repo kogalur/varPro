@@ -1,13 +1,12 @@
 \name{ivarpro}
 \alias{ivarpro}
-\title{Individual Variable Priority (iVarPro): Case-Specific Variable Importance}
+\title{Individual Variable Priority: Case-Specific Local Gradients}
 
 \description{
-  Individual Variable Priority (iVarPro) computes case-specific
-  (individual-level) variable importance scores. For each observation in the
-  data and for each predictor identified by the VarPro analysis, iVarPro
-  returns a local gradient-based priority measure that quantifies how
-  sensitive that case's prediction is to changes in that variable.
+  Estimates how a prediction target changes with each predictor near
+  individual training observations. Forest rules define the local
+  comparisons, and local slopes provide signed, case-specific importance
+  scores. Supports regression, classification, and survival analyses.
 }
 
 \usage{
@@ -30,362 +29,311 @@ ivarpro(object,
 }
 
 \arguments{
+  \item{object}{A \code{varpro} object, or a supervised \code{rfsrc}
+    grow object with a single outcome and numeric predictors. Use a
+    \code{varpro} object for categorical predictors and multivariate
+    regression.}
 
-  \item{object}{\code{varpro} object from a previous call to
-    \code{varpro}, or a \code{rfsrc} object.}
-  
+  \item{adaptive}{Automatically limit the largest candidate neighborhood
+    according to the sample size? Used when \code{cut} is not supplied.}
 
-  \item{adaptive}{Logical. If \code{FALSE} and \code{cut} is not
-  supplied, the \code{cut} grid is constructed as \code{seq(0, cut.max,
-  length.out = ncut)}. If \code{TRUE} (default) and \code{cut} is not
-  supplied, a data-adaptive upper bound for the neighborhood scale is
-  computed from the sample size using a simple bandwidth-style
-  rule-of-thumb, and \code{cut} is constructed as a sequence from 0 to
-  this data-adaptive maximum (subject to \code{cut.max}). This provides
-  a convenient way to automatically sharpen the local neighborhood for
-  case-specific gradients when the sample size is moderate to large.}
+  \item{cut}{Optional vector of nonnegative neighborhood widths for
+    continuous predictors, measured in standard deviations of the
+    released-region predictor values. Supplied values are sorted and
+    duplicates removed; \code{adaptive}, \code{cut.max}, and \code{ncut}
+    are then ignored. Binary 0/1 predictors use a comparison of the two
+    levels.}
 
-  \item{cut}{Optional user-supplied sequence of \eqn{\lambda} values
-  used to relax the constraint region in the local linear regression
-  model. For continuous release variables, each value in \code{cut} is
-  calibrated so that \code{cut = 1} corresponds to one standard
-  deviation of the release coordinate. If \code{cut} is supplied, it is
-  used as-is and the arguments \code{cut.max}, \code{ncut}, and
-  \code{adaptive} are ignored. For binary or one-hot encoded release
-  variables, the full released region is used and \code{cut} does not
-  control neighborhood size.}
+  \item{cut.max}{Upper bound on candidate neighborhood width when
+    \code{cut} is not supplied. Smaller values restrict estimation to
+    more local observations.}
 
+  \item{ncut}{Number of candidate widths when \code{cut} is not supplied.}
 
-  \item{cut.max}{Maximum value of the \eqn{\lambda} grid used to define
-  the local neighborhood for continuous release variables when
-  \code{cut} is not supplied. By default, \code{cut} is constructed as
-  \code{seq(0, cut.max, length.out = ncut)} (or up to a data-adaptive
-  value if \code{adaptive = TRUE}). Smaller values of \code{cut.max}
-  yield more local, sharper case-specific gradients, while larger values
-  yield smoother, more global behavior.}
+  \item{nmin}{Minimum number of usable observations for a local estimate.}
 
+  \item{nmax}{Maximum number of observations used for a local estimate.
+    The effective maximum is also limited according to the training
+    sample size and is at least \code{nmin}.}
 
-  \item{ncut}{Length of the \code{cut} grid when \code{cut} is not
-  supplied. The grid is constructed as \code{seq(0, cut.max, length.out
-  = ncut)} (or up to an adaptively chosen maximum if \code{adaptive =
-  TRUE}).}
+  \item{y.external}{Optional numeric vector or matrix containing the
+    target values to explain. Rows must correspond, in order, to the
+    processed training observations in \code{object}. A matrix supplies
+    a separate target in each column; column names identify the targets.
+    The default uses the rule-generating forest's out-of-bag predictions.}
 
+  \item{noise.na}{Represent unavailable local estimates by \code{NA}?
+    With \code{TRUE}, available rule estimates are averaged. With
+    \code{FALSE}, unavailable rule estimates contribute zero, and cases
+    with no applicable rules receive zero.}
 
-  \item{nmin}{Minimum number of observations required for fitting a
-    local linear model.}
-  
+  \item{max.rules.tree}{Maximum number of rules examined per tree.
+    Defaults to the setting in a \code{varpro} object, or 150 for direct
+    \code{rfsrc} input.}
 
-  \item{nmax}{Maximum number of observations allowed for fitting a local
-  linear model. Internally, \code{nmax} is capped at 10\% of the sample
-  size.}
+  \item{max.tree}{Maximum number of trees used to obtain rules.
+    Defaults to the setting in a \code{varpro} object, or 150 for direct
+    \code{rfsrc} input.}
 
+  \item{use.loo}{Select the continuous-predictor neighborhood by
+    leave-one-out prediction error from the local regressions? With
+    \code{FALSE}, use the largest valid candidate neighborhood, subject
+    to \code{nmin} and \code{nmax}.}
 
-  \item{y.external}{Optional user-supplied response vector or matrix to
-  use as the dependent variable in the local linear regression. Must
-  have the same number of rows as the feature matrix and match the
-  dimension and type expected for the outcome family.}
+  \item{use.abs}{Average absolute rule-level gradients? The default
+    \code{FALSE} retains their signs.}
 
+  \item{path.store.membership}{Retain rule and near-miss membership
+    indices for downstream diagnostics? Setting \code{FALSE} reduces
+    storage while preserving the returned gradients and ordinary plots.}
 
-  \item{noise.na}{Logical. If \code{TRUE} (default), gradients for noisy
-  or non-signal variables are set to \code{NA}; if \code{FALSE}, they
-  are set to zero.}
+  \item{save.data}{Store processed predictors and prediction targets
+    for plotting?}
 
-  \item{max.rules.tree}{Maximum number of rules per tree.  If
-    unspecified, the value from the \code{varpro} object is used, while
-    for \code{rfsrc} objects, a default value is used.}
+  \item{save.model}{Store the supplied model for downstream use?}
 
-  \item{max.tree}{Maximum number of trees used to extract rules. If
-    unspecified, the value from the \code{varpro} object is used, while
-    for \code{rfsrc} objects, a default value is used.}
-
-  \item{use.loo}{Logical. If \code{TRUE} (default), leave-one-out
-  cross-validation is used to select the best neighborhood size (i.e.,
-  the best value in \code{cut}) for each rule and release variable. If
-  \code{FALSE}, the neighborhood is chosen to use the largest available
-  sample that satisfies \code{nmin} and \code{nmax}.}
-
-  \item{use.abs}{Use the absolute gradient for individual importance?
-   Default is \code{FALSE} which uses the actual gradient.}
-
-  \item{path.store.membership}{Store the rule membership indices (OOB
-  case IDs) in the returned object for later ladder/band calculations?
-  Setting \code{FALSE} can substantially reduce memory usage when the
-  number of rules is large, but disables ladder-based bands in
-  \code{plot.ivarpro()} and prevents \code{ivarpro_band()} from being
-  used. Default is \code{TRUE}.}
-
-  \item{save.data}{Save the x and y data (default is \code{TRUE})?  Used
-  for downstream plots.}
-
-  \item{save.model}{Save the original object (default is \code{TRUE})?  Used
-  for \code{predict.ivarpro} to obtain gradient values of test data.}
-
-  \item{scale}{Character. Controls how the local slope is scaled when
-  forming the rule-level gradient. \code{"local"} (default) uses the
-  neighborhood-based standardization described in Lu and Ishwaran(
-  2025).  \code{"global"} uses a fixed global scale (the overall
-  standard deviation of the predictor in the training data) rather than
-  a neighborhood-specific scale. \code{"none"} returns the unscaled
-  slope in the original predictor units (or the unscaled finite
-  difference for binary 0/1 release variables).}
-
+  \item{scale}{Predictor scaling for the local slopes: \code{"local"}
+    uses the selected neighborhood's spread, \code{"global"} uses the
+    predictor's training-sample standard deviation, and \code{"none"}
+    returns slopes per unit of the predictor. See Details.}
 }
 
 \details{
+  \subsection{From forest rules to individual importance}{
+    A variable's influence can change across observations. iVarPro
+    summarizes this variation through local slopes of a prediction
+    target, using forest rules to identify relevant observations.
 
-Understanding individual-level (case-specific) variable importance is
-important in applications where decisions are made at the level of a
-single person, unit, or record. A predictor may have only a modest
-average effect, yet be highly influential for certain cases, or the
-direction of its effect may differ across individuals.
+    For a rule region \eqn{R}, releasing predictor \eqn{s} removes its
+    restrictions and retains the restrictions on the other predictors.
+    This gives the enlarged region \eqn{R^{(s)}}. The additional
+    observations form the near-miss set
+    \eqn{C_s = R^{(s)} \setminus R}.
+    The local regression uses observations from both \eqn{R} and
+    \eqn{C_s}, pooling them within the released region.
 
-The VarPro framework summarizes population-level importance by defining
-feature-space regions using rule-based splitting and computing
-importance using only observed data. iVarPro (Lu and Ishwaran, 2025)
-extends this idea to the individual level by quantifying how sensitive
-each case's prediction is to small changes in a predictor identified by
-the VarPro rule set.
+    For a continuous predictor, estimation uses a neighborhood around
+    its mean among the rule's out-of-bag members. A local regression of
+    the target on that predictor supplies a slope. For a binary 0/1
+    predictor, the slope is the difference in mean target values between
+    levels 1 and 0. Each case receives the average gradient from rules
+    in whose original region it is an out-of-bag member and for which
+    that predictor is released.
+  }
 
-For each VarPro rule, iVarPro considers the corresponding rule-defined
-region and then \emph{releases} the rule along the rule's release
-coordinate. Intuitively, releasing a region means keeping the other rule
-constraints in place while allowing additional variation in the released
-variable, which provides the information needed to estimate a local
-directional effect. A simple local linear regression is then fit on this
-released region, and the resulting slope is used as a local,
-gradient-based priority score. Case-specific scores are obtained by
-aggregating the relevant rule-level gradients over the rules that apply
-to each case.
+  \subsection{Reading the scores}{
+    A positive score indicates that larger predictor values locally
+    accompany larger target values; a negative score indicates the
+    opposite direction. Larger magnitudes represent stronger local
+    changes on the chosen scale. Setting \code{use.abs = TRUE}
+    summarizes strength by averaging magnitudes before opposing rule
+    slopes can cancel.
 
-\strong{Scaling / standardization.}
-By default, iVarPro reports a \emph{standardized} local gradient: the local
-linear regression is fit using a standardized release coordinate so that
-\code{cut = 1} corresponds to one standard deviation of the release variable
-within the released region. This yields a dimensionless effect-size interpretation
-and helps make iVarPro values comparable across predictors with different units
-and variability (see Section~2.6 of Lu and Ishwaran, 2025).
-The argument \code{scale} controls how this scaling is applied:
-\code{"local"} uses the neighborhood-specific scale (default),
-\code{"global"} uses a fixed global scale for the predictor (overall SD in the
-training data), and \code{"none"} returns the unscaled slope in the original
-predictor units (or the unscaled finite-difference for binary 0/1 release variables).
-When using iVarPro-derived gradients for interaction screening, comparing results
-across \code{scale} settings can help distinguish structural interactions in the
-prediction surface from scale-induced modulation due to neighborhood-dependent
-standardization.
+    Scores are reported for the processed predictors in
+    \code{object$xvar.names}. A hot-encoded factor can therefore have
+    several indicator columns. An unavailable score means that the case
+    has no usable local estimate for that predictor, for example because
+    it lacks applicable rules or sufficient local variation.
+  }
 
-\strong{Neighborhood size and \code{cut.max}.}
-For continuous release variables, the size of the local neighborhood
-used for slope estimation is controlled by \code{cut} (constructed from
-\code{cut.max} and \code{ncut} when not supplied). Smaller neighborhoods
-produce more local behavior and can better reflect sharp changes, while
-larger neighborhoods produce smoother, more global behavior. When
-\code{use.loo = TRUE}, the neighborhood size is chosen in a data-driven
-way using a leave-one-out criterion; when \code{use.loo = FALSE}, the
-choice is based on meeting the requested sample-size bounds
-\code{nmin} and \code{nmax}. When \code{adaptive = TRUE} and \code{cut} is
-not supplied, an additional sample-size based rule is used to limit the
-maximum neighborhood scale (subject to \code{cut.max}).
+  \subsection{Prediction targets}{
+    By default, regression explains out-of-bag predicted responses, and
+    classification explains out-of-bag class probabilities. Binary
+    classification returns scores for the first probability column;
+    \code{attr(x, "target")} identifies the target in the returned
+    object. Multiclass classification returns a named list with one
+    gradient table per class.
 
-For binary or one-hot encoded release variables, iVarPro interprets the
-local effect as a scaled finite difference between the two levels (0 and
-1), conditional on the other rule constraints; in this case \code{cut}
-does not control the neighborhood along the binary coordinate.
+    The target follows the forest stored in the model. A survival forest
+    supplies mortality predictions. When VarPro uses a multivariate
+    regression forest for RMST targets, each predicted target has its
+    own gradient table. More generally, multivariate VarPro regression
+    returns one table per predicted response.
 
-\strong{Cut.max ladder (neighborhood sensitivity).}
-Because the choice of neighborhood scale can affect the estimated local
-gradients, iVarPro also records a \emph{ladder} of rule-level gradient
-estimates across the candidate neighborhood sizes defined by the
-\code{cut} grid. These ladder values can be summarized (e.g., ranges or
-quantiles) and used to visualize how sensitive case-specific gradients
-are to the neighborhood choice, without repeatedly refitting iVarPro for
-many different \code{cut.max} values. Ladder-based case summaries require
-rule membership information; set \code{path.store.membership = TRUE} to
-enable ladder bands and related summaries, or leave it \code{FALSE} to
-reduce memory usage when the number of rules is very large.  See
-examples below.
+    Use \code{y.external} to explain another numeric target, such as
+    predictions from a different model or a particular class probability.
+    A supplied matrix retains all of its target columns. Target values
+    must be aligned with the observations retained by the original
+    analysis.
+  }
 
-\strong{Settings that are currently handled.}
-The flexibility of this framework makes it suitable for quantifying
-case-specific variable importance in regression, classification, and
-survival settings. Currently, multivariate forests are not handled.
+  \subsection{Scaling and locality}{
+    With \code{scale = "local"}, the slope is multiplied by the
+    selected predictor values' spread around the rule-region center.
+    With \code{scale = "global"}, the multiplier is the predictor's
+    standard deviation across the training observations. Both express
+    the gradient in target units. With \code{scale = "none"}, the
+    slope is in target units per predictor unit; for a binary predictor,
+    it is the change from level 0 to level 1.
 
+    Neighborhood size controls how locally the slope is estimated.
+    The defaults choose among candidate neighborhoods using local
+    leave-one-out prediction error. Reducing \code{cut.max} restricts
+    the available neighborhoods; increasing \code{nmin} requires more
+    observations for each estimate. For binary predictors, both levels
+    are represented in a sample of the released-region observations,
+    subject to the sample-size controls.
+  }
+
+  \subsection{Displaying local importance}{
+    \code{shap.ivarpro(x)} gives a beeswarm-style summary of the local
+    gradients. Position shows the gradient and color shows the predictor
+    value. \code{plot(x, var = "x1")} displays one predictor's gradients
+    against its values. Use \code{col.var} to color by another variable
+    and examine how the local relationship varies across groups.
+
+    For a list of target-specific tables, supply \code{target} by name
+    or index to either plotting function. Without it, the first target
+    is used with a warning. Stored data are used automatically; with
+    \code{save.data = FALSE}, supply the corresponding processed data
+    through \code{dat} to \code{shap.ivarpro} or \code{data} to
+    \code{plot}.
+  }
+  \subsection{New observations}{
+    Use \code{predict(x, newdata = test)} to obtain gradients for new
+    cases from the stored rule estimates. Supply predictors in their
+    original form; the training hot-encoding is reused. Omitting
+    \code{newdata} recovers out-of-bag training scores. See
+    \code{\link{predict.ivarpro}} for an example.
+  }
 }
 
 \value{
+  An object of class \code{ivarpro}. A single target produces a numeric
+  data frame with one row per processed training observation and one
+  column per predictor in \code{object$xvar.names}. Row names retain
+  the processed training-row identifiers. Multiple targets produce a
+  named list of these data frames. \code{print(x)} summarizes a list;
+  \code{print(x, full = TRUE)} displays all of its tables.
 
-For univariate outcomes (and two-class classification treated as a single
-score), a numeric \code{data.frame} of dimension \eqn{n \times p} containing
-case-specific (individual-level) variable priority values, where \eqn{n} is
-the number of observations and \eqn{p} is the number of predictors in
-\code{object$xvar.names}.
+  The \code{target} attribute identifies the target or targets. When
+  requested, the \code{data} attribute contains processed predictors and
+  the target values, and the \code{model} attribute contains the supplied
+  model. Target columns in the stored data are named \code{y} or
+  \code{y.<target>}, with suffixes added to avoid name collisions; their
+  names are recorded in \code{attr(attr(x, "data"), "response.names")}.
 
-\itemize{
-  \item Each row corresponds to a case (observation) in the original data.
-  \item Each column corresponds to a predictor variable in
-        \code{object$xvar.names}.
+  The \code{ivarpro.path} attribute retains neighborhood settings and
+  diagnostics for the selected rule estimates. Membership indices are
+  included when \code{path.store.membership = TRUE}. Ordinary use and
+  plotting require only the gradient tables and, for plots, their data.
 }
 
-The entry in row \eqn{i} and column \eqn{j} is the iVarPro importance score
-for variable \eqn{j} for case \eqn{i}, measuring the local sensitivity of
-that case's prediction to changes in that variable. Predictors that are never
-used as release variables in the VarPro rule set may appear with constant
-\code{NA} values (when \code{noise.na = TRUE}) or constant zero values (when
-\code{noise.na = FALSE}).
-
-\strong{Ladder/path information.}
-The returned object carries an attribute \code{"ivarpro.path"} containing
-additional information used for ladder-based summaries and plotting. In
-particular:
-
-\describe{
-  \item{\code{cut}}{The full \code{cut} grid used to evaluate candidate local
-    neighborhoods.}
-  \item{\code{cut.ladder}}{The interior values of \code{cut} (excluding the
-    endpoints) used for the cut.max ladder path.}
-  \item{\code{scale}}{The scaling option used to compute rule-level gradients
-      (\code{"local"}, \code{"global"}, or \code{"none"}).}
-  \item{\code{rule.imp.ladder}}{A numeric matrix of dimension \eqn{R \times L}
-    storing rule-level gradients selected under each ladder truncation, where
-    \eqn{R} is the number of retained rules and \eqn{L = length(cut.ladder)}.}
-  \item{\code{rule.variable}}{Integer vector of length \eqn{R} giving the
-    release-variable index for each retained rule.}
-  \item{\code{oobMembership}}{Optional list (length \eqn{R}) giving the OOB
-    comparison/released membership indices for each retained rule;
-    included only when \code{path.store.membership = TRUE}.}
-}
-
-Additional tuning flags and rule metadata (e.g., \code{use.loo},
-\code{adaptive}, and tree/branch identifiers) may also be included for
-diagnostics.
-
-}
-
-\author{
-
-  Min Lu and Hemant Ishwaran
-
-}
+\author{Min Lu and Hemant Ishwaran}
 
 \references{
-
   Lu, M. and Ishwaran, H. (2025). Individual variable priority: a
   model-independent local gradient method for variable importance.
   \emph{Artificial Intelligence Review}, 58:407.
-
 }
 
 \seealso{
-  \code{\link{varpro}}
-  \code{\link{plot.ivarpro}}
+  \code{\link{varpro}}, \code{\link{plot.ivarpro}},
+  \code{\link{shap.ivarpro}}, \code{\link{predict.ivarpro}}
 }
 
 \examples{
 \donttest{
-
-## ------------------------------------------------------------
-##
-## survival example with shap-like plot
-##
-## ------------------------------------------------------------
-
+## Survival: local changes in predicted mortality.
+library(survival)
 data(peakVO2, package = "randomForestSRC")
-o <- varpro(Surv(ttodead, died)~., peakVO2, ntree = 50)
+peak <- na.omit(peakVO2)
 
-## canonical standard analysis
-imp1 <- ivarpro(o)
-shap.ivarpro(imp1)
+## Keep all predictors available for the local plots.
+set.seed(137)
+vp <- varpro(Surv(ttodead, died) ~ ., peak,
+             split.weight = FALSE, ntree = 100,
+             parallel = FALSE)
+ivp <- ivarpro(vp)
+print(head(ivp))
+shap.ivarpro(ivp)
 
-## non-adaptive analysis
-imp2 <- ivarpro(o, adaptive = FALSE)
-shap.ivarpro(imp2)
+## Exercise time colors the local relationship with peak oxygen uptake.
+plot(ivp, var = "peak.vo2", col.var = "interval")
 
-## non-adaptive using a small cut.max
-imp3 <- ivarpro(o, cut.max = 0.5, adaptive = FALSE)
-shap.ivarpro(imp3)
+## Specify a fixed maximum neighborhood width.
+ivp.local <- ivarpro(vp, adaptive = FALSE, cut.max = 0.5)
+plot(ivp.local, var = "peak.vo2", col.var = "interval")
 
+## Interaction example: Model 3 of Lu and Ishwaran (2025).
+## The signal is 6*x1*x2.
+## Its slopes are 6*x2 for x1 and 6*x1 for x2.
+set.seed(137)
+n <- 500
+X <- matrix(runif(n * 10), nrow = n)
+colnames(X) <- paste0("x", seq_len(ncol(X)))
+d <- data.frame(y = 6 * X[, 1] * X[, 2] + rnorm(n), X)
+vp <- varpro(y ~ ., d, split.weight = FALSE, ntree = 100,
+             parallel = FALSE)
 
-## ------------------------------------------------------------
-##
-## synthetic regression example with plot
-##
-## ------------------------------------------------------------
+set.seed(137)
+iv.local <- ivarpro(vp)
+set.seed(137)
+iv.global <- ivarpro(vp, scale = "global")
+set.seed(137)
+iv.slope <- ivarpro(vp, scale = "none")
 
-## true regression function
-true.function <- function(which.simulation) {
-  if (which.simulation == 1) {
-    function(x1, x2) { 1 * (x2 <= .25) +
-      15 * x2 * (x1 <= .5 & x2 > .25) +
-      (7 * x1 + 7 * x2) * (x1 > .5 & x2 > .25) }
+## Compare local magnitudes under the three scaling choices.
+scale.summary <- data.frame(
+  variable = colnames(iv.local),
+  local = colMeans(abs(iv.local), na.rm = TRUE),
+  global = colMeans(abs(iv.global), na.rm = TRUE),
+  slope = colMeans(abs(iv.slope), na.rm = TRUE))
+print(scale.summary)
+
+## Map both slopes over the (x1, x2) plane, as in the paper's
+## gradient displays. Each point is a case; color gives its slope.
+## The top row shows the true slopes and the bottom row iVarPro estimates.
+## scale = "none" puts the estimates in the same units as the derivatives.
+slopes <- cbind("True slope for x1" = 6 * d$x2,
+                "True slope for x2" = 6 * d$x1,
+                "iVarPro slope for x1" = iv.slope$x1,
+                "iVarPro slope for x2" = iv.slope$x2)
+
+slope.map <- function(x1, x2, slopes) {
+  ## Use one color scale for all four panels. Positive slopes run
+  ## from white through orange to red; negative slopes are blue.
+  values <- slopes[is.finite(slopes)]
+  limit <- max(1, ceiling(max(abs(values))))
+  pal <- c(grDevices::colorRampPalette(c("navy", "white"))(101)[-101],
+           grDevices::colorRampPalette(c("white", "orange", "red"))(101))
+  slope.col <- function(z) pal[1L + round(100 * (z / limit + 1))]
+
+  op <- par(no.readonly = TRUE)
+  on.exit(par(op), add = TRUE)
+  layout(matrix(c(1, 2, 3, 4, 5, 5), ncol = 2, byrow = TRUE),
+         heights = c(1, 1, 0.3))
+  par(mar = c(3.5, 3.5, 2, 1), mgp = c(2, 0.6, 0))
+  for (j in seq_len(ncol(slopes))) {
+    ok <- is.finite(slopes[, j])
+    plot(x1, x2, type = "n", xlim = c(0, 1), ylim = c(0, 1),
+         xlab = "x1", ylab = "x2", main = colnames(slopes)[j], asp = 1)
+    points(x1[ok], x2[ok], pch = 16, cex = 0.7,
+           col = slope.col(slopes[ok, j]))
+    points(x1[!ok], x2[!ok], pch = 4, cex = 0.6, col = "grey60")
   }
-  else if (which.simulation == 2) {
-    function(x1, x2) { r <- x1^2 + x2^2; 5 * r * (r <= .5) }
-  }
-  else {
-    function(x1, x2) { 6 * x1 * x2 }
-  }
+  par(mar = c(0, 0, 0, 0))
+  plot.new()
+  at <- seq(-limit, limit, length.out = 7)
+  legend("center", legend = format(signif(at, 2), trim = TRUE),
+         fill = slope.col(at), ncol = length(at), bty = "n", cex = 0.8,
+         title = "Slope (grey crosses: unavailable)")
 }
+slope.map(d$x1, d$x2, slopes)
 
-## simulation function
-simfunction <- function(n = 1000, true.function, d = 20, sd = 1) {
-  d <- max(2, d)
-  X <- matrix(runif(n * d, 0, 1), ncol = d)
-  dta <- data.frame(list(
-    x = X,
-    y = true.function(X[, 1], X[, 2]) + rnorm(n, sd = sd)
-  ))
-  colnames(dta)[1:d] <- paste("x", 1:d, sep = "")
-  dta
-}
+## With slopes on the vertical axis, color by the other predictor.
+plot(iv.slope, var = "x1", col.var = "x2")
+plot(iv.slope, var = "x2", col.var = "x1")
 
-## simulate the data
-which.simulation <- 1
-df <- simfunction(n = 500, true.function(which.simulation))
-
-## varpro analysis
-vp <- varpro(y ~ ., df)
-
-## ivarpro analysis 
-imp <- ivarpro(vp)
-## ivarpro analysis using a fixed global scale (optional)
-imp.global <- ivarpro(vp, scale = "global")
-
-## ivarpro analysis returning unscaled slopes (optional)
-imp.none <- ivarpro(vp, scale = "none")
-
-
-## plot of x2 
-plot(imp, var="x2")
-
-## plot of x2 without ladder band
-plot(imp, var="x2", ladder=FALSE)
-
-## optional: use only a subset of ladder cuts
-plot(imp, var="x2", ladder=TRUE, ladder.cuts=1:8)
-
-## plot with color/size using x1 (color) and y (size)
-plot(imp, var="x2", col.var="x1", size.var="y")
-
-## ------------------------------------------------------------
-##
-## survival example with plot
-##
-## ------------------------------------------------------------
-
-data(peakVO2, package = "randomForestSRC")
-
-## varpro/importance call
-vp <- varpro(Surv(ttodead, died)~., peakVO2)
-ivp <- ivarpro(vp, adaptive = FALSE, cut.max = 2)
-
-## plot of peak vo2
-## color displays interval (a measure of exercise time)
-## size displays "y" which is predicted mortality in survival
-plot(ivp, var="peak.vo2", col.var="interval", size.var="y")
-
-## same but using beta blockers for color
-plot(ivp, var="peak.vo2", col.var="betablok", size.var="y")
-
+## Explain two supplied targets using the same forest rules.
+## Name the columns so targets can be selected explicitly in plots.
+targets <- cbind(interaction = 6 * d$x1 * d$x2,
+                 linear = 2 * d$x1 - d$x2)
+iv.targets <- ivarpro(vp, y.external = targets, scale = "none")
+print(iv.targets)
+print(head(iv.targets[["linear"]]))
+plot(iv.targets, var = "x1", target = "interaction", col.var = "x2")
+shap.ivarpro(iv.targets, target = "linear")
 }}
 
 \keyword{individual importance}

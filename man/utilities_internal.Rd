@@ -6,7 +6,6 @@
 \alias{gbm.learner}
 
 
-\alias{get.beta.entropy}
 \alias{get.iso.performance}
 \alias{get.mc.cores}
 \alias{get.orgvimp}
@@ -19,13 +18,11 @@
 
 \alias{local.importance}
 
-\alias{shap.ivarpro}
 
 \alias{rf.learner}
 
 \alias{roughfix}
 
-\alias{sdependent}
 
 
 

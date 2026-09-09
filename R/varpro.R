@@ -46,6 +46,7 @@ varpro <- function(formula, data, nvar = 30, ntree = 500,
   ## hot-encode x
   stump <- get.stump(f, data)
   family <- stump$family
+  family.org <- family
   yvar.names <- stump$yvar.names
   y <- stump$yvar
   x <- stump$xvar
@@ -53,6 +54,9 @@ varpro <- function(formula, data, nvar = 30, ntree = 500,
   x <- droplevels(x)  # harmless; cleans factor columns in x if any
   y.org <- data.frame(y)
   colnames(y.org) <- yvar.names
+  source.response <- yvar.names
+  source.horizon <- NULL
+  survival.info <- NULL
   xvar.org.names <- colnames(x)
   x <- get.hotencode(x)
   xvar.names <- colnames(x)
@@ -61,13 +65,6 @@ varpro <- function(formula, data, nvar = 30, ntree = 500,
   ## coherence check
   if (!(family == "regr" || family == "regr+" || family == "class" || family == "surv")) {
     stop("this function only works for regression, mv-regression, classification and survival")
-  }
-  ## check if "y" is used as a name for one of the x features
-  if (any(colnames(x) == "y")) {
-    yfkname <- "y123XYZ9999abc"
-  }
-  else {
-    yfkname <- "y"
   }
   ## ------------------------------------------------------------------------
   ##
@@ -163,21 +160,40 @@ varpro <- function(formula, data, nvar = 30, ntree = 500,
     ## use mortality for y
     if (is.null(rmst)) {
       y <- as.numeric(randomForestSRC::get.mv.predicted(o.external, oob = FALSE))
+      source.response <- "mortality"
     }
     ## use rmst if user requests
     else {
       y <- get.rmst(o.external, rmst)
+      ## Capture response identity for both vector and matrix returns.
+      rmst.info <- attr(y, "rmst.info", exact = TRUE)
+      if (is.null(rmst.info) || nrow(rmst.info) != NCOL(y)) {
+        stop("RMST response metadata is unavailable; update utilities_survival.R")
+      }
+      source.response <- rmst.info$source.response
+      source.horizon <- rmst.info$tau.horizon
+      attr(y, "rmst.info") <- NULL
     }
+    ## Keep summary provenance before assigning collision-safe working names.
+    survival.info <- list(
+      rmst.requested = rmst,
+      estimator = list(
+        family = o.external$family,
+        response = o.external$yvar.names,
+        splitrule = o.external$forest$splitrule,
+        perf.type = o.external$forest$perf.type))
     ## we now have regression
     if (!is.matrix(y)) {
       family <- "regr"
-      yvar.names <- yfkname
-      f <- as.formula(paste0(yfkname, "~."))
+      yvar.names <- .varpro.fresh.names("y", xvar.names)
+      f <- as.formula(call("~", as.name(yvar.names), as.name(".")))
     }
     ## rmst is a vector --> we now have multivariate regression
     if (is.matrix(y)) {
       family <- "regr+"
-      colnames(y) <- yvar.names <- paste0(yfkname, ".", 1:ncol(y))
+      ## Allocate all response names together, after hot-encoding predictors.
+      colnames(y) <- yvar.names <- .varpro.fresh.names(
+        paste0("y.", seq_len(ncol(y))), xvar.names)
       f <- randomForestSRC::get.mv.formula(yvar.names)
     }
     if (verbose) {
@@ -191,6 +207,7 @@ varpro <- function(formula, data, nvar = 30, ntree = 500,
   ## ------------------------------------------------------------------------
   ## default setting
   imbalanced.flag <- FALSE
+  classification.info <- NULL
   if (family == "class") {
     ## number of class labels
     nclass <- length(levels(y))
@@ -209,6 +226,49 @@ varpro <- function(formula, data, nvar = 30, ntree = 500,
       iratio <- max(y.frq, na.rm = TRUE) / min(y.frq, na.rm = TRUE)
       imbalanced.flag <- (iratio > iratio.threshold) & use.rfq
     }
+    ## Record the observed-to-working label map before discarding local state.
+    ## Use the actual response values so this also covers unchanged multiclass labels.
+    class.count <- table(y.org[[1L]])
+    original.labels <- names(class.count)
+    working.labels <- as.character(y[match(original.labels,
+                                          as.character(y.org[[1L]]))])
+    classification.info <- list(
+      class.map = data.frame(original = original.labels,
+                             working = working.labels,
+                             n = as.integer(class.count),
+                             proportion = as.numeric(class.count / sum(class.count)),
+                             stringsAsFactors = FALSE),
+      use.rfq = use.rfq,
+      iratio = if (nclass == 2L) iratio else NA_real_,
+      iratio.threshold = iratio.threshold,
+      rfq.requested = imbalanced.flag)
+  }
+  ## Describe the original outcome, the working targets, and the returned forest
+  ## separately. In particular, regr+ can be observed or survival-derived.
+  if (is.null(source.response)) {
+    source.response <- rep(NA_character_, length(yvar.names))
+  }
+  model.info <- list(
+    original = list(
+      family = family.org,
+      response = colnames(y.org)),
+    working = list(
+      family = family,
+      response = yvar.names,
+      target = if (family.org == "surv") {
+        if (is.null(rmst)) "mortality" else "rmst"
+      } else if (family.org == "class") "class" else "response",
+      source = if (family.org == "surv") "survival.forest" else "observed",
+      response.map = data.frame(
+        response = yvar.names,
+        source.column = seq_along(yvar.names),
+        source.response = source.response,
+        stringsAsFactors = FALSE)),
+    forest = NULL,
+    survival = survival.info,
+    classification = classification.info)
+  if (!is.null(source.horizon)) {
+    model.info$working$response.map$tau.horizon <- source.horizon
   }
   ## ------------------------------------------------------------------------
   ##
@@ -463,7 +523,8 @@ varpro <- function(formula, data, nvar = 30, ntree = 500,
         x = x,
         y = y,
         y.org = y.org,
-        family = family))
+        family = family,
+        model.info = model.info))
     }
   }###########split weight calculations end here
   ## ------------------------------------------------------------------------
@@ -507,6 +568,7 @@ varpro <- function(formula, data, nvar = 30, ntree = 500,
   if (split.weight || split.weight.custom) {
     object <- rfsrc(if (family=="regr+") f else f.org,
                     if (family=="regr+") data else data.frame(y.org, data[, xvar.names, drop=FALSE]),
+                    rfq = if (imbalanced.flag) TRUE else NULL,
                     splitrule = if (imbalanced.flag) "auc" else NULL,
                     xvar.wt = xvar.wt,
                     ntree = ntree,
@@ -518,6 +580,7 @@ varpro <- function(formula, data, nvar = 30, ntree = 500,
   else {
     object <- rfsrc(if (family=="regr+") f else f.org,
                     if (family=="regr+") data else data.frame(y.org, data[, xvar.names, drop=FALSE]),
+                    rfq = if (imbalanced.flag) TRUE else NULL,
                     splitrule = if (imbalanced.flag) "auc" else NULL,
                     mtry = if (is.null(dots$mtry)) Inf else dots$mtry,
                     ntree = ntree,
@@ -551,6 +614,15 @@ varpro <- function(formula, data, nvar = 30, ntree = 500,
   ##
   ##
   ## ------------------------------------------------------------------------
+  ## Copy effective settings from the returned forest, rather than inferring
+  ## them from preliminary weighting or the working response labels.
+  model.info$forest <- list(
+    family = object$family,
+    response = object$yvar.names,
+    response.source = if (family == "regr+") "working" else "original",
+    rfq = object$forest$rfq,
+    splitrule = object$forest$splitrule,
+    perf.type = object$forest$perf.type)
   rO <- list(
     rf = object,
     split.weight = if (split.weight || split.weight.custom) xvar.wt else NULL,
@@ -564,7 +636,8 @@ varpro <- function(formula, data, nvar = 30, ntree = 500,
     x = x,
     y = y,
     y.org = y.org[, 1:ncol(y.org)],
-    family = object$family)
+    family = object$family,
+    model.info = model.info)
   class(rO) <- "varpro"
   return(rO)
 }

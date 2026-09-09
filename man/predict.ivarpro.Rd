@@ -1,196 +1,93 @@
 \name{predict.ivarpro}
 \alias{predict.ivarpro}
-\title{Predict iVarPro Gradients on New Data}
-
+\title{Predict Individual Variable Priority for New Cases}
 \description{
-
-  Calculates case-specific iVarPro gradients on a new feature matrix by
-  reusing the rule-level gradients stored in a previously computed
-  iVarPro object and recomputing rule membership for the new cases.
-
+  Apply an iVarPro analysis to new observations, or recover its
+  out-of-bag training scores. The result gives a local gradient for
+  each case and processed predictor.
 }
-
 \usage{
-\method{predict}{ivarpro}(object,
-  newdata = NULL,
-  model = NULL,
-  noise.na = NULL,
-  path.store.membership = FALSE,
-  save.data = TRUE,
-  ...)
+\method{predict}{ivarpro}(object, newdata = NULL, model = NULL,
+  noise.na = NULL, path.store.membership = FALSE,
+  save.data = TRUE, ...)
 }
-
 \arguments{
-
-  \item{object}{An object returned by \code{\link{ivarpro}} (a numeric
-    \code{data.frame} for univariate outcomes, or a list of such
-    \code{data.frame}s for multivariate outcomes). The object must contain the
-    \code{"ivarpro.path"} attribute with stored rule metadata and rule-level
-    gradients.}
-
-  \item{newdata}{Optional data.frame of predictors for which to compute
-    case-specific gradients. If supplied, gradients are computed for
-    \code{newdata} using full membership (all eligible trees). If
-    \code{NULL} (default), the function attempts a restore prediction
-    for the training data, using OOB membership so that the returned
-    gradients match the original \code{ivarpro()} output when possible.}
-
-  \item{model}{Optional model override. If \code{NULL} (default), the
-    model is taken from \code{attr(object, "model")}. The stored model
-    can be either a \code{varpro} object or a \code{randomForestSRC}
-    \code{rfsrc} grow object.}
-
-  \item{noise.na}{Logical controlling how cells with no usable
-    contributing rules are handled. If \code{NULL} (default), inherits
-    the setting stored in \code{attr(object,
-    "ivarpro.path")$noise.na}. If \code{TRUE}, such cells are set to
-    \code{NA}; if \code{FALSE}, they are set to zero.}
-
-  \item{path.store.membership}{Logical. If \code{TRUE}, store the rule
-    membership indices (case IDs) for the prediction in \code{attr(out,
-    "ivarpro.path")$oobMembership}. This enables ladder-based bands in
-    \code{\link{plot.ivarpro}} and summaries via
-    \code{ivarpro_band()} for the predicted gradients, at the cost of
-    additional memory. Default is \code{FALSE}.}
-
-  \item{save.data}{Logical. If \code{TRUE} (default) and \code{newdata}
-    is supplied, save the predictor data used for prediction as
-    \code{attr(out, "data")}, enabling downstream plotting functions
-    (e.g., \code{\link{plot.ivarpro}}) to retrieve \code{data}
-    automatically.}
-
-  \item{...}{Additional arguments passed to
-    \code{randomForestSRC::predict.rfsrc()}.}
-
+  \item{object}{An object returned by \code{ivarpro}.}
+  \item{newdata}{A data frame containing the predictors for new cases.
+    Outcome columns are optional. For a VarPro model, supply the
+    original predictor columns; the training hot-encoding is applied
+    automatically. If \code{NULL}, recover the original training
+    scores using out-of-bag rule membership.}
+  \item{model}{The VarPro object or random forest used to obtain
+    \code{object}. By default, use the model stored by
+    \code{ivarpro(save.model = TRUE)}. Supply it here if it was not
+    stored.}
+  \item{noise.na}{How to average unavailable rule scores: \code{TRUE}
+    omits them and returns \code{NA} where no usable score is available;
+    \code{FALSE} includes them as zeros. By default, inherit the
+    setting from \code{object}.}
+  \item{path.store.membership}{Retain the case-to-rule membership
+    indices with the result? These are optional diagnostic information.}
+  \item{save.data}{Store the processed predictor data for subsequent
+    plots? Default is \code{TRUE}.}
+  \item{...}{Additional arguments passed to the forest prediction
+    method when memberships are obtained.}
 }
-
 \details{
+  New cases are routed through the original forest. For each predictor,
+  their scores average the stored gradients of applicable rules that
+  release that predictor. The local slopes and neighborhood choices
+  remain those learned in the original iVarPro analysis.
 
-A previously computed iVarPro object contains (i) a set of retained
-VarPro rules identified by tree and node/branch IDs, (ii) a
-release-variable index for each rule, and (iii) an estimated rule-level
-gradient. For new cases, the function obtains terminal node membership
-for each tree using \code{randomForestSRC::predict.rfsrc(membership =
-TRUE)} and determines which stored rules apply to each case by matching
-the case's terminal node to the stored rule node/branch ID for that
-tree. Case-specific gradients are then computed by aggregating the
-stored rule-level gradients over all rules that apply to the case and
-release the corresponding variable.
+  Scores retain the target, scaling and signed or absolute convention
+  chosen in \code{ivarpro}. Multiple targets produce a named list of
+  score tables. Use \code{plot} or \code{shap.ivarpro} to inspect the
+  result, with \code{target} selecting a response or class when needed.
 
-When \code{newdata} is not supplied, \code{predict()} attempts
-to return OOB case-specific gradients for the original training
-data. When the iVarPro object was created with membership information
-stored in its path (\code{path.store.membership = TRUE}, the default for
-\code{ivarpro()}), the restore prediction will reproduce the original
-iVarPro matrix.
-
-If \code{save.data = TRUE} and \code{newdata} is supplied,
-\code{attr(out, "data")} contains the predictor matrix used for
-prediction, so downstream wrappers such as \code{\link{plot.ivarpro}}
-can be used directly. If you want ladder bands on predicted gradients,
-set \code{path.store.membership = TRUE} when predicting.
-
+  Omitting \code{newdata} recovers training scores using out-of-bag
+  membership. Passing the training predictors explicitly treats those
+  observations as new cases and uses all applicable forest rules, so
+  the two calls can give different scores.
 }
-
 \value{
+  An object of class \code{ivarpro}, with one row per prediction case
+  and one column per processed predictor. A single target produces a
+  data frame; multiple targets produce a named list of data frames.
+  Row names identify the prediction cases.
 
-Returns an object with the same shape as \code{object}:
-
-\itemize{
-  
-  \item For univariate outcomes, a numeric \code{data.frame} of
-  dimension \eqn{n_{test} \times p} containing predicted
-  case-specific gradients.
-
-  \item For multivariate outcomes, a named list of such
-  \code{data.frame}s, one per outcome coordinate.
-
+  The result retains the target labels, original model and rule
+  information needed for further prediction. With \code{save.data = TRUE},
+  its \code{data} attribute contains aligned plotting data. For new
+  cases this contains processed predictors; the original explanation
+  targets are not recalculated. See \code{\link{ivarpro}} for score
+  interpretation.
 }
-
-The returned object includes an \code{"ivarpro.path"} attribute
-containing rule metadata and (optionally) prediction-time membership
-indices.
-
-}
-
 \seealso{
-  \code{\link{ivarpro}},
-  \code{\link{plot.ivarpro}},
-  \code{\link{varpro}}
+  \code{\link{ivarpro}}, \code{\link{plot.ivarpro}},
+  \code{\link{shap.ivarpro}}
 }
-
 \examples{
 \donttest{
+## Train on one sample and explain new observations.
+set.seed(137)
+n <- 400
+sim <- data.frame(x1 = runif(n, -1, 1), x2 = runif(n, -1, 1))
+sim$y <- 6 * sim$x1 * sim$x2 + rnorm(n, sd = 0.3)
+trn <- sample.int(n, 300)
+vp <- varpro(y ~ ., sim[trn, , drop = FALSE],
+             split.weight = FALSE, ntree = 100,
+             parallel = FALSE)
+iv <- ivarpro(vp, scale = "none", nmin = 10)
 
-## ------------------------------------------------------------
-##
-## Restore mode example (training OOB gradients are reproduced)
-##
-## ------------------------------------------------------------
+## Outcome values are not needed for new-case gradients.
+test <- sim[-trn, c("x1", "x2"), drop = FALSE]
+iv.test <- predict(iv, newdata = test)
+print(head(iv.test))
+plot(iv.test, var = "x1", col.var = "x2")
 
-data(peakVO2, package = "randomForestSRC")
-
-## Fit VarPro and iVarPro
-vp  <- varpro(Surv(ttodead, died) ~ ., peakVO2, ntree = 50)
-imp <- ivarpro(vp)
-
-## Restore prediction: should match the original iVarPro matrix
-p.restore <- predict(imp)
-all.equal(p.restore, imp, check.attributes = FALSE)
-
-## Downstream plotting using the restored gradients
-plot(p.restore, var = "peak.vo2",
-     col.var = "interval", size.var = "y",
-     data = attr(imp, "data"))
-
-
-## ------------------------------------------------------------
-##
-## Synthetic example (Friedman #1) with prediction on new data
-##
-## ------------------------------------------------------------
-
-if (requireNamespace("mlbench", quietly = TRUE)) {
-
-  set.seed(123)
-
-  ## training data
-  tr <- mlbench::mlbench.friedman1(500, sd = 1)
-  train <- data.frame(tr$x, y = tr$y)
-  colnames(train)[1:ncol(tr$x)] <- paste0("x", 1:ncol(tr$x))
-
-  ## ivarpro fit on training data
-  vp <- varpro(y ~ ., train, ntree = 100)
-  imp <- ivarpro(vp)
-
-  ## test data
-  te <- mlbench::mlbench.friedman1(1e4, sd = 1)
-  test <- data.frame(te$x)
-  colnames(test) <- paste0("x", 1:ncol(te$x))
-
-  ## predicted gradients on test data
-  p.test <- predict(imp, newdata = test)
-
-  ## partial plot directly on predicted object
-  plot(p.test, var = "x1", col.var = "x2")
-
-
-  ## push x1 outside the original Friedman support [0, 1]
-  ## a heuristic way to test out-of-distribution (OOD)
-  test.ood <- test
-  test.ood$x1 <- runif(nrow(test), min = -0.5, max = 1.5)
-
-  ## predicted gradients on OOD test data
-  p.test.ood <- predict(imp, newdata = test.ood)
-
-  ## partial plot showing support for x1
-  plot(p.test.ood, var = "x1", col.var = "x2",
-       x.dist = c("density", "rug"))
-  ## reference lines for the original training support of x1
-  abline(v = c(0, 1), lty = 2)
-
-}
-
+## Recover the original out-of-bag training scores.
+iv.oob <- predict(iv)
+print(all.equal(as.matrix(iv.oob), as.matrix(iv),
+                check.attributes = FALSE))
 }}
-
-\keyword{individual importance}
+\keyword{models}
