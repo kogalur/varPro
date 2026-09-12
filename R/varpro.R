@@ -25,6 +25,25 @@ varpro <- function(formula, data, nvar = 30, ntree = 500,
                    verbose = FALSE, seed = NULL,
                    ...)
 {
+  ## validate additional arguments before processing data
+  dots <- list(...)
+  if (length(dots) > 0L &&
+      (is.null(names(dots)) || anyNA(names(dots)) || any(!nzchar(names(dots))))) {
+    stop("varpro(): arguments in ... must be named", call. = FALSE)
+  }
+  duplicates <- unique(names(dots)[duplicated(names(dots))])
+  if (length(duplicates) > 0L) {
+    stop("varpro(): duplicate argument(s): ",
+         paste(duplicates, collapse = ", "), call. = FALSE)
+  }
+  hidden <- get.varpro.hidden(dots, ntree)
+  known <- c(names(hidden), "nodesize.reduce", "nodedepth.reduce",
+             "nodesize.external", "split.weight.custom", "use.vimp", "mtry")
+  extra <- setdiff(names(dots), known)
+  if (length(extra) > 0L) {
+    stop("varpro(): unrecognized argument(s): ",
+         paste(extra, collapse = ", "), call. = FALSE)
+  }
   ## ------------------------------------------------------------------------
   ##
   ##
@@ -38,6 +57,7 @@ varpro <- function(formula, data, nvar = 30, ntree = 500,
   f.org <- f <- as.formula(formula)
   ## data must be a data frame
   data <- data.frame(data)
+  n.input <- nrow(data)
   ## droplevels
   data <- droplevels(data)
   ## stumpy tree determines family and cleans up missing data 
@@ -45,6 +65,13 @@ varpro <- function(formula, data, nvar = 30, ntree = 500,
   ## save original y - needed for coherent treatment of survival
   ## hot-encode x
   stump <- get.stump(f, data)
+  observations <- list(input = n.input, retained = nrow(stump$xvar))
+  observations$omitted <- observations$input - observations$retained
+  if (observations$omitted > 0L) {
+    warning("varpro(): omitted ", observations$omitted, " of ",
+            observations$input, " observations with missing values (",
+            observations$retained, " retained)", call. = FALSE)
+  }
   family <- stump$family
   family.org <- family
   yvar.names <- stump$yvar.names
@@ -82,8 +109,6 @@ varpro <- function(formula, data, nvar = 30, ntree = 500,
   ##
   ##
   ## ------------------------------------------------------------------------
-  dots <- list(...)
-  hidden <- get.varpro.hidden(dots, ntree)
   sampsize <- hidden$sampsize
   nsplit <- hidden$nsplit
   ntree.external <- hidden$ntree.external  
@@ -266,7 +291,8 @@ varpro <- function(formula, data, nvar = 30, ntree = 500,
         stringsAsFactors = FALSE)),
     forest = NULL,
     survival = survival.info,
-    classification = classification.info)
+    classification = classification.info,
+    observations = observations)
   if (!is.null(source.horizon)) {
     model.info$working$response.map$tau.horizon <- source.horizon
   }

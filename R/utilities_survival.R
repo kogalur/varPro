@@ -41,14 +41,11 @@ get.rmst <- function(o, tau.horizon = NULL) {
   tau.horizon <- as.numeric(tau.horizon)
   ## calculate the rmst, preserving the requested horizon order
   rmst.lst <- lapply(tau.horizon, function(tau) {
-    ## adjustment for when time doesn't include tau.horizon
-    etime <- sort(unique(c(time, tau)))
-    surv <- cbind(1, surv)[, 1 + sIndex(time, etime), drop = FALSE]
-    time <- etime
-    ## restrict time to tau horizon
-    time.pt <- time <= tau
-    ## calculate rmst for the restricted time
-    c(surv[, time.pt, drop = FALSE] %*% diff(c(0, time[time.pt])))
+    ## Integrate each interval using survival at its left endpoint.
+    breaks <- sort(unique(c(0, time[time < tau], tau)))
+    left <- breaks[-length(breaks)]
+    surv.left <- cbind(1, surv)[, 1L + findInterval(left, time), drop = FALSE]
+    c(surv.left %*% diff(breaks))
   })
   ## Label responses where they are calculated. For a single horizon the
   ## numeric vector retains its shape; its response identity is an attribute.

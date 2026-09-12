@@ -28,7 +28,9 @@ varpro(formula, data, nvar = 30, ntree = 500,
 
   \item{data}{Data frame containing the response and predictors.
     Incomplete observations are removed, unused factor levels are
-    dropped, and categorical predictors are hot-encoded. See Details.}
+    dropped, and categorical predictors are hot-encoded. If observations
+    are omitted, a warning reports the input, omitted, and retained counts.
+    See Details.}
 
   \item{nvar}{Maximum number of processed predictor columns retained
     by split-weight screening before rule generation. A categorical
@@ -83,7 +85,8 @@ varpro(formula, data, nvar = 30, ntree = 500,
 
   \item{...}{Additional named controls for split-weight construction,
     rule generation, and external survival estimation. The supported
-    controls used most often are described in Details.}
+    controls used most often are described in Details. Unnamed controls,
+    unrecognized names, and duplicate names cause an error.}
 }
 
 \details{
@@ -308,7 +311,10 @@ varpro(formula, data, nvar = 30, ntree = 500,
     RMST horizons use \code{"regr+"}.}
   \item{max.rules.tree, max.tree}{Stored rule-extraction limits used by
     subsequent importance calculations.}
-  \item{model.info}{Compact description of the analysis.}
+  \item{model.info}{Compact description of the analysis. Its
+    \code{observations} component records \code{input}, \code{retained},
+    and \code{omitted} row counts for the data supplied to this
+    \code{varpro} call.}
 }
 
 \note{

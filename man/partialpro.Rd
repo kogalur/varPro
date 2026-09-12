@@ -76,7 +76,8 @@ partialpro(object, xvar.names, nvar,
   \item{...}{Advanced options controlling the virtual grid, UVT filtering,
   and local smoothing.  These options are intentionally not part of the main
   argument list, but they are user-adjustable.  See \strong{Advanced options}
-  in \code{Details}.}
+  in \code{Details}. Unnamed options, unrecognized names, and duplicate
+  names cause an error.}
 }
 
 \details{
@@ -246,8 +247,13 @@ random-forest arguments through \code{...}.  \code{gbm.learner(o, ...)} fits a
 \code{cv.folds = 5}, and \code{n.cores = get.mc.cores()}; it uses Gaussian
 loss for regression/survival scores and Bernoulli loss for two-class
 classification.  \code{bart.learner(o, ...)} fits a BART regression learner
-and accepts \code{mc.cores}; it applies only to regression/survival-style
-VarPro objects.
+and accepts \code{mc.cores} for prediction; it applies only to
+regression/survival-style VarPro objects.
+
+All three learner helpers require uniquely named options and reject
+unrecognized names before fitting. For \code{rf.learner}, \code{formula}, \code{data},
+\code{xvar.wt}, and \code{perf.type} are set internally and cannot be
+supplied through \code{...}.
 
 Because \code{partialpro} samples cases and creates case-specific train/test
 splits of the virtual grid, use \code{set.seed} before calling the function

@@ -77,6 +77,24 @@ myunique <- function(x, npts, alpha = .05, nfactor = 10) {
 ## custom learners
 ##
 ###################################################################
+## reject unsupported learner options before fitting
+.check.learner.dots <- function(dots, known, caller) {
+  if (length(dots) > 0L &&
+      (is.null(names(dots)) || anyNA(names(dots)) || any(!nzchar(names(dots))))) {
+    stop(caller, "(): arguments in ... must be named", call. = FALSE)
+  }
+  duplicates <- unique(names(dots)[duplicated(names(dots))])
+  if (length(duplicates) > 0L) {
+    stop(caller, "(): duplicate argument(s): ",
+         paste(duplicates, collapse = ", "), call. = FALSE)
+  }
+  extra <- setdiff(names(dots), known)
+  if (length(extra) > 0L) {
+    stop(caller, "(): unrecognized argument(s): ",
+         paste(extra, collapse = ", "), call. = FALSE)
+  }
+  invisible(NULL)
+}
 ##---------------------------------------------------------------
 ##
 ## bart learner
@@ -91,12 +109,13 @@ bart.learner <- function(o, ...) {
   if (!(o$family == "regr")) {
     stop("only applies for regression/survival")
   }
+  ## user allowed options
+  dots <- list(...)
+  .check.learner.dots(dots, "mc.cores", "bart.learner")
+  mc.cores <- if (is.null(dots$mc.cores)) get.mc.cores() else dots$mc.cores
   ## bart call
   invisible(capture.output(mybartlearner <- wbart(x.train = o$x[, o$xvar.names, drop = FALSE],
                                   y.train = o$y)))
-  ## user allowed options
-  dots <- list(...)
-  mc.cores <- if (is.null(dots$mc.cores)) get.mc.cores() else dots$mc.cores
   function(x) {
     if (missing(x)) {
       mybartlearner$yhat.train.mean
@@ -131,6 +150,8 @@ gbm.learner <- function(o, ...) {
   }
   ## user allowed options
   dots <- list(...)
+  .check.learner.dots(dots, c("n.trees", "shrinkage", "interaction.depth",
+                            "cv.folds", "n.cores"), "gbm.learner")
   n.trees <- if (is.null(dots$n.trees)) 500 else dots$n.trees
   shrinkage <- if (is.null(dots$shrinkage)) 0.1 else dots$shrinkage
   interaction.depth <- if (is.null(dots$interaction.depth)) 3 else dots$interaction.depth
@@ -184,15 +205,15 @@ rf.learner <- function(o, ...) {
   if (!inherits(o, "varpro")) {
     stop("object must be a varpro object")
   }
+  ## user allowed options
+  dots <- list(...)
+  rfnames <- randomForestSRC:::get.rfnames(hidden = TRUE)
+  rfnames <- setdiff(rfnames, c("formula", "data", "xvar.wt", "perf.type", "..."))
+  .check.learner.dots(dots, rfnames, "rf.learner")
   ## custom defined xvar.wt - much gentler than the sparse varpro value
   xvar.wt <- rep(0, length(o$xvar.names))
   names(xvar.wt) <- o$xvar.names
   xvar.wt[get.topvars(o)] <- 1
-  ## user allowed options
-  dots <- list(...)
-  rfnames <- randomForestSRC:::get.rfnames(hidden = TRUE)
-  rfnames <- rfnames[rfnames != "formula" & rfnames != "data"]
-  dots <- dots[names(dots) %in% rfnames]
   dots$formula <- as.formula("y~.")
   dots$xvar.wt <- xvar.wt
   dots$perf.type <- "none"

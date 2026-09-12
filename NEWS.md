@@ -1,4 +1,4 @@
-# varPro 3.2.1
+# varPro 3.2.2
 
 ## New features
 
@@ -8,13 +8,21 @@
   `cv.folds = 0`, retains OOB-based selection without outer cross-validation.
 * `varpro()` objects now include `model.info`, recording original and working
   responses, survival targets and RMST horizons, class-label mappings, and
-  effective forest settings.
+  effective forest settings. `model.info$observations` also records input,
+  retained, and omitted row counts, including in `split.weight.only`
+  results (#7).
 
 ## Interface changes
 
 * Removed iVarPro cut-ladder storage and plotting bands. `plot()` for iVarPro
   objects no longer supports `ladder`, `ladder.cuts`, or `ladder.max.segments`;
   remove these arguments from existing calls.
+* `varpro()`, `partialpro()`, `rf.learner()`, `gbm.learner()`, and
+  `bart.learner()` now reject unnamed options, unrecognized names, and
+  duplicate names in `...` (#7). This includes unsupported `na.action`
+  in `varpro()` and `RMST`, `rmst`, and `time` in `partialpro()`.
+* `rf.learner()` now rejects user-supplied `formula`, `data`, `xvar.wt`,
+  and `perf.type`, which the wrapper sets internally (#7).
 
 ## Bug fixes and refinements
 
@@ -43,11 +51,14 @@
   and cross-validation candidate forests.
 * Fixed `get.rmst()` to use full-ensemble survival estimates with an OOB
   fallback, validate time horizons, and preserve matrix dimensions for small
-  inputs and response identities for multiple horizons.
+  inputs and response identities for multiple horizons. The integral now
+  uses survival at each interval's left endpoint (#7).
 * Fixed `varpro.strength(..., stat = "oob")` to return `meanOOB` for regression.
 * Fixed `sdependent()` to align importance-matrix rows and columns by variable
   name before clearing self-links, fill missing release rows with zeros, and
   validate matrix values and names.
+* `varpro()` now warns when preprocessing omits observations with missing
+  values, reporting the input, omitted, and retained counts (#7).
 
 ## Documentation
 
@@ -56,6 +67,8 @@
   local lasso analysis and dependence graphs.
 * Documented `shap.ivarpro()` with the iVarPro plotting methods and
   `get.beta.entropy()` and `sdependent()` with `uvarpro()`.
+* Documented validation of additional arguments, supported learner controls,
+  and observation counts (#7).
 
 # varPro 3.2.0
 

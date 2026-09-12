@@ -17,6 +17,23 @@ partialpro <- function(object,
   if (!inherits(object, "varpro")) {
     stop("object must be a varpro object")
   }
+  ## validate additional arguments before computing profiles
+  dots <- list(...)
+  if (length(dots) > 0L &&
+      (is.null(names(dots)) || anyNA(names(dots)) || any(!nzchar(names(dots))))) {
+    stop("partialpro(): arguments in ... must be named", call. = FALSE)
+  }
+  duplicates <- unique(names(dots)[duplicated(names(dots))])
+  if (length(duplicates) > 0L) {
+    stop("partialpro(): duplicate argument(s): ",
+         paste(duplicates, collapse = ", "), call. = FALSE)
+  }
+  hidden <- get.partialpro.hidden(dots)
+  extra <- setdiff(names(dots), names(hidden))
+  if (length(extra) > 0L) {
+    stop("partialpro(): unrecognized argument(s): ",
+         paste(extra, collapse = ", "), call. = FALSE)
+  }
   ## set xvar.names here
   topvars <- get.topvars(object)
   if (missing(xvar.names)) {
@@ -92,8 +109,7 @@ partialpro <- function(object,
   ## hidden options
   ##
   ## ------------------------------------------------------------------------
-  ## obtain hidden options
-  hidden <- get.partialpro.hidden(list(...))
+  ## unpack hidden options
   cut <- hidden$cut
   nsmp <- hidden$nsmp
   nvirtual0 <- hidden$nvirtual
