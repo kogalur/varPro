@@ -278,6 +278,7 @@ SEXP varProStrength(SEXP traceFlag,
   RF_intrPredictor = NULL;
   RF_getTree = (uint *) INTEGER(getTree);  RF_getTree --;
   RF_TN_SURV_ = RF_TN_MORT_ = RF_TN_NLSN_ = RF_TN_CSHZ_ = RF_TN_CIFN_ = NULL;
+  RF_TN_KHZF_ = NULL;
   RF_TN_REGR_ = NULL;
   RF_TN_CLAS_ = NULL;
   if (tnSURV != R_NilValue) RF_TN_SURV_ = REAL(tnSURV);

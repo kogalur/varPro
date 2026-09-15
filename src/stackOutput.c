@@ -459,7 +459,7 @@ void writeStrengthArray(uint     *strengthTreeID,
                         void     *brmCT,
                         void     *releaseStat) {
   uint  b,j,k,m,p;
-  uint      row;
+  ulong row;
   Terminal *parent;
   row = 0;
   if ((RF_timeIndex > 0) && (RF_statusIndex > 0)) {
@@ -706,7 +706,8 @@ void writeMembershipArray(uint      strengthTreeCount,
                           uint     *branchPopID,
                           uint     *complementID) {
   uint  b,j,k,p;
-  uint      row, oobIndex, compIndex;
+  ulong row;
+  ulong oobIndex, compIndex;
   row = 0;
   compIndex = 0;
   oobIndex = 0;

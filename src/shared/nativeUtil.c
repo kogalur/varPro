@@ -15,11 +15,11 @@ void setNativeGlobalEnv(uint *nativeIndex, uint *stackCount) {
   *nativeIndex = 0;
   *stackCount  = 0;
 }
-void *copy1DObject(SEXP arr, char type, uint size, char actual) {
+void *copy1DObject(SEXP arr, char type, ulong size, char actual) {
   void   *buffer;
   char   *cbuffer;
   double *dbuffer;
-  uint i;
+  ulong i;
   buffer = NULL;
   if (size > 0) {
     switch (type) {
@@ -41,7 +41,7 @@ void *copy1DObject(SEXP arr, char type, uint size, char actual) {
   }
   return buffer;
 }
-void free_1DObject(void *arr, char type, uint size) {
+void free_1DObject(void *arr, char type, ulong size) {
   if (size > 0) {
     switch (type) {
     case NATIVE_TYPE_CHARACTER:
@@ -53,11 +53,11 @@ void free_1DObject(void *arr, char type, uint size) {
     }
   }
 }
-void *copy2DObject(SEXP arr, char type, char flag, uint row, uint col) {
+void *copy2DObject(SEXP arr, char type, char flag, ulong row, ulong col) {
   void *buffer;
   double *darray;
   uint   *iarray;
-  uint i;
+  ulong i;
   buffer = NULL;  
   if (flag > 0) {
     switch (type) {
@@ -79,7 +79,7 @@ void *copy2DObject(SEXP arr, char type, char flag, uint row, uint col) {
   }
   return buffer;
 }
-void free_2DObject(void *arr, char type, char flag, uint row, uint col) {
+void free_2DObject(void *arr, char type, char flag, ulong row, ulong col) {
   if (flag > 0) {
     switch (type) {
     case NATIVE_TYPE_NUMERIC:
@@ -130,7 +130,7 @@ void *stackAndProtect(AuxiliaryDimensionConstants *dimConst,
   va_start(list, auxiliaryDimSize);
   int *auxiliaryDim = ivector(1, auxiliaryDimSize);
   for (uint i = 1; i <= auxiliaryDimSize; i++) {
-    auxiliaryDim[i] = va_arg(list, int);
+    auxiliaryDim[i] = (auxiliaryPtr == NULL) ? 0 : va_arg(list, int);
   }
   va_end(list);
   if (!(size > 0)) {

@@ -99,7 +99,7 @@ void stackTNQualitativeIncomingVPnew(char      mode,
     int *dim = ivector(1, 2);
     dim[1] = ntree;
     dim[2] = -3;
-    uint cntOffset;
+    ulong cntOffset;
     uint *oobBlk = uivector(1, ntree);
     uint *ibgBlk = uivector(1, ntree);
     cntOffset = 0;

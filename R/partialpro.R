@@ -135,6 +135,11 @@ partialpro <- function(object,
   ## process the requested variables
   ##
   ## ------------------------------------------------------------------------
+  unavailable <- setdiff(xvar.names, object$xvar.names)
+  if (length(unavailable) > 0L) {
+    warning("partialpro(): skipping xvar.names not found in object$xvar.names: ",
+            paste(unavailable, collapse = ", "), call. = FALSE)
+  }
   variables <- object$xvar.names[as.numeric(na.omit(match(xvar.names, object$xvar.names)))]
   if (length(variables) == 0) {
     return(NULL)

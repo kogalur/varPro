@@ -31,8 +31,8 @@ void acquireTree(char mode, uint b) {
   NodeBase *rootBase;
   uint nSize, xSize;
   uint  treeID;
-  uint  rmbrIterator;
-  uint  ambrIterator;
+  ulong rmbrIterator;
+  ulong ambrIterator;
   uint  gmbrIterator;
   uint *bootMembrIndx;
   uint  bootMembrSize;

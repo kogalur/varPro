@@ -2,10 +2,10 @@
 #define  RF_NATIVE_UTIL_H
 #include "snpAuxiliaryInfo.h"
 void setNativeGlobalEnv(uint *nativeIndex, uint *stackCount);
-void *copy1DObject(SEXP arr, char type, uint size, char actual);
-void *copy2DObject(SEXP arr, char type, char flag, uint row, uint col);
-void free_1DObject(void *arr, char type, uint size);
-void free_2DObject(void *arr, char type, char flag, uint row, uint col);
+void *copy1DObject(SEXP arr, char type, ulong size, char actual);
+void *copy2DObject(SEXP arr, char type, char flag, ulong row, ulong col);
+void free_1DObject(void *arr, char type, ulong size);
+void free_2DObject(void *arr, char type, char flag, ulong row, ulong col);
 void initProtect(uint  stackCount);
 void *stackAndProtect(struct auxiliaryDimensionConstants *dimConst,
                       char   mode,

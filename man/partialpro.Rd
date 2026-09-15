@@ -26,7 +26,8 @@ partialpro(object, xvar.names, nvar,
   \item{xvar.names}{Optional character vector of variables for which partial
   profiles are requested.  If omitted, the variables returned by
   \code{get.topvars(object)} are used.  Names not found in
-  \code{object$xvar.names} are silently dropped.}
+  \code{object$xvar.names} are dropped with a warning listing the
+  unavailable names. This check is applied after the \code{nvar} limit.}
 
   \item{nvar}{Optional integer limiting the number of variables used from
   \code{xvar.names}.  If supplied, only the first \code{nvar} requested

@@ -593,9 +593,9 @@ char varProMain(char mode, int seedValue) {
               VP_strengthTreeID_[b] = VP_strengthTreeID[b];
             }
             ulong localSize;
-            uint  membershipSize;
+            ulong membershipSize;
             if (mode == RF_PRED) {
-              localSize = VP_strengthTreeCount * RF_fobservationSize;
+              localSize = (ulong) VP_strengthTreeCount * RF_fobservationSize;
               VP_testCaseNodeID_ = (uint*) stackAndProtect(RF_auxDimConsts,
                                                            mode,
                                                            &RF_nativeIndex,
@@ -620,7 +620,7 @@ char varProMain(char mode, int seedValue) {
                 RF_nativeError("\nRF-SRC:  Neighbour size must be greater than zero and less than n:  %10d \n", VP_neighbourSize);
                 RF_nativeExit();
               }
-              localSize = RF_fobservationSize * VP_neighbourSize;
+              localSize = (ulong) RF_fobservationSize * VP_neighbourSize;
               VP_twinStatID_ = (uint*) stackAndProtect(RF_auxDimConsts,
                                                      mode,
                                                      &RF_nativeIndex,
@@ -633,7 +633,7 @@ char varProMain(char mode, int seedValue) {
                                                      2,
                                                      RF_fobservationSize,
                                                      VP_neighbourSize);
-              localSize = RF_fobservationSize * VP_neighbourSize;
+              localSize = (ulong) RF_fobservationSize * VP_neighbourSize;
               VP_twinStat_ = (double*) stackAndProtect(RF_auxDimConsts,
                                                        mode,
                                                        &RF_nativeIndex,
@@ -647,7 +647,7 @@ char varProMain(char mode, int seedValue) {
                                                        RF_fobservationSize,
                                                        VP_neighbourSize);
               if (VP_opt & VP_OPT_FRQ) {
-                localSize = RF_fobservationSize * VP_neighbourSize * VP_xReduceSize;
+                localSize = (ulong) RF_fobservationSize * VP_neighbourSize * VP_xReduceSize;
                 VP_twinFreqTable_ = (uint*) stackAndProtect(RF_auxDimConsts,
                                                             mode,
                                                             &RF_nativeIndex,

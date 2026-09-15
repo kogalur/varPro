@@ -1,4 +1,4 @@
-# varPro 3.2.2
+# varPro 3.2.4
 
 ## New features
 
