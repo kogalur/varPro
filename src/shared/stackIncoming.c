@@ -187,20 +187,22 @@ void stackTNQuantitativeIncoming(char         mode,
         }
       }
       else {
-        dim[1] = ntree;
-        dim[2] = -2;
-        dim[3] = 1;
-        allocateAuxiliaryInfo(dimConst,
-                              FALSE,
-                              NATIVE_TYPE_NUMERIC,
-                              sexpStringIO[RF_TN_KHZF],
-                              incomingAuxiliaryInfoList,
-                              *incomingStackCount,
-                              tn_khzf_,
-                              tn_khzf_ptr,
-                              3,
-                              dim);
-        (*incomingStackCount) ++;
+        if (FALSE) {
+          dim[1] = ntree;
+          dim[2] = -2;
+          dim[3] = 1;
+          allocateAuxiliaryInfo(dimConst,
+                                FALSE,
+                                NATIVE_TYPE_NUMERIC,
+                                sexpStringIO[RF_TN_KHZF],
+                                incomingAuxiliaryInfoList,
+                                *incomingStackCount,
+                                tn_khzf_,
+                                tn_khzf_ptr,
+                                3,
+                                dim);
+          (*incomingStackCount) ++;
+        }
       }
     }
     else {
