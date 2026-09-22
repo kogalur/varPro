@@ -441,11 +441,11 @@ void free_uimatrix(unsigned int **v, unsigned long long nrl, unsigned long long 
   }
   free_new_vvector(v, nrl, nrh, NRUTIL_UPTR);
 }
-unsigned long *ulvector(unsigned long long nl, unsigned long long nh) {
-  return ((unsigned long *) gvector(nl, nh, sizeof(unsigned long)) -nl+NR_END);
+ulong *ulvector(unsigned long long nl, unsigned long long nh) {
+  return ((ulong *) gvector(nl, nh, sizeof(ulong)) -nl+NR_END);
 }
-void free_ulvector(unsigned long *v, unsigned long long nl, unsigned long long nh) {
-  free_gvector(v+nl-NR_END, nl, nh, sizeof(unsigned long));
+void free_ulvector(ulong *v, unsigned long long nl, unsigned long long nh) {
+  free_gvector(v+nl-NR_END, nl, nh, sizeof(ulong));
 }
 double *dvector(unsigned long long nl, unsigned long long nh) {
   return ((double *) gvector(nl, nh, sizeof(double)) -nl+NR_END);
@@ -601,7 +601,7 @@ void *new_vvector(unsigned long long nl, unsigned long long nh, enum alloc_type 
     v = (void **) gvector(nl, nh, sizeof(void*)) -nl+NR_END;
     break;
   case NRUTIL_LPTR:
-    v = (unsigned long **) gvector(nl, nh, sizeof(unsigned long*)) -nl+NR_END;
+    v = (ulong **) gvector(nl, nh, sizeof(ulong*)) -nl+NR_END;
     break;
   case NRUTIL_GPTR:
     break;
@@ -712,7 +712,7 @@ void free_new_vvector(void *v, unsigned long long nl, unsigned long long nh, enu
     free_gvector((void**) v +nl-NR_END, nl, nh, sizeof(void*));
     break;
   case NRUTIL_LPTR:
-    free_gvector((unsigned long**) v +nl-NR_END, nl, nh, sizeof(unsigned long*));
+    free_gvector((ulong**) v +nl-NR_END, nl, nh, sizeof(ulong*));
     break;
   case NRUTIL_GPTR:
     break;

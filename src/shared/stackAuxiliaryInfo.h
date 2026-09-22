@@ -12,14 +12,15 @@ void allocateAuxiliaryInfo(AuxiliaryDimensionConstants *dimConst,
                            void  *snpPtr,
                            void  *auxiliaryArrayPtr,
                            uint   dimSize,
-                           int   *dim);
-uint getAuxDim(char flag, int *dim, uint preIndex, uint postIndex, AuxiliaryDimensionConstants *dimConst);
+                           const AuxiliaryDimension *dim);
+ulong getAuxDim(char flag, const AuxiliaryDimension *dim, ulong iterIndex, uint slot, AuxiliaryDimensionConstants *dimConst);
 AuxiliaryDimensionConstants *makeAuxDimConsts(uint *rFactorSize,
                                               uint  rFactorCount,
                                               uint *rFactorMap,
                                               uint *rTargetFactor,
                                               uint  rTargetFactorCount,
                                               uint *tLeafCount,
-                                              uint *holdBLKptr);
+                                              uint *holdBLKptr,
+                                              uint *customSize);
 void freeAuxDimConsts(AuxiliaryDimensionConstants *obj);
 #endif

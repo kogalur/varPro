@@ -28,9 +28,10 @@ void stackTNQualitativeIncoming(char      mode,
                                 uint   ***tn_rcnt_ptr,
                                 uint   ***tn_acnt_ptr) {
  if (RF_optHigh & OPT_MEMB_INCG) {
-    int *dim = ivector(1, 2);
-    dim[1] = ntree;
-    dim[2] = bootstrapSize;
+    const AuxiliaryDimension rmbrDim[] = {
+      [1] = {RF_AUX_DIM_FIXED, ntree},
+      [2] = {RF_AUX_DIM_FIXED, bootstrapSize}
+    };
     allocateAuxiliaryInfo(dimConst,
                           FALSE,
                           NATIVE_TYPE_INTEGER,
@@ -40,10 +41,12 @@ void stackTNQualitativeIncoming(char      mode,
                           rmbr_id_,
                           rmbr_id_ptr,
                           2,
-                          dim);
+                          rmbrDim);
     (*incomingStackCount) ++;
-    dim[1] = ntree;
-    dim[2] = observationSize;
+    const AuxiliaryDimension ambrDim[] = {
+      [1] = {RF_AUX_DIM_FIXED, ntree},
+      [2] = {RF_AUX_DIM_FIXED, observationSize}
+    };
     allocateAuxiliaryInfo(dimConst,
                           FALSE,
                           NATIVE_TYPE_INTEGER,
@@ -53,10 +56,12 @@ void stackTNQualitativeIncoming(char      mode,
                           ambr_id,
                           ambr_id_ptr,
                           2,
-                          dim);
+                          ambrDim);
     (*incomingStackCount) ++;
-    dim[1] = ntree;
-    dim[2] = -2;
+    const AuxiliaryDimension countDim[] = {
+      [1] = {RF_AUX_DIM_FIXED, ntree},
+      [2] = {RF_AUX_DIM_LEAF_COUNT, 0}
+    };
     allocateAuxiliaryInfo(dimConst,
                           FALSE,
                           NATIVE_TYPE_INTEGER,
@@ -66,7 +71,7 @@ void stackTNQualitativeIncoming(char      mode,
                           tn_rcnt_,
                           tn_rcnt_ptr,
                           2,
-                          dim);
+                          countDim);
     (*incomingStackCount) ++;
     allocateAuxiliaryInfo(dimConst,
                           FALSE,
@@ -77,9 +82,8 @@ void stackTNQualitativeIncoming(char      mode,
                           tn_acnt_,
                           tn_acnt_ptr,
                           2,
-                          dim);
+                          countDim);
     (*incomingStackCount) ++;
-    free_ivector(dim, 1, 2);
   }
 }
 void stackTNQuantitativeIncoming(char         mode,
@@ -113,12 +117,13 @@ void stackTNQuantitativeIncoming(char         mode,
                                  double  ****tn_regr_ptr,
                                  uint   *****tn_clas_ptr) {
   if (RF_optHigh & OPT_TERM_INCG) {
-    int *dim = ivector(1, 4);
     if ((timeIndex > 0) && (statusIndex > 0)) {
       if (startTimeIndex == 0) {
-        dim[1] = ntree;
-        dim[2] = -2;
-        dim[3] = eventTypeSize;
+        const AuxiliaryDimension mortDim[] = {
+          [1] = {RF_AUX_DIM_FIXED, ntree},
+          [2] = {RF_AUX_DIM_LEAF_COUNT, 0},
+          [3] = {RF_AUX_DIM_FIXED, eventTypeSize}
+        };
         allocateAuxiliaryInfo(dimConst,
                               FALSE,
                               NATIVE_TYPE_NUMERIC,
@@ -128,12 +133,14 @@ void stackTNQuantitativeIncoming(char         mode,
                               tn_mort_,
                               tn_mort_ptr,
                               3,
-                              dim);
+                              mortDim);
         (*incomingStackCount) ++;
         if (!(RF_opt & OPT_COMP_RISK)) {
-          dim[1] = ntree;
-          dim[2] = -2;
-          dim[3] = sortedTimeInterestSize;
+          const AuxiliaryDimension survDim[] = {
+            [1] = {RF_AUX_DIM_FIXED, ntree},
+            [2] = {RF_AUX_DIM_LEAF_COUNT, 0},
+            [3] = {RF_AUX_DIM_FIXED, sortedTimeInterestSize}
+          };
           allocateAuxiliaryInfo(dimConst,
                                 FALSE,
                                 NATIVE_TYPE_NUMERIC,
@@ -143,7 +150,7 @@ void stackTNQuantitativeIncoming(char         mode,
                                 tn_surv_,
                                 tn_surv_ptr,
                                 3,
-                                dim);
+                                survDim);
           (*incomingStackCount) ++;
           allocateAuxiliaryInfo(dimConst,
                                 FALSE,
@@ -154,14 +161,16 @@ void stackTNQuantitativeIncoming(char         mode,
                                 tn_nlsn_,
                                 tn_nlsn_ptr,
                                 3,
-                                dim);
+                                survDim);
           (*incomingStackCount) ++;
         }
         else {
-          dim[1] = ntree;
-          dim[2] = -2;
-          dim[3] = eventTypeSize;
-          dim[4] = sortedTimeInterestSize;
+          const AuxiliaryDimension riskDim[] = {
+            [1] = {RF_AUX_DIM_FIXED, ntree},
+            [2] = {RF_AUX_DIM_LEAF_COUNT, 0},
+            [3] = {RF_AUX_DIM_FIXED, eventTypeSize},
+            [4] = {RF_AUX_DIM_FIXED, sortedTimeInterestSize}
+          };
           allocateAuxiliaryInfo(dimConst,
                                 FALSE,
                                 NATIVE_TYPE_NUMERIC,
@@ -171,7 +180,7 @@ void stackTNQuantitativeIncoming(char         mode,
                                 tn_cshz_,
                                 tn_cshz_ptr,
                                 4,
-                                dim);
+                                riskDim);
           (*incomingStackCount) ++;
           allocateAuxiliaryInfo(dimConst,
                                 FALSE,
@@ -182,15 +191,17 @@ void stackTNQuantitativeIncoming(char         mode,
                                 tn_cifn_,
                                 tn_cifn_ptr,
                                 4,
-                                dim);
+                                riskDim);
           (*incomingStackCount) ++;
         }
       }
       else {
         if (FALSE) {
-          dim[1] = ntree;
-          dim[2] = -2;
-          dim[3] = 1;
+          const AuxiliaryDimension khzfDim[] = {
+            [1] = {RF_AUX_DIM_FIXED, ntree},
+            [2] = {RF_AUX_DIM_LEAF_COUNT, 0},
+            [3] = {RF_AUX_DIM_FIXED, 1}
+          };
           allocateAuxiliaryInfo(dimConst,
                                 FALSE,
                                 NATIVE_TYPE_NUMERIC,
@@ -200,16 +211,18 @@ void stackTNQuantitativeIncoming(char         mode,
                                 tn_khzf_,
                                 tn_khzf_ptr,
                                 3,
-                                dim);
+                                khzfDim);
           (*incomingStackCount) ++;
         }
       }
     }
     else {
       if (rNonFactorCount > 0) {
-        dim[1] = ntree;
-        dim[2] = -2;
-        dim[3] = rNonFactorCount;
+        const AuxiliaryDimension regrDim[] = {
+          [1] = {RF_AUX_DIM_FIXED, ntree},
+          [2] = {RF_AUX_DIM_LEAF_COUNT, 0},
+          [3] = {RF_AUX_DIM_FIXED, rNonFactorCount}
+        };
         allocateAuxiliaryInfo(dimConst,
                               FALSE,
                               NATIVE_TYPE_NUMERIC,
@@ -219,14 +232,16 @@ void stackTNQuantitativeIncoming(char         mode,
                               tn_regr_,
                               tn_regr_ptr,
                               3,
-                              dim);
+                              regrDim);
         (*incomingStackCount) ++;
       }
       if (rFactorCount > 0) {
-        dim[1] = ntree;
-        dim[2] = -2;
-        dim[3] = rFactorCount;
-        dim[4] = 0;
+        const AuxiliaryDimension clasDim[] = {
+          [1] = {RF_AUX_DIM_FIXED, ntree},
+          [2] = {RF_AUX_DIM_LEAF_COUNT, 0},
+          [3] = {RF_AUX_DIM_FIXED, rFactorCount},
+          [4] = {RF_AUX_DIM_FACTOR_SIZE, 0}
+        };
         allocateAuxiliaryInfo(dimConst,
                               FALSE,
                               NATIVE_TYPE_INTEGER,
@@ -236,10 +251,9 @@ void stackTNQuantitativeIncoming(char         mode,
                               tn_clas_,
                               tn_clas_ptr,
                               4,
-                              dim);
+                              clasDim);
         (*incomingStackCount) ++;
       }
     }
-    free_ivector(dim, 1, 4);
   }
 }

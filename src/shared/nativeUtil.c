@@ -111,7 +111,7 @@ void *stackAndProtect(AuxiliaryDimensionConstants *dimConst,
                       char **sexpString,
                       void  *auxiliaryPtr,
                       uint   auxiliaryDimSize,
-                      ...) {
+                      const AuxiliaryDimension *auxiliaryDim) {
   void *v;
   SEXP thisVector;
   thisVector = NULL;  
@@ -120,19 +120,12 @@ void *stackAndProtect(AuxiliaryDimensionConstants *dimConst,
     if (size > UINT_MAX) {
       if (TRUE) {
         RF_nativePrint("\nRF-SRC:  *** WARNING *** ");
-        RF_nativePrint("\nRF-SRC:  S.E.X.P. vector element length exceeds 32-bits:  %20lu", size);
+        RF_nativePrint("\nRF-SRC:  S.E.X.P. vector element length exceeds 32-bits:  %20llu", (unsigned long long) size);
         RF_nativePrint("\nRF-SRC:  S.E.X.P. ALLOC:  %s ", sexpString[sexpIdentity]);
         RF_nativePrint("\nRF-SRC:  Please Reduce Dimensionality If Possible.");
       }
     }
   }
-  va_list list;
-  va_start(list, auxiliaryDimSize);
-  int *auxiliaryDim = ivector(1, auxiliaryDimSize);
-  for (uint i = 1; i <= auxiliaryDimSize; i++) {
-    auxiliaryDim[i] = (auxiliaryPtr == NULL) ? 0 : va_arg(list, int);
-  }
-  va_end(list);
   if (!(size > 0)) {
     RF_nativeError("\nRF-SRC:  *** ERROR *** ");
     RF_nativeError("\nRF-SRC:  SEXP vector element is of size zero (0) and of aux dimensionality:  %20d", auxiliaryDimSize);
@@ -189,7 +182,6 @@ void *stackAndProtect(AuxiliaryDimensionConstants *dimConst,
                         auxiliaryPtr,
                         auxiliaryDimSize,
                         auxiliaryDim);
-  free_ivector(auxiliaryDim, 1, auxiliaryDimSize);
   (*sexpIndex) ++;
   return v;
 }

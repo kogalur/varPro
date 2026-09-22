@@ -18,9 +18,9 @@ void stackAuxiliaryInfoList(SNPAuxiliaryInfo ***list, uint count) {
 }
 void unstackAuxiliaryInfoAndList(AuxiliaryDimensionConstants *dimConst, char targetFlag, SNPAuxiliaryInfo **list, uint count) {
   SNPAuxiliaryInfo *auxInfoPtr;
-  int  *dim;
+  const AuxiliaryDimension *dim;
   uint  dimSize;
-  uint  dim1, dim2, dim3;
+  ulong dim1, dim2, dim3;
   uint stringLength;
   for (uint ii = 0; ii < count; ii++) {
      auxInfoPtr = list[ii];
@@ -35,10 +35,10 @@ void unstackAuxiliaryInfoAndList(AuxiliaryDimensionConstants *dimConst, char tar
          }
          else if (dimSize == 4) {
            dim1 = getAuxDim(targetFlag, dim, 0 , 1, dimConst);
-           for (uint i = 1; i <= dim1; i++) {
+           for (ulong i = 1; i <= dim1; i++) {
              dim2 = getAuxDim(targetFlag, dim, i , 2, dimConst);
              if (dim2 > 0) {
-               for (uint j = 1; j <= dim2; j++) {
+               for (ulong j = 1; j <= dim2; j++) {
                  dim3 = getAuxDim(targetFlag, dim, j , 3, dimConst);
                  free_new_vvector((*((double *****) (auxInfoPtr -> auxiliaryArrayPtr)))[i][j], 1, dim3, NRUTIL_DPTR);
                }
@@ -49,7 +49,7 @@ void unstackAuxiliaryInfoAndList(AuxiliaryDimensionConstants *dimConst, char tar
          }
          else if (dimSize == 3) {
            dim1 = getAuxDim(targetFlag, dim, 0 , 1, dimConst);
-           for (uint i = 1; i <= dim1; i++) {
+           for (ulong i = 1; i <= dim1; i++) {
              dim2 = getAuxDim(targetFlag, dim, i , 2, dimConst);
              if (dim2 > 0) {
                free_new_vvector((*((double ****) (auxInfoPtr -> auxiliaryArrayPtr)))[i], 1, dim2, NRUTIL_DPTR);
@@ -69,9 +69,9 @@ void unstackAuxiliaryInfoAndList(AuxiliaryDimensionConstants *dimConst, char tar
          }
          else if (dimSize == 4) {
            dim1 = getAuxDim(targetFlag, dim, 0 , 1, dimConst);
-           for (uint i = 1; i <= dim1; i++) {
+           for (ulong i = 1; i <= dim1; i++) {
              dim2 = getAuxDim(targetFlag, dim, i , 2, dimConst);
-             for (uint j = 1; j <= dim2; j++) {
+             for (ulong j = 1; j <= dim2; j++) {
                dim3 = getAuxDim(targetFlag, dim, j , 3, dimConst);
                free_new_vvector((*((uint *****) (auxInfoPtr -> auxiliaryArrayPtr)))[i][j], 1, dim3, NRUTIL_UPTR);
              }
@@ -81,7 +81,7 @@ void unstackAuxiliaryInfoAndList(AuxiliaryDimensionConstants *dimConst, char tar
          }
          else if (dimSize == 3) {
            dim1 = getAuxDim(targetFlag, dim, 0 , 1, dimConst);
-           for (uint i = 1; i <= dim1; i++) {
+           for (ulong i = 1; i <= dim1; i++) {
              dim2 = getAuxDim(targetFlag, dim, i , 2, dimConst);             
              free_new_vvector((*((uint ****) (auxInfoPtr -> auxiliaryArrayPtr)))[i], 1, dim2, NRUTIL_UPTR);
            }
@@ -95,7 +95,7 @@ void unstackAuxiliaryInfoAndList(AuxiliaryDimensionConstants *dimConst, char tar
          }
          break;
        }
-       free_ivector(auxInfoPtr -> dim, 1, auxInfoPtr -> dimSize);
+       free_gblock(auxInfoPtr -> dim, ((size_t) dimSize + 1) * sizeof(AuxiliaryDimension));
        free_gblock(auxInfoPtr, sizeof(SNPAuxiliaryInfo));
      }
    }
@@ -110,8 +110,8 @@ void allocateAuxiliaryInfo(AuxiliaryDimensionConstants *dimConst,
                            void  *snpPtr,
                            void  *auxiliaryArrayPtr,
                            uint   dimSize,
-                           int   *dim) {
-  uint dim1, dim2, dim3, dim4;
+                           const AuxiliaryDimension *dim) {
+  ulong dim1, dim2, dim3, dim4;
   ulong offset;
   uint stringLength;
   SNPAuxiliaryInfo *auxInfoPtr = (SNPAuxiliaryInfo*) gblock((size_t) sizeof(SNPAuxiliaryInfo));
@@ -124,7 +124,7 @@ void allocateAuxiliaryInfo(AuxiliaryDimensionConstants *dimConst,
   auxInfoPtr -> snpPtr = snpPtr;
   auxInfoPtr -> auxiliaryArrayPtr = auxiliaryArrayPtr;
   auxInfoPtr -> dimSize = dimSize;
-  (auxInfoPtr -> dim) = ivector(1, dimSize);
+  auxInfoPtr -> dim = (AuxiliaryDimension*) gblock(((size_t) dimSize + 1) * sizeof(AuxiliaryDimension));
   for (uint i = 1; i <= dimSize; i++) {
     (auxInfoPtr -> dim)[i] = dim[i];
   }
@@ -136,14 +136,14 @@ void allocateAuxiliaryInfo(AuxiliaryDimensionConstants *dimConst,
       offset = 0;
       dim1 = getAuxDim(targetFlag, dim, 0 , 1, dimConst);
       *((double *****) auxiliaryArrayPtr) = (double ****) new_vvector(1, dim1, NRUTIL_DPTR3);
-      for (uint i = 1; i <= dim1; i++) {
+      for (ulong i = 1; i <= dim1; i++) {
         dim2 = getAuxDim(targetFlag, dim, i , 2, dimConst);
         if (dim2 > 0) {
           (*((double *****) auxiliaryArrayPtr))[i] = (double ***) new_vvector(1, dim2, NRUTIL_DPTR2);
-          for (uint j = 1; j <= dim2; j++) {
+          for (ulong j = 1; j <= dim2; j++) {
             dim3 = getAuxDim(targetFlag, dim, j , 3, dimConst);
             (*((double *****) auxiliaryArrayPtr))[i][j] = (double **) new_vvector(1, dim3, NRUTIL_DPTR);
-            for (uint k = 1; k <= dim3; k++) {
+            for (ulong k = 1; k <= dim3; k++) {
               dim4 = getAuxDim(targetFlag, dim, k , 4, dimConst);
               (*((double *****) auxiliaryArrayPtr))[i][j][k] = (double *) snpPtr + offset - 1;
               offset += dim4;
@@ -156,11 +156,11 @@ void allocateAuxiliaryInfo(AuxiliaryDimensionConstants *dimConst,
       offset = 0;      
       dim1 = getAuxDim(targetFlag, dim, 0 , 1, dimConst);
       *((double ****) auxiliaryArrayPtr) = (double ***) new_vvector(1, dim1, NRUTIL_DPTR2);
-      for (uint i = 1; i <= dim1; i++) {
+      for (ulong i = 1; i <= dim1; i++) {
         dim2 = getAuxDim(targetFlag, dim, i , 2, dimConst);
         if (dim2 > 0) {
           (*((double ****) auxiliaryArrayPtr))[i] = (double **) new_vvector(1, dim2, NRUTIL_DPTR);
-          for (uint j = 1; j <= dim2; j++) {
+          for (ulong j = 1; j <= dim2; j++) {
             dim3 = getAuxDim(targetFlag, dim, j , 3, dimConst);
             (*((double ****) auxiliaryArrayPtr))[i][j] = (double *) snpPtr + offset - 1;
             offset += dim3;
@@ -172,7 +172,7 @@ void allocateAuxiliaryInfo(AuxiliaryDimensionConstants *dimConst,
       offset = 0;
       dim1 = getAuxDim(targetFlag, dim, 0 , 1, dimConst);
       *((double ***) auxiliaryArrayPtr) = (double **) new_vvector(1, dim1, NRUTIL_DPTR);
-      for (uint i = 1; i <= dim1; i++) {
+      for (ulong i = 1; i <= dim1; i++) {
         dim2 = getAuxDim(targetFlag, dim, i , 2, dimConst);
         (*((double ***) auxiliaryArrayPtr))[i] = (double *) snpPtr + offset - 1;
           offset += dim2;
@@ -195,13 +195,13 @@ void allocateAuxiliaryInfo(AuxiliaryDimensionConstants *dimConst,
       offset = 0;
       dim1 = getAuxDim(targetFlag, dim, 0 , 1, dimConst);
       *((uint *****) auxiliaryArrayPtr) = (uint ****) new_vvector(1, dim1, NRUTIL_UPTR3);
-      for (uint i = 1; i <= dim1; i++) {
+      for (ulong i = 1; i <= dim1; i++) {
         dim2 = getAuxDim(targetFlag, dim, i , 2, dimConst);
         (*((uint *****) auxiliaryArrayPtr))[i] = (uint ***) new_vvector(1, dim2, NRUTIL_UPTR2);
-        for (uint j = 1; j <= dim2; j++) {
+        for (ulong j = 1; j <= dim2; j++) {
           dim3 = getAuxDim(targetFlag, dim, j , 3, dimConst);
           (*((uint *****) auxiliaryArrayPtr))[i][j] = (uint **) new_vvector(1, dim3, NRUTIL_UPTR);
-          for (uint k = 1; k <= dim3; k++) {
+          for (ulong k = 1; k <= dim3; k++) {
             dim4 = getAuxDim(targetFlag, dim, k , 4, dimConst);
             (*((uint *****) auxiliaryArrayPtr))[i][j][k] = (uint *) snpPtr + offset - 1;
             offset += dim4;
@@ -213,10 +213,10 @@ void allocateAuxiliaryInfo(AuxiliaryDimensionConstants *dimConst,
       offset = 0;
       dim1 = getAuxDim(targetFlag, dim, 0 , 1, dimConst);
       *((uint ****) auxiliaryArrayPtr) = (uint ***) new_vvector(1, dim1, NRUTIL_UPTR2);
-      for (uint i = 1; i <= dim1; i++) {
+      for (ulong i = 1; i <= dim1; i++) {
         dim2 = getAuxDim(targetFlag, dim, i , 2, dimConst);
         (*((uint ****) auxiliaryArrayPtr))[i] = (uint **) new_vvector(1, dim2, NRUTIL_UPTR);
-        for (uint j = 1; j <= dim2; j++) {
+        for (ulong j = 1; j <= dim2; j++) {
           dim3 = getAuxDim(targetFlag, dim, j , 3, dimConst);
           (*((uint ****) auxiliaryArrayPtr))[i][j] = (uint *) snpPtr + offset - 1;
             offset += dim3;
@@ -227,7 +227,7 @@ void allocateAuxiliaryInfo(AuxiliaryDimensionConstants *dimConst,
       offset = 0;
       dim1 = getAuxDim(targetFlag, dim, 0 , 1, dimConst);
       *((uint ***) auxiliaryArrayPtr) = (uint **) new_vvector(1, dim1, NRUTIL_UPTR);
-      for (uint i = 1; i <= dim1; i++) {
+      for (ulong i = 1; i <= dim1; i++) {
         dim2 = getAuxDim(targetFlag, dim, i , 2, dimConst);
         (*((uint ***) auxiliaryArrayPtr))[i] = (uint *) snpPtr + offset - 1;
           offset += dim2;
@@ -245,45 +245,55 @@ void allocateAuxiliaryInfo(AuxiliaryDimensionConstants *dimConst,
     break;
   }
 }
-uint getAuxDim(char flag, int *dim, uint iterIndex, uint slot, AuxiliaryDimensionConstants *dimConst) {
-  uint result = 0;
+ulong getAuxDim(char flag, const AuxiliaryDimension *dim, ulong iterIndex, uint slot, AuxiliaryDimensionConstants *dimConst) {
+  ulong result = 0;
   uint *rFactorSize    = dimConst -> rFactorSize;
   uint *rFactorMap     = dimConst -> rFactorMap;
   uint *rTargetFactor  = dimConst -> rTargetFactor;
   uint *tLeafCount     = dimConst -> tLeafCount;
   uint *holdBLKptr     = dimConst -> holdBLKptr;
-  if (slot == 1) {
-    result = dim[slot];
+  uint *customSize     = dimConst -> customSize;
+  if ((slot == 1) && (dim[slot].type != RF_AUX_DIM_FIXED)) {
+    RF_nativeError("\nRF-SRC:  *** ERROR *** ");
+    RF_nativeError("\nRF-SRC:  First auxiliary dimension must be fixed in getAuxDim():  %10d", dim[slot].type);
+    RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
+    RF_nativeExit();
   }
-  else if (dim[slot] >= 1) {
-    result = dim[slot];
-  }
-  else if (dim[slot] == 0) {
+  switch (dim[slot].type) {
+  case RF_AUX_DIM_FIXED:
+    result = dim[slot].value;
+    break;
+  case RF_AUX_DIM_FACTOR_SIZE:
     if (flag) {
       result = rFactorSize[rFactorMap[rTargetFactor[iterIndex]]];
     }
     else {
       result = rFactorSize[iterIndex];
     }
-  }
-  else if (dim[slot] == -1) {
+    break;
+  case RF_AUX_DIM_FACTOR_SIZE_PLUS_ONE:
     if (flag) {
-      result = 1 + rFactorSize[rFactorMap[rTargetFactor[iterIndex]]];
+      result = (ulong) rFactorSize[rFactorMap[rTargetFactor[iterIndex]]] + 1;
     }
     else {
-      result = 1 + rFactorSize[iterIndex];
+      result = (ulong) rFactorSize[iterIndex] + 1;
     }
-  }
-  else if (dim[slot] == -2) {
+    break;
+  case RF_AUX_DIM_LEAF_COUNT:
     result = tLeafCount[iterIndex];
-  }
-  else if (dim[slot] == -3) {
+    break;
+  case RF_AUX_DIM_BLOCK_COUNT:
     result = holdBLKptr[iterIndex];
-  }
-  else {
+    break;
+  case RF_AUX_DIM_CUSTOM_COUNT:
+    result = customSize[iterIndex];
+    break;
+  default:
     RF_nativeError("\nRF-SRC:  *** ERROR *** ");
-    RF_nativeError("\nRF-SRC:  Inconsistent internal dimension of auxiliary array in getAuxDim():  %10d", dim[slot]);
+    RF_nativeError("\nRF-SRC:  Inconsistent internal dimension type in getAuxDim():  %10d", dim[slot].type);
     RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
+    RF_nativeExit();
+    break;
   }
   return result;
 }
@@ -293,13 +303,15 @@ AuxiliaryDimensionConstants *makeAuxDimConsts(uint *rFactorSize,
                                               uint *rTargetFactor,
                                               uint  rTargetFactorCount,
                                               uint *tLeafCount,
-                                              uint *holdBLKptr) {
+                                              uint *holdBLKptr,
+                                              uint *customSize) {
   AuxiliaryDimensionConstants *obj = (AuxiliaryDimensionConstants*) gblock((size_t) sizeof(AuxiliaryDimensionConstants));
   obj -> rFactorSize = rFactorSize;
   obj -> rFactorMap = rFactorMap;
   obj -> rTargetFactor = rTargetFactor;
   obj -> tLeafCount = tLeafCount;
   obj -> holdBLKptr = holdBLKptr;
+  obj -> customSize = customSize;
   return obj;
 }
 void freeAuxDimConsts(AuxiliaryDimensionConstants *obj) {

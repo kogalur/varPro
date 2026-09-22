@@ -17,7 +17,7 @@ void *stackAndProtect(struct auxiliaryDimensionConstants *dimConst,
                       char **sexpString,
                       void  *auxiliaryPtr,
                       uint   auxiliaryDimSize,
-                      ...);
+                      const AuxiliaryDimension *auxiliaryDim);
 void setUserTraceFlag (uint traceFlag);
 uint getUserTraceFlag (void);
 #endif

@@ -1,4 +1,4 @@
-# varPro 3.2.4
+# varPro 3.3.0
 
 ## New features
 
@@ -26,6 +26,8 @@
 
 ## Bug fixes and refinements
 
+* Added long vector support for SEXP input-output, internal transient
+  allocations, and offset handling.
 * Importance summaries now map encoded columns to original predictors exactly,
   avoiding substring and regular-expression name collisions and incorrect
   pooling across responses. `get.orgvimp()` now reuses a supplied `vmp` summary.

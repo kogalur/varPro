@@ -253,7 +253,7 @@ varpro.strength <- function(object,
                                   list(if (is.null(neighbor)) 0 else as.integer(neighbor),
                                        if (is.null(x.reduce.idx)) as.integer(0) else as.integer(length(x.reduce.idx)),
                                        if (is.null(x.reduce.idx)) NULL else as.integer(x.reduce.idx)),
-                                  as.integer(object$totalNodeCount),
+                                  as.double(object$totalNodeCount),
                                   as.integer(object$leafCount),
                                   list(as.integer(object$seed)),
                                   as.integer(hdim),
@@ -364,7 +364,7 @@ varpro.strength <- function(object,
           offset  <- 0
           dim1 <- neighbor
           dim2 <- if (is.null(x.reduce.idx)) n.xvar else length(x.reduce.idx)
-          offset.incr <- dim1 * dim2
+          offset.incr <- as.double(dim1) * dim2
           for (i in 1: n.newdata) {
               score[[i]]$freq.table <- matrix(nativeOutput$twinFreqTable[(offset+1):(offset + offset.incr)], nrow = dim1, byrow = TRUE)
               offset  <- offset + offset.incr

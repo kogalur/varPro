@@ -11,7 +11,7 @@
 #include "nrutil.h"
 #include "error.h"
 void preprocessForestRecord(uint    ntree,
-                            uint    totalNodeCount,
+                            ulong   totalNodeCount,
                             uint   *treeID,
                             uint   *nodeID,
                             int   **parmID,
@@ -44,7 +44,7 @@ void preprocessForestRecord(uint    ntree,
       RF_nativeError("\nRF-SRC:      treeID     nodeID ");
       RF_nativeError("\nRF-SRC:  %10d %10d \n", treeID[ui], nodeID[ui]);
       RF_nativeError("\nRF-SRC:  *** ERROR *** ");
-      RF_nativeError("\nRF-SRC:  Invalid forest input record at line:  %20lu", ui);
+      RF_nativeError("\nRF-SRC:  Invalid forest input record at line:  %20llu", (unsigned long long) ui);
       RF_nativeError("\nRF-SRC:  Please Contact Technical Support.");
       RF_nativeExit();
     }

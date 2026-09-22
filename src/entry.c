@@ -233,7 +233,7 @@ SEXP varProStrength(SEXP traceFlag,
     }
     VP_opt = VP_opt & (~(VP_OPT_CMP | VP_OPT_OOB));
   }
-  RF_totalNodeCount_      = INTEGER(totalNodeCount)[0];
+  RF_totalNodeCount_      = (ulong) REAL(totalNodeCount)[0];
   RF_tLeafCount_          = (uint *) INTEGER(tLeafCount); RF_tLeafCount_ --;
   RF_seed_                = (int *) INTEGER(VECTOR_ELT(seedInfo, 0)); RF_seed_ --;
   RF_treeID_              = (uint *) INTEGER(treeID);   RF_treeID_ --;

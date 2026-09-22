@@ -37,7 +37,11 @@
 typedef unsigned int  uint;
 #endif
 #ifndef ulong
+#ifdef _WIN64
+typedef unsigned long long ulong;
+#else
 typedef unsigned long ulong;
+#endif
 #endif
 #define RF_SEXP_ASCII_SIZE 16
 #define RF_OUTP_ID   0  

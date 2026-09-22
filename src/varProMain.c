@@ -365,7 +365,8 @@ char varProMain(char mode, int seedValue) {
                                                RF_rTargetFactor,
                                                RF_rTargetFactorCount,
                                                RF_tLeafCount_,
-                                               RF_holdBLKptr);
+                                               RF_holdBLKptr,
+                                               NULL);
             preprocessForestRecord(RF_ntree,
                                    RF_totalNodeCount_,
                                    RF_treeID_,
@@ -402,7 +403,7 @@ char varProMain(char mode, int seedValue) {
                                            (RF_startTimeIndex == 0) ? &RF_AMBR_ID_ptr : NULL,
                                            &RF_TN_RCNT_ptr,
                                            (RF_startTimeIndex == 0) ? &RF_TN_ACNT_ptr : NULL);
-                stackTNQualitativeIncomingVPnew(mode,
+                stackTNQualitativeIncomingVP(mode,
                                                 RF_auxDimConsts,  
                                                 VP_incomingAuxiliaryInfoList,
                                                 RF_ntree,
@@ -531,7 +532,7 @@ char varProMain(char mode, int seedValue) {
                                                     RF_sexpStringIO,
                                                     NULL,
                                                     1,
-                                                    1);
+                                                    (const AuxiliaryDimension[]) { [1] = {RF_AUX_DIM_FIXED, 1} });
             VP_cpuTime_ --;
             VP_totalRecordCount = 0;
             for(b = 1; b <= VP_strengthTreeCount; b++) {
@@ -551,7 +552,7 @@ char varProMain(char mode, int seedValue) {
                                                  VP_sexpStringOutgoing,
                                                  NULL,
                                                  1,
-                                                 VP_totalRecordCount);
+                                                 (const AuxiliaryDimension[]) { [1] = {RF_AUX_DIM_FIXED, VP_totalRecordCount} });
             VP_treeID_ --;
             VP_nodeID_ = (uint*) stackAndProtect(RF_auxDimConsts,
                                                  mode,
@@ -563,7 +564,7 @@ char varProMain(char mode, int seedValue) {
                                                  VP_sexpStringOutgoing,
                                                  NULL,
                                                  1,
-                                                 VP_totalRecordCount);
+                                                 (const AuxiliaryDimension[]) { [1] = {RF_AUX_DIM_FIXED, VP_totalRecordCount} });
             VP_nodeID_ --;
             VP_xReleaseID_ = (uint*) stackAndProtect(RF_auxDimConsts,
                                                      mode,
@@ -575,7 +576,7 @@ char varProMain(char mode, int seedValue) {
                                                      VP_sexpStringOutgoing,
                                                      NULL,
                                                      1,
-                                                     VP_totalRecordCount);
+                                                     (const AuxiliaryDimension[]) { [1] = {RF_AUX_DIM_FIXED, VP_totalRecordCount} });
             VP_xReleaseID_ --;
             VP_strengthTreeID_ = (uint*) stackAndProtect(RF_auxDimConsts,
                                                          mode,
@@ -587,7 +588,7 @@ char varProMain(char mode, int seedValue) {
                                                          VP_sexpStringOutgoing,
                                                          NULL,
                                                          1,
-                                                         VP_strengthTreeCount);
+                                                         (const AuxiliaryDimension[]) { [1] = {RF_AUX_DIM_FIXED, VP_strengthTreeCount} });
             VP_strengthTreeID_ --;
             for(b = 1; b <= VP_strengthTreeCount; b++) {
               VP_strengthTreeID_[b] = VP_strengthTreeID[b];
@@ -606,8 +607,10 @@ char varProMain(char mode, int seedValue) {
                                                            VP_sexpStringOutgoing,
                                                            &VP_testCaseNodeIDptr,
                                                            2,
-                                                           VP_strengthTreeCount,
-                                                           RF_fobservationSize);
+                                                           (const AuxiliaryDimension[]) {
+                                                             [1] = {RF_AUX_DIM_FIXED, VP_strengthTreeCount},
+                                                             [2] = {RF_AUX_DIM_FIXED, RF_fobservationSize}
+                                                           });
               VP_testCaseNodeID_ --;
               for (uint b = 1; b <= VP_strengthTreeCount; b++) {
                 for (uint i = 1; i <= RF_fobservationSize; i++) {
@@ -631,8 +634,10 @@ char varProMain(char mode, int seedValue) {
                                                      VP_sexpStringOutgoing,
                                                      & VP_twinStatID_ptr,
                                                      2,
-                                                     RF_fobservationSize,
-                                                     VP_neighbourSize);
+                                                     (const AuxiliaryDimension[]) {
+                                                       [1] = {RF_AUX_DIM_FIXED, RF_fobservationSize},
+                                                       [2] = {RF_AUX_DIM_FIXED, VP_neighbourSize}
+                                                     });
               localSize = (ulong) RF_fobservationSize * VP_neighbourSize;
               VP_twinStat_ = (double*) stackAndProtect(RF_auxDimConsts,
                                                        mode,
@@ -644,8 +649,10 @@ char varProMain(char mode, int seedValue) {
                                                        VP_sexpStringOutgoing,
                                                        & VP_twinStat_ptr,
                                                        2,
-                                                       RF_fobservationSize,
-                                                       VP_neighbourSize);
+                                                       (const AuxiliaryDimension[]) {
+                                                         [1] = {RF_AUX_DIM_FIXED, RF_fobservationSize},
+                                                         [2] = {RF_AUX_DIM_FIXED, VP_neighbourSize}
+                                                       });
               if (VP_opt & VP_OPT_FRQ) {
                 localSize = (ulong) RF_fobservationSize * VP_neighbourSize * VP_xReduceSize;
                 VP_twinFreqTable_ = (uint*) stackAndProtect(RF_auxDimConsts,
@@ -658,9 +665,11 @@ char varProMain(char mode, int seedValue) {
                                                             VP_sexpStringOutgoing,
                                                             & VP_twinFreqTable_ptr,
                                                             3,
-                                                            RF_fobservationSize,
-                                                            VP_neighbourSize,
-                                                            VP_xReduceSize);
+                                                            (const AuxiliaryDimension[]) {
+                                                              [1] = {RF_AUX_DIM_FIXED, RF_fobservationSize},
+                                                              [2] = {RF_AUX_DIM_FIXED, VP_neighbourSize},
+                                                              [3] = {RF_AUX_DIM_FIXED, VP_xReduceSize}
+                                                            });
               }
 #ifdef _OPENMP
 #pragma omp parallel for num_threads(RF_numThreads)
@@ -698,7 +707,7 @@ char varProMain(char mode, int seedValue) {
                                                   VP_sexpStringOutgoing,
                                                   NULL,
                                                   1,
-                                                  VP_totalRecordCount);
+                                                  (const AuxiliaryDimension[]) { [1] = {RF_AUX_DIM_FIXED, VP_totalRecordCount} });
               VP_brmCT_ --;
               if ((VP_opt & VP_OPT_CMP) && (VP_opt & VP_OPT_OOB)) {
                 VP_importance_ = (double*) stackAndProtect(RF_auxDimConsts,
@@ -711,8 +720,10 @@ char varProMain(char mode, int seedValue) {
                                                            VP_sexpStringOutgoing,
                                                            & VP_dimImpSRVptr,
                                                            2,
-                                                           1,
-                                                           VP_totalRecordCount);
+                                                           (const AuxiliaryDimension[]) {
+                                                             [1] = {RF_AUX_DIM_FIXED, 1},
+                                                             [2] = {RF_AUX_DIM_FIXED, VP_totalRecordCount}
+                                                           });
                 VP_importance_ --;
               }
               else if ((VP_opt & VP_OPT_CMP) && !(VP_opt & VP_OPT_OOB)) {
@@ -726,8 +737,10 @@ char varProMain(char mode, int seedValue) {
                                                                VP_sexpStringOutgoing,
                                                                & VP_dimImpSRVptr,
                                                                2,
-                                                               1,
-                                                               VP_totalRecordCount);
+                                                               (const AuxiliaryDimension[]) {
+                                                                 [1] = {RF_AUX_DIM_FIXED, 1},
+                                                                 [2] = {RF_AUX_DIM_FIXED, VP_totalRecordCount}
+                                                               });
                 VP_complementStat_ --;
               }
               else if ((VP_opt & VP_OPT_OOB) && !(VP_opt & VP_OPT_CMP)) {
@@ -741,8 +754,10 @@ char varProMain(char mode, int seedValue) {
                                                         VP_sexpStringOutgoing,
                                                         & VP_dimImpSRVptr,
                                                         2,
-                                                        RF_rNonFactorCount,
-                                                        VP_totalRecordCount);
+                                                        (const AuxiliaryDimension[]) {
+                                                          [1] = {RF_AUX_DIM_FIXED, RF_rNonFactorCount},
+                                                          [2] = {RF_AUX_DIM_FIXED, VP_totalRecordCount}
+                                                        });
                 VP_oobStat_ --;
               }
               writeStrengthArray(VP_strengthTreeID,
@@ -772,7 +787,7 @@ char varProMain(char mode, int seedValue) {
                                                   VP_sexpStringOutgoing,
                                                   NULL,
                                                   1,
-                                                  VP_totalRecordCount);
+                                                  (const AuxiliaryDimension[]) { [1] = {RF_AUX_DIM_FIXED, VP_totalRecordCount} });
               VP_brmCT_ --;
               if ((VP_opt & VP_OPT_CMP) && (VP_opt & VP_OPT_OOB)) {
                 VP_importance_ = (double*) stackAndProtect(RF_auxDimConsts,
@@ -785,8 +800,10 @@ char varProMain(char mode, int seedValue) {
                                                            VP_sexpStringOutgoing,
                                                            & VP_dimImpRGRptr,
                                                            2,
-                                                           RF_rNonFactorCount,
-                                                           VP_totalRecordCount);
+                                                           (const AuxiliaryDimension[]) {
+                                                             [1] = {RF_AUX_DIM_FIXED, RF_rNonFactorCount},
+                                                             [2] = {RF_AUX_DIM_FIXED, VP_totalRecordCount}
+                                                           });
                 VP_importance_ --;
               }
               else if ((VP_opt & VP_OPT_CMP) && !(VP_opt & VP_OPT_OOB)) {
@@ -800,8 +817,10 @@ char varProMain(char mode, int seedValue) {
                                                                VP_sexpStringOutgoing,
                                                                & VP_dimImpRGRptr,
                                                                2,
-                                                               RF_rNonFactorCount,
-                                                               VP_totalRecordCount);
+                                                               (const AuxiliaryDimension[]) {
+                                                                 [1] = {RF_AUX_DIM_FIXED, RF_rNonFactorCount},
+                                                                 [2] = {RF_AUX_DIM_FIXED, VP_totalRecordCount}
+                                                               });
                 VP_complementStat_ --;
               }
               else if ((VP_opt & VP_OPT_OOB) && !(VP_opt & VP_OPT_CMP)) {
@@ -815,8 +834,10 @@ char varProMain(char mode, int seedValue) {
                                                         VP_sexpStringOutgoing,
                                                         & VP_dimImpRGRptr,
                                                         2,
-                                                        RF_rNonFactorCount,
-                                                        VP_totalRecordCount);
+                                                        (const AuxiliaryDimension[]) {
+                                                          [1] = {RF_AUX_DIM_FIXED, RF_rNonFactorCount},
+                                                          [2] = {RF_AUX_DIM_FIXED, VP_totalRecordCount}
+                                                        });
                 VP_oobStat_ --;
               }
               writeStrengthArray(VP_strengthTreeID,
@@ -851,9 +872,11 @@ char varProMain(char mode, int seedValue) {
                                                   VP_sexpStringOutgoing,
                                                   & VP_brmCTptr,
                                                   3,
-                                                  1,
-                                                  -1,
-                                                  VP_totalRecordCount);
+                                                  (const AuxiliaryDimension[]) {
+                                                    [1] = {RF_AUX_DIM_FIXED, 1},
+                                                    [2] = {RF_AUX_DIM_FACTOR_SIZE_PLUS_ONE, 0},
+                                                    [3] = {RF_AUX_DIM_FIXED, VP_totalRecordCount}
+                                                  });
               VP_brmCT_ --;
               if ((VP_opt & VP_OPT_CMP) && (VP_opt & VP_OPT_OOB)) {
                 VP_importance_ = (double*) stackAndProtect(RF_auxDimConsts,
@@ -866,9 +889,11 @@ char varProMain(char mode, int seedValue) {
                                                            VP_sexpStringOutgoing,
                                                            & VP_dimImpCLSptr,
                                                            3,
-                                                           1,
-                                                           -1,
-                                                           VP_totalRecordCount);
+                                                           (const AuxiliaryDimension[]) {
+                                                             [1] = {RF_AUX_DIM_FIXED, 1},
+                                                             [2] = {RF_AUX_DIM_FACTOR_SIZE_PLUS_ONE, 0},
+                                                             [3] = {RF_AUX_DIM_FIXED, VP_totalRecordCount}
+                                                           });
                 VP_importance_ --;
               }
               else if ((VP_opt & VP_OPT_CMP) && !(VP_opt & VP_OPT_OOB)) {
@@ -882,9 +907,11 @@ char varProMain(char mode, int seedValue) {
                                                                VP_sexpStringOutgoing,
                                                                & VP_dimImpCLSptr,
                                                                3,
-                                                               1,
-                                                               -1,
-                                                               VP_totalRecordCount);
+                                                               (const AuxiliaryDimension[]) {
+                                                                 [1] = {RF_AUX_DIM_FIXED, 1},
+                                                                 [2] = {RF_AUX_DIM_FACTOR_SIZE_PLUS_ONE, 0},
+                                                                 [3] = {RF_AUX_DIM_FIXED, VP_totalRecordCount}
+                                                               });
                 VP_complementStat_ --;
               }
               else if ((VP_opt & VP_OPT_OOB) && !(VP_opt & VP_OPT_CMP)) {
@@ -898,9 +925,11 @@ char varProMain(char mode, int seedValue) {
                                                         VP_sexpStringOutgoing,
                                                         & VP_dimImpCLSptr,
                                                         3,
-                                                        1,
-                                                        -1,
-                                                        VP_totalRecordCount);
+                                                        (const AuxiliaryDimension[]) {
+                                                          [1] = {RF_AUX_DIM_FIXED, 1},
+                                                          [2] = {RF_AUX_DIM_FACTOR_SIZE_PLUS_ONE, 0},
+                                                          [3] = {RF_AUX_DIM_FIXED, VP_totalRecordCount}
+                                                        });
                 VP_oobStat_ --;
               }
               writeStrengthArray(VP_strengthTreeID,
@@ -928,7 +957,7 @@ char varProMain(char mode, int seedValue) {
                                                   VP_sexpStringOutgoing,
                                                   NULL,
                                                   1,
-                                                  VP_totalRecordCount);
+                                                  (const AuxiliaryDimension[]) { [1] = {RF_AUX_DIM_FIXED, VP_totalRecordCount} });
               VP_brmCT_ --;
               writeStrengthArray(VP_strengthTreeID,
                                  VP_strengthTreeCount,
@@ -954,7 +983,7 @@ char varProMain(char mode, int seedValue) {
                                                        VP_sexpStringOutgoing,
                                                        NULL,
                                                        1,
-                                                       VP_totalRecordCount);
+                                                       (const AuxiliaryDimension[]) { [1] = {RF_AUX_DIM_FIXED, VP_totalRecordCount} });
             VP_complementCT_ --;
             membershipSize = 0;
             for (b = 1; b <= VP_strengthTreeCount; b++) {
@@ -975,7 +1004,7 @@ char varProMain(char mode, int seedValue) {
                                                       VP_sexpStringOutgoing,
                                                       NULL,
                                                       1,
-                                                      membershipSize);
+                                                      (const AuxiliaryDimension[]) { [1] = {RF_AUX_DIM_FIXED, membershipSize} });
             VP_branchPopID_ --;
             membershipSize = 0;
             for (b = 1; b <= VP_strengthTreeCount; b++) {
@@ -998,7 +1027,7 @@ char varProMain(char mode, int seedValue) {
                                                        VP_sexpStringOutgoing,
                                                        NULL,
                                                        1,
-                                                       membershipSize);
+                                                       (const AuxiliaryDimension[]) { [1] = {RF_AUX_DIM_FIXED, membershipSize} });
             VP_complementID_ --;
             writeMembershipArray(VP_strengthTreeCount,
                                  VP_branchCount,
