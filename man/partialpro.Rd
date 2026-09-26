@@ -1,15 +1,13 @@
 \name{partialpro}
 \alias{partialpro}
-\title{Case-local Partial Profiles for VarPro Variables}
+\title{Partial Prediction Profiles for Individual Observations}
 
 \description{
-  Estimate and display case-local partial effect profiles for selected
-  variables from a fitted \code{varpro} object.  The method constructs
-  virtual twins by varying one feature at a time, evaluates a prediction
-  learner on those virtual records, and optionally removes virtual records
-  that are far from the observed covariate support using Unlimited Virtual
-  Twins (UVT).  UVT filtering can be based on \code{isopro} isolation
-  forest support or on \code{outpro} OOD distances.
+  Shows how a model's predictions change as one predictor is varied,
+  while the other predictors are held fixed for each observation.
+  Produces individual prediction profiles that can be displayed with
+  \code{plot}. Optional filtering identifies predictor combinations
+  that are unusual relative to the training data.
 }
 
 \usage{
@@ -20,277 +18,301 @@ partialpro(object, xvar.names, nvar,
 }
 
 \arguments{
+  \item{object}{A fitted \code{varpro} object for regression,
+    classification, or survival analysis. Multivariate regression
+    is not supported.}
 
-  \item{object}{A \code{varpro} object returned by \code{varpro}.}
+  \item{xvar.names}{Optional character vector of predictors to examine.
+    The default uses the VarPro importance ranking returned by
+    \code{get.topvars(object)}. Names must match
+    \code{object$xvar.names}, including indicator-column names for
+    factors. Unavailable names are skipped with a warning.}
 
-  \item{xvar.names}{Optional character vector of variables for which partial
-  profiles are requested.  If omitted, the variables returned by
-  \code{get.topvars(object)} are used.  Names not found in
-  \code{object$xvar.names} are dropped with a warning listing the
-  unavailable names. This check is applied after the \code{nvar} limit.}
+  \item{nvar}{Optional positive integer limiting the number of predictors
+    examined. Uses the first \code{nvar} entries of \code{xvar.names},
+    or the first \code{nvar} predictors in the default ranking.
+    The limit is applied before unavailable names are skipped.
+    Use \code{Inf} for all requested predictors.}
 
-  \item{nvar}{Optional integer limiting the number of variables used from
-  \code{xvar.names}.  If supplied, only the first \code{nvar} requested
-  variables are used.  If \code{xvar.names} is omitted, this limits the
-  number of top VarPro variables.}
+  \item{target}{For classification, a class label or an integer
+    probability-column index. The default is the last level of the
+    original response factor. Class labels are matched to named
+    probability columns; unnamed columns must follow the response's
+    class-level order. For regression and survival, the first
+    prediction column is used and \code{target} is ignored.}
 
-  \item{target}{For classification, the class for which the partial profile
-  is computed.  This can be either an integer column index or a character
-  class label.  The default is the last class level.  For regression and
-  survival outcomes this argument is ignored and the first prediction column
-  is used.}
+  \item{learner}{Optional prediction function. The default uses the
+    forest in \code{object$rf}. A supplied function must accept a
+    data frame with the predictor columns in \code{object$x} and
+    return numeric predictions in the same row order. Classification
+    requires one probability column per class. See Details.}
 
-  \item{learner}{Optional prediction function.  If omitted,
-  \code{partialpro} uses the forest stored in \code{object$rf}.  A supplied
-  learner must accept a data frame of feature values with the same columns
-  as \code{object$x}.  It should return a numeric vector for regression or
-  survival outcomes, or a matrix/data frame of class probabilities for
-  classification outcomes.  For classification, the column selected by
-  \code{target} is used.}
+  \item{newdata}{Optional data frame of observations for which to
+    calculate profiles. All supplied rows are used. The data must
+    contain the numeric predictor columns stored in \code{object$x},
+    including any factor indicator columns. For example, use
+    \code{newdata = object$x[1:6, , drop = FALSE]} to examine six
+    training observations. Extra columns are ignored. When omitted,
+    up to \code{nsmp} training observations are sampled separately
+    for each predictor.}
 
-  \item{newdata}{Optional data frame of cases on which the partial profiles
-  are conditioned.  If omitted, up to \code{nsmp} training cases are sampled
-  from \code{object$x} separately for each requested variable.  If supplied,
-  all rows of \code{newdata} are used.  The data must already be on the
-  fitted VarPro x-scale, i.e. it must contain the columns of
-  \code{object$x}.  This is automatic when using rows from \code{object$x},
-  for example \code{newdata = object$x[1:6, ]}.  Extra columns are ignored
-  after alignment to \code{colnames(object$x)}.}
+  \item{method}{Isolation forest method passed to \code{isopro}.
+    Choices are \code{"unsupv"}, \code{"rnd"}, and \code{"auto"}.
+    Used only when filtering with \code{vt.filter = "isopro"}.}
 
-  \item{method}{Isolation forest method used by \code{isopro} when
-  \code{vt.filter = "isopro"} and \code{cut != 0}.  Options are
-  \code{"unsupv"}, \code{"rnd"}, and \code{"auto"}.  The default is
-  \code{"unsupv"}.  If there is only one top variable and
-  \code{method = "unsupv"}, the code switches internally to \code{"rnd"}.
-  This argument is ignored when \code{vt.filter = "outpro"} or
-  \code{vt.filter = "none"}.}
+  \item{verbose}{Print the name of each predictor as it is processed?}
 
-  \item{verbose}{Logical.  If \code{TRUE}, print the variable currently being
-  processed.}
+  \item{vt.filter}{Method for identifying unusual predictor
+    combinations: \code{"isopro"} uses isolation forests,
+    \code{"outpro"} uses distances from the training data, and
+    \code{"none"} turns filtering off. See Details.}
 
-  \item{vt.filter}{Virtual twin filtering engine.  The default
-  \code{"isopro"} uses isolation forests through \code{isopro}.  The option
-  \code{"outpro"} uses out-of-distribution distances from \code{outpro},
-  calibrated through \code{outpro.null}.  The option \code{"none"} disables
-  virtual twin filtering, equivalent to setting \code{cut = 0}.}
-
-  \item{...}{Advanced options controlling the virtual grid, UVT filtering,
-  and local smoothing.  These options are intentionally not part of the main
-  argument list, but they are user-adjustable.  See \strong{Advanced options}
-  in \code{Details}. Unnamed options, unrecognized names, and duplicate
-  names cause an error.}
+  \item{...}{Named options controlling the prediction grid, filtering,
+    and curve fitting. See the options below. Unnamed, unrecognized,
+    and duplicate options cause an error.}
 }
 
 \details{
+  \code{partialpro} helps explain a model by showing how its predictions
+  change when one predictor changes. For each observation, it varies
+  that predictor over a grid of values while keeping the other
+  predictors fixed at the observation's values. The resulting
+  predictions are summarized by a curve, called a partial profile.
+  Comparing these curves shows how the model's relationship with a
+  predictor varies across observations.
 
-\strong{Method.}
-For a requested variable \code{xnm}, \code{partialpro} creates a sequence of
-virtual values \code{xvirtual}.  For each conditioning case, it constructs
-virtual twins by replacing \code{xnm} with each value in \code{xvirtual} while
-holding all other features fixed at that case's observed values.  The
-prediction learner is then evaluated on the resulting virtual data.
+  Use \code{p <- partialpro(object, nvar = 3)} to calculate profiles
+  for the first three predictors in the VarPro importance ranking,
+  then \code{plot(p)} to display them. The function uses the model's
+  training observations by default; supply \code{newdata} to examine
+  particular observations instead.
 
-The virtual grid is constructed as follows.  Factors and variables with at
-most 10 unique observed values use their observed levels/values.  Continuous
-variables with more than 10 unique values are trimmed to the central
-\code{alpha} to \code{1 - alpha} empirical range and then represented by up to
-\code{nvirtual} quantile values.  The actual number of grid points can be
-smaller than \code{nvirtual} if quantiles coincide.
+  \subsection{Interpreting the profiles}{
+    A rising profile indicates that larger predictor values give
+    larger predictions when the other predictors are held fixed.
+    Different curve shapes show how this relationship depends on
+    the values of the other predictors.
 
-If \code{cut != 0} and \code{vt.filter != "none"}, UVT filtering is
-applied before estimating the local profile.  With
-\code{vt.filter = "isopro"}, an isolation forest is fit by \code{isopro}
-using the top VarPro variables.  Each virtual twin receives an \code{isopro}
-support score, and only virtual twins with score at least \code{cut} are
-treated as admissible.
+    The prediction scale is set by the learner. The default forest
+    supplies predicted responses for regression and mortality
+    predictions for survival. For classification, the selected
+    class probability is converted to log-odds, so larger values
+    indicate a greater predicted probability of that class.
+    Probabilities are limited to \code{[0.001, 0.999]} before this
+    conversion to keep log-odds finite.
 
-With \code{vt.filter = "outpro"}, virtual twins are scored by \code{outpro}
-on the fitted VarPro x-scale.  The public \code{outpro} function normally
-hot-encodes raw \code{newdata}; here the virtual matrix is already aligned to
-\code{object$x}, so \code{partialpro} calls \code{outpro} with
-\code{newdata.xscale = TRUE}.  The raw \code{outpro} distance is calibrated
-against the null/reference distance distribution from \code{outpro.null} and
-converted to a support score \code{1 - F0(distance)}.  The same rule is then
-used: a virtual twin is admissible when this support score is at least
-\code{cut}.  Thus \code{cut = 0} disables UVT filtering, while larger values
-of \code{cut} retain fewer virtual twins.  The default outpro distance for
-\code{partialpro} is \code{"knn"}, which uses a standardized nearest-neighbor
-support calculation and avoids the forest-neighborhood computations used by
-several other \code{outpro} distances.
+    For continuous predictors, the fitted curves share a common
+    average intercept so their shapes can be compared. The returned
+    \code{yhat.causal} component instead expresses each curve as
+    changes relative to its value at the first grid point. These
+    are model-based contrasts; a causal interpretation requires
+    appropriate study-design and substantive assumptions.
+  }
 
-For regression and survival outcomes, learner predictions are used on their
-native prediction scale.  For classification, the selected class probability
-is converted to a clipped log-odds scale using probabilities truncated to the
-interval \code{[0.001, 0.999]}.
+  \subsection{Predictors and observations}{
+    Profiles use the numeric predictor columns stored in
+    \code{object$x}. A factor can therefore have several profiles,
+    one for each indicator column available in the fitted forest.
+    Each profile varies that column while keeping the others fixed.
+    Supplied \code{newdata} must use these same columns; original
+    factor columns are not converted automatically.
 
-For continuous variables, a local polynomial profile is fit separately for
-each conditioning case using \code{lm.fit} and the design
-\code{1, x, x^2, ..., x^df}.  A case is retained if it has at least
-\code{min(nmin, nxorg / 2)} admissible virtual twins, where \code{nxorg} is
-the number of unique observed values of the variable.  When UVT filtering is
-active and enough admissible training virtual twins are available, the code
-fits both a UVT-restricted polynomial and an unrestricted polynomial on a
-case-specific train split of virtual values.  The unrestricted fit is used
-only if its held-out standardized MSE is lower than the UVT-restricted MSE by
-more than \code{mse.tolerance}; otherwise the UVT-restricted fit is used.
+    The grid always comes from the training data, including when
+    \code{newdata} is supplied. Predictors with few distinct values
+    use those values. For other predictors, the grid uses quantiles
+    within the central training range, controlled by \code{alpha}
+    and \code{nvirtual}.
 
-For binary variables, no polynomial extrapolation is used.  The profile is
-computed directly from the mean predicted value at the two virtual values,
-and both virtual values must be admissible for a non-missing case-specific
-profile.
+    Use \code{set.seed} before calling \code{partialpro} for
+    reproducible results. Randomness includes sampling training
+    observations and dividing grid values for the curve-fitting
+    comparisons described below.
+  }
 
-The component named \code{yhat.causal} is the case-specific profile centered
-at the first virtual value, i.e. the estimated contrast relative to
-\code{xvirtual[1]}.  The name is retained for compatibility with the VarPro
-terminology, but causal interpretation requires the usual substantive and
-design assumptions; the function itself estimates model-based partial
-profiles and contrasts.
+  \subsection{Filtering unusual predictor combinations}{
+    Changing one predictor can create a combination of values that
+    is uncommon in the training data. The modified observations
+    are called \emph{virtual twins}. Unlimited Virtual Twins (UVT)
+    filtering assesses these combinations before fitting the
+    profiles.
 
-\strong{Advanced options supplied through \code{...}.}
-\describe{
-  \item{\code{cut}}{UVT threshold.  Virtual twins with support score less
-  than \code{cut} are excluded.  For \code{vt.filter = "isopro"}, the support
-  score is the \code{isopro} score.  For \code{vt.filter = "outpro"}, the
-  support score is \code{1 - F0(distance)}, where \code{F0} is the empirical
-  null/reference CDF from \code{outpro.null}.  Default is \code{0.1}.  Set
-  \code{cut = 0}, or use \code{vt.filter = "none"}, to turn off UVT
-  filtering.}
+    The default \code{vt.filter = "isopro"} uses an isolation
+    forest fitted to the predictors in the VarPro importance
+    ranking. A virtual twin passes the filter when its
+    \code{isopro} support score is at least \code{cut}.
 
-  \item{\code{nsmp}}{Number of training cases sampled when \code{newdata} is
-  omitted.  The actual number is \code{min(nrow(object$x), nsmp)}.  Default
-  is \code{250}.  This option is ignored when \code{newdata} is supplied.}
+    With \code{vt.filter = "outpro"}, distances are compared with
+    reference distances from \code{outpro.null}. The support score
+    is \code{1 - F0(distance)}, where \code{F0} is the reference
+    empirical distribution function. For example, with
+    \code{cut = 0.1}, a virtual twin passes when at least ten
+    percent of the reference distances are greater than its
+    distance. The default uses nearest-neighbor distances and
+    training observations for the reference distribution.
 
-  \item{\code{nvirtual}}{Requested number of virtual grid values for a
-  continuous variable with more than 10 unique values.  Default is
-  \code{100}.  The actual grid can be shorter if quantile values are tied.
-  Factors and variables with at most 10 unique values use all observed
-  levels/values instead.}
+    Larger values of \code{cut} allow fewer virtual twins to pass.
+    Use \code{cut = 0} or \code{vt.filter = "none"} to turn off
+    filtering. The two filtering methods use different support
+    scores, so the same \code{cut} need not accept the same twins.
+  }
 
-  \item{\code{nmin}}{Minimum number of admissible virtual twins required for a
-  continuous-variable case profile, after applying the cap
-  \code{min(nmin, nxorg / 2)}.  Default is \code{15}.}
+  \subsection{Fitting the curves}{
+    A polynomial curve is fitted separately for each observation
+    and predictor; the default is quadratic. When filtering is
+    active and enough values are available, the function compares
+    curves fitted with and without filtering. It fits them on
+    part of the grid and compares their prediction errors on the
+    remaining grid values. The unrestricted curve is used only
+    when both errors are available and its standardized mean
+    squared error is smaller by more than \code{mse.tolerance}.
+    Otherwise, fitting uses the values that pass the filter.
 
-  \item{\code{alpha}}{Tail trimming used to define the continuous virtual
-  grid.  The grid is formed from values between the empirical
-  \code{alpha} and \code{1 - alpha} quantiles.  Default is \code{0.025}.}
+    A fitted curve is evaluated over the full grid. Values rejected
+    by the filter can therefore involve extrapolation. For a
+    predictor with two distinct values, predictions at those values
+    are used directly, and both must pass the filter for a profile
+    to be available. A polynomial that cannot be fitted has missing
+    profile values.
+  }
 
-  \item{\code{df}}{Degree of the local polynomial used for continuous
-  variables.  The value is rounded and constrained to be at least 1.
-  Default is \code{2}, giving a quadratic local profile.}
+  \subsection{Grid and curve-fitting options}{
+    Supply these options through \code{...}:
+    \describe{
+      \item{\code{nsmp}}{Maximum number of training observations
+        sampled for each predictor. Default is \code{250}.
+        Ignored when \code{newdata} is supplied.}
+      \item{\code{nvirtual}}{Requested number of grid values for
+        predictors with many distinct values. Default is \code{100}.
+        Repeated quantiles are combined, so the grid may be shorter.}
+      \item{\code{alpha}}{Fraction excluded from each tail when
+        constructing a continuous predictor's grid. Default is
+        \code{0.025}. Predictors with few distinct values use all
+        their values.}
+      \item{\code{df}}{Polynomial degree. Default is \code{2} for
+        quadratic curves. The value is rounded and is at least one.}
+      \item{\code{nmin}}{Required number of grid values passing the
+        filter for a continuous-predictor profile. Default is
+        \code{15}, reduced to half the number of distinct training
+        values when that number is smaller.}
+      \item{\code{mse.tolerance}}{Required improvement in standardized
+        prediction error before using an unrestricted curve.
+        Default is \code{0}.}
+    }
+  }
 
-  \item{\code{sampsize}}{Sample-size function passed to \code{isopro} when
-  \code{vt.filter = "isopro"} and UVT filtering is active.  The default is
-  \code{function(x) min(2^8, 0.632 * x)}.}
+  \subsection{Filtering options}{
+    Supply these options through \code{...}:
+    \describe{
+      \item{\code{cut}}{Minimum support score for a virtual twin
+        to pass the filter. Default is \code{0.1}; \code{0} turns
+        filtering off.}
+      \item{\code{sampsize, ntree, nodesize}}{Isolation forest
+        settings used with \code{vt.filter = "isopro"}. Defaults
+        are \code{function(x) min(2^8, 0.632 * x)}, \code{500},
+        and \code{1}, respectively. See \code{\link{isopro}}.}
+      \item{\code{out.distancef}}{Distance method used with
+        \code{vt.filter = "outpro"}. Default is \code{"knn"}.
+        See \code{\link{outpro}} for other distance methods and
+        their interpretation.}
+      \item{\code{out.neighbor}}{Number of neighbors used by
+        \code{outpro}. Default is \code{NULL}, which uses the
+        \code{outpro} default.}
+      \item{\code{out.reduce}}{Predictors and weights for
+        \code{outpro}. Default is \code{NULL}, which uses the
+        VarPro-ranked predictors together with the predictor being
+        profiled. A character vector specifies predictor columns;
+        a named numeric vector also supplies relative weights.
+        With either vector, the profiled predictor is added if
+        absent, with relative weight one. Logical values are passed
+        directly to \code{outpro}.}
+      \item{\code{out.cutoff}}{Variable-selection cutoff passed to
+        \code{outpro} when \code{out.reduce = TRUE}. Default is
+        \code{NULL}, which uses the \code{outpro} default. The
+        virtual-twin support threshold is set by \code{cut}.}
+      \item{\code{out.max.rules.tree, out.max.tree}}{Rule and tree
+        limits for forest-based \code{outpro} distances. Both
+        default to \code{150}. Ignored for \code{"knn"}.}
+      \item{\code{out.knn.chunk.size}}{Number of virtual observations
+        processed together for nearest-neighbor distances. Default
+        is \code{100L}. Smaller values reduce temporary memory use.}
+      \item{\code{out.null}}{Optional \code{outpro.null} result, or
+        a named list of results with one entry per profiled predictor.
+        Use reference distances calculated with the same model,
+        predictors, weights, and distance settings as the virtual
+        twins. When omitted, reference distances are calculated
+        from the training observations and reused when settings
+        match.}
+    }
+  }
 
-  \item{\code{ntree}}{Number of trees used by the \code{isopro} isolation
-  forest when \code{vt.filter = "isopro"} and UVT filtering is active.
-  Default is \code{500}.}
+  \subsection{Using another prediction model}{
+    Supply \code{learner} to explain predictions from another model
+    using the same observations and predictor grids. The function
+    receives only predictor columns and must return one prediction
+    row for every input row, in the same order. For regression and
+    survival, a numeric vector is sufficient; a numeric matrix or
+    data frame is also accepted, using its first column. For
+    classification, supply a numeric probability matrix or data
+    frame with one column per class. Class names allow
+    \code{target} to select a class regardless of column order;
+    a numeric \code{target} selects by column position.
 
-  \item{\code{nodesize}}{Terminal node size used by \code{isopro} when
-  \code{vt.filter = "isopro"} and UVT filtering is active.  Default is
-  \code{1}.}
-
-  \item{\code{mse.tolerance}}{Tolerance in the held-out comparison between
-  the UVT-restricted and unrestricted polynomial fits.  The unrestricted fit
-  is selected only when its standardized MSE is smaller by more than this
-  amount.  Default is \code{0}.}
-
-  \item{\code{out.distancef}}{Distance used by \code{outpro} when
-  \code{vt.filter = "outpro"}.  The default is \code{"knn"}.  Other accepted
-  values are those supported by \code{outpro}, including \code{"prod"},
-  \code{"euclidean"}, \code{"mahalanobis"}, \code{"manhattan"},
-  \code{"minkowski"}, and \code{"kernel"}.}
-
-  \item{\code{out.neighbor}}{Neighbor count passed to \code{outpro} and
-  \code{outpro.null}.  The default \code{NULL} lets \code{outpro} choose its
-  own value.}
-
-  \item{\code{out.reduce}}{Reduced subspace passed to \code{outpro} when
-  \code{vt.filter = "outpro"}.  The default \code{NULL} uses the top VarPro
-  variables together with the focal variable currently being profiled.  A
-  character vector selects named variables; a named numeric vector selects
-  variables and supplies their weights.  In these two cases, the focal
-  variable is added if absent.  Other values, such as \code{TRUE} or
-  \code{FALSE}, are passed through to \code{outpro}.}
-
-  \item{\code{out.cutoff}}{Cutoff passed to \code{outpro} when
-  \code{out.reduce = TRUE}.  The default \code{NULL} lets \code{outpro} use
-  its dimension-dependent default.  This is not the virtual twin threshold;
-  the virtual twin threshold is \code{cut}.}
-
-  \item{\code{out.max.rules.tree}}{Maximum number of rules per tree passed to
-  \code{outpro} for forest-neighborhood distances.  Default is \code{150}.
-  This option has little effect for the default \code{out.distancef = "knn"}.}
-
-  \item{\code{out.max.tree}}{Maximum number of trees passed to \code{outpro}
-  for forest-neighborhood distances.  Default is \code{150}.  This option has
-  little effect for the default \code{out.distancef = "knn"}.}
-
-  \item{\code{out.knn.chunk.size}}{Chunk size used by the \code{outpro} KNN
-  distance calculation.  Default is \code{100L}.  Increasing this value can be
-  faster but uses more memory.}
-
-  \item{\code{out.null}}{Optional precomputed \code{outpro.null} object, or a
-  named list of such objects keyed by profiled variable name.  This is mainly
-  useful when repeatedly calling \code{partialpro} with
-  \code{vt.filter = "outpro"} and the same calibration should be reused.  If
-  omitted, null calibration is computed internally and cached by reduced
-  subspace.}
-}
-
-\strong{Custom learner helpers.}
-The package also supplies convenience learner constructors used in the
-examples.  \code{rf.learner(o, ...)} re-fits a random forest using the top
-VarPro variables as a gentler variable-weighting scheme and passes recognized
-random-forest arguments through \code{...}.  \code{gbm.learner(o, ...)} fits a
-\code{gbm} model with defaults \code{n.trees = 500},
-\code{shrinkage = 0.1}, \code{interaction.depth = 3},
-\code{cv.folds = 5}, and \code{n.cores = get.mc.cores()}; it uses Gaussian
-loss for regression/survival scores and Bernoulli loss for two-class
-classification.  \code{bart.learner(o, ...)} fits a BART regression learner
-and accepts \code{mc.cores} for prediction; it applies only to
-regression/survival-style VarPro objects.
-
-All three learner helpers require uniquely named options and reject
-unrecognized names before fitting. For \code{rf.learner}, \code{formula}, \code{data},
-\code{xvar.wt}, and \code{perf.type} are set internally and cannot be
-supplied through \code{...}.
-
-Because \code{partialpro} samples cases and creates case-specific train/test
-splits of the virtual grid, use \code{set.seed} before calling the function
-when reproducible profiles are needed.
+    The package supplies three learner constructors:
+    \describe{
+      \item{\code{rf.learner(object, ...)}}{Fits another random
+        forest, giving equal split weights to the VarPro-ranked
+        predictors and zero weight to the others. Recognized forest
+        arguments can be supplied through \code{...}; the formula,
+        data, split weights, and performance setting are set by
+        the helper.}
+      \item{\code{gbm.learner(object, ...)}}{Fits a gradient-boosted
+        model for a numeric target or a two-class response. Options
+        are \code{n.trees = 500}, \code{shrinkage = 0.1},
+        \code{interaction.depth = 3}, \code{cv.folds = 5}, and
+        \code{n.cores = get.mc.cores()}.}
+      \item{\code{bart.learner(object, ...)}}{Fits a Bayesian
+        additive regression tree model for a numeric target.
+        Accepts \code{mc.cores} for prediction, defaulting to
+        \code{get.mc.cores()}.}
+    }
+    For survival analyses, these helpers fit the numeric target
+    stored in \code{object$y}, such as mortality or a single
+    restricted mean survival time. This can differ from the
+    default learner, which predicts directly from
+    \code{object$rf}. The helpers reject unnamed, duplicate,
+    and unrecognized options.
+  }
 }
 
 \value{
-  An invisible named list with class \code{"partialpro"}.  There is one
-  named component for each requested variable that remains after matching to
-  \code{object$xvar.names}.  A component can be \code{NULL} if no usable
-  virtual profiles are available for that variable.  Otherwise each component
-  is a list with the following elements:
+  Invisibly, a named list of class \code{"partialpro"}, with one
+  component per available requested predictor. A component is
+  \code{NULL} when no profiles can be constructed for that predictor.
+  Otherwise it contains:
   \describe{
-    \item{\code{case}}{Indices of the sampled training cases, or row numbers
-    of \code{newdata}, retained for the variable.}
-
-    \item{\code{xorg}}{Original observed values of the variable in
-    \code{object$x}.}
-
-    \item{\code{xvirtual}}{Virtual grid values used for the variable.}
-
-    \item{\code{goodvt}}{Matrix with one row per retained case and one column
-    per virtual value.  Entries are \code{1} for admissible virtual twins and
-    \code{NA} for virtual twins removed by UVT.}
-
-    \item{\code{yhat.par}}{Case-specific fitted partial profile matrix on the
-    prediction scale.}
-
-    \item{\code{yhat.nonpar}}{Case-specific fitted partial profile matrix on
-    the prediction scale.  For the current continuous-variable implementation,
-    this is the local fitted profile with a common global intercept added
-    back.}
-
-    \item{\code{yhat.causal}}{Case-specific contrast matrix centered at the
-    first virtual value.}
+    \item{\code{case}}{Row numbers in \code{object$x}, or in
+      \code{newdata} when supplied, for the observations included
+      in the result.}
+    \item{\code{xorg}}{The predictor's values in the training data.}
+    \item{\code{xvirtual}}{Grid values at which profiles are evaluated.}
+    \item{\code{goodvt}}{Matrix indicating which virtual twins pass
+      the filter: \code{1} for a passing value and \code{NA}
+      otherwise. All entries are one when filtering is off.}
+    \item{\code{yhat.par}}{Matrix of fitted profiles. Continuous
+      predictors use polynomial curves with a common average
+      intercept; two-valued predictors use direct predictions.
+      Classification profiles are on the log-odds scale.}
+    \item{\code{yhat.nonpar}}{The same fitted profiles, calculated
+      by centering each fitted curve and adding the common average
+      intercept for continuous predictors. Despite the component
+      name, these also use the polynomial fits.}
+    \item{\code{yhat.causal}}{Profile changes relative to the
+      first grid value, calculated separately for each observation.}
   }
+  All matrices have one row per observation in \code{case} and one
+  column per value in \code{xvirtual}. Unavailable fits have
+  \code{NA} profile values. If none of the requested predictors
+  are available, the function returns \code{NULL}.
 }
 
 \author{
@@ -399,7 +421,8 @@ par(oldpar)
 
 ##------------------------------------------------------------------
 ##
-## peak vo2 with 5 year rmst
+## peak VO2: use five-year RMST for variable priority
+## Profiles below explain the default survival forest's mortality predictions.
 ##
 ##------------------------------------------------------------------
 

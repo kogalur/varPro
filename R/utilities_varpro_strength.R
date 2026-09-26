@@ -223,8 +223,11 @@ get.varpro.strengthArray <- function(var.strength, family, y) {
                                  "n.oobCT",
                                  "n.oob",
                                  "imp")
-    ## standardize importance by sqrt(variance)
-    var.strength$imp <- var.strength$imp / sqrt(var(y))
+    ## Standardize by the same variance, using a scalar divisor for a
+    ## single response. var() can return a 1-by-1 matrix for matrix/data-frame y.
+    response.sd <- sqrt(var(y))
+    if (length(response.sd) == 1L) response.sd <- as.numeric(response.sd)
+    var.strength$imp <- var.strength$imp / response.sd
   }
   ## mv-regression
   else if (family == "regr+") {
@@ -237,7 +240,12 @@ get.varpro.strengthArray <- function(var.strength, family, y) {
                                 imp.names)
     ## standardize importance by sqrt(variance)
     var.y <- as.numeric(diag(var(y, na.rm = TRUE)))
-    var.strength[, imp.names] <- var.strength[, imp.names] / sqrt(var.y)
+    ## Scale each response column by its own standard deviation.
+    ## Dividing a data frame by a vector recycles over entries, not columns.
+    for (j in seq_along(imp.names)) {
+      var.strength[[imp.names[j]]] <-
+        var.strength[[imp.names[j]]] / sqrt(var.y[j])
+    }
   }
   ## classification
   else if (family == "class") {

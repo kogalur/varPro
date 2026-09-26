@@ -16,7 +16,8 @@ uvarpro <- function(data,
   data <- data.frame(na.omit(data))
   ## droplevels
   data <- droplevels(data)
-  ## initialize the seed
+  ## Preserve the default RNG path; forward an explicitly supplied seed.
+  seed.supplied <- !is.null(seed)
   seed <- get.seed(seed)
   ## get options
   dots <- list(...)
@@ -71,6 +72,7 @@ uvarpro <- function(data,
                      rfnames != "perf.type"]
   ## get the permissible hidden options for rfsrc
   dots <- dots[names(dots) %in% rfnames]
+  if (seed.supplied) dots$seed <- seed
   ##-----------------------------------------------------------------
   ##
   ## process data
@@ -102,8 +104,13 @@ uvarpro <- function(data,
   ##------------------------------------------------------------------
   if (method == "rnd" && !user.provided.varpro.flag) {
     dots$splitrule <- NULL
-    o <- do.call("rfsrc", c(list(formula = yxyz123 ~ .,
-      data = data.frame(yxyz123 = rnorm(nrow(data)), data),
+    ## Name the generated response without renaming any predictor.
+    response.name <- tail(make.unique(c(xvar.names, "yxyz123")), 1L)
+    forest.data <- data.frame(rnorm(nrow(data)), data, check.names = FALSE)
+    names(forest.data) <- c(response.name, xvar.names)
+    forest.formula <- as.formula(call("~", as.name(response.name), as.name(".")))
+    o <- do.call("rfsrc", c(list(formula = forest.formula,
+      data = forest.data,
       splitrule = "random",
       ntree = ntree,
       nodesize = set.unsupervised.nodesize(nrow(data), ncol(data) + 1, nodesize),
@@ -115,9 +122,16 @@ uvarpro <- function(data,
   ##
   ##------------------------------------------------------------------
   if (method == "auto" && !user.provided.varpro.flag) {
+    ## Keep response copies distinct from every processed predictor name.
+    response.names <- tail(make.unique(c(xvar.names, paste0("y.", xvar.names))),
+                           length(xvar.names))
+    responses <- data
+    names(responses) <- response.names
+    forest.data <- data.frame(responses, data, check.names = FALSE)
+    names(forest.data) <- c(response.names, xvar.names)
     ## call regr+
-    o <- do.call("rfsrc", c(list(formula = get.mv.formula(paste0("y.", xvar.names)),
-      data = data.frame(y = data, data),
+    o <- do.call("rfsrc", c(list(formula = get.mv.formula(response.names),
+      data = forest.data,
       ntree = ntree,
       nodesize = set.unsupervised.nodesize(nrow(data), ncol(data), nodesize),
       perf.type = "none"), dots))
@@ -143,6 +157,9 @@ uvarpro <- function(data,
   ## used to store the new importance values
   results <- oo$strengthArray[, 1:5, drop = FALSE]
   colnames(results) <- c("tree", "branch", "variable", "n.oob", "imp")
+  ## The fourth raw column is the complementary count. Weight importance
+  ## by the original-region OOB count, identified by name.
+  results$n.oob <- oo$strengthArray$oobCT
   results$imp <- NA
   ##------------------------------------------------------------------
   ##

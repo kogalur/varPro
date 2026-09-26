@@ -60,17 +60,13 @@ get.hotencode.test <- function(x, xtest, papply = lapply, raw = FALSE) {
   xtest <- xtest[, intersect(xvar.names, names(xtest)), drop = FALSE]
   ## nothing to do if hotencoding was not used
   if (attr(x, "hotencode") == FALSE) {
+    ## Column selection can discard custom data-frame attributes.
+    ## Attach the encoding metadata to the final returned columns.
+    if (!raw) xtest <- xtest[, colnames(x), drop = FALSE]
     attr(xtest, "hotencode") <- FALSE
-    attr(xtest, "xvar.names") <- colnames(xtest)
+    attr(xtest, "xvar.names") <- xvar.names
     attr(xtest, "xvar.map") <- setNames(colnames(xtest), colnames(xtest))
-    ## return as is
-    if (raw) {
-      return(xtest)
-    }
-    ## removes unncessary extra columns
-    else {
-      return(xtest[, colnames(x), drop = FALSE])
-    }
+    return(xtest)
   }
   ## pull the training levels
   xlevels <- attr(x, "levels")
@@ -103,26 +99,53 @@ get.hotencode.test <- function(x, xtest, papply = lapply, raw = FALSE) {
       f <- as.formula(call("~", call("+", 0, as.name(nn))))
       xn <- data.frame(xn)
       colnames(xn) <- nn
-      model.matrix(f, xn)
+      ## Keep input rows even when a factor value is missing.
+      model.matrix(f, model.frame(f, xn, na.action = na.pass))
     }
   })
   x.f <- do.call(cbind, x.parts)
   source.names <- c(setdiff(xvar.names, names(xlevels)),
                     rep(names(xlevels), vapply(x.parts, ncol, integer(1))))
+  ## Reserve training-column names before naming indicators for new levels.
+  ## Otherwise a new level in one factor can take a different predictor's
+  ## training name and silently replace it during the final column match.
+  numeric.names <- setdiff(xvar.names, names(xlevels))
+  known.width <- vapply(xlevels, function(z) {
+    if (length(z) <= 2L) 1L else length(z)
+  }, integer(1))
+  has.new.columns <- any(vapply(x.parts, ncol, integer(1)) > known.width)
+  if (has.new.columns) {
+    known.parts <- Map(function(z, k) z[0L, seq_len(k), drop = FALSE],
+                       x.parts, known.width)
+    known.names <- colnames(data.frame(
+      xtest[0L, numeric.names, drop = FALSE], do.call(cbind, known.parts)))
+    known.index <- seq_along(numeric.names)
+    offset <- length(numeric.names)
+    for (j in seq_along(x.parts)) {
+      known.index <- c(known.index, offset + seq_len(known.width[j]))
+      offset <- offset + ncol(x.parts[[j]])
+    }
+  }
   ## package up as data frame, store useful attributes
-  xtest <- data.frame(xtest[, setdiff(xvar.names, names(xlevels)), drop = FALSE], x.f)
+  xtest <- data.frame(xtest[, numeric.names, drop = FALSE], x.f)
+  if (has.new.columns) {
+    extra.index <- setdiff(seq_len(ncol(xtest)), known.index)
+    resolved <- make.unique(c(known.names, colnames(xtest)[extra.index]))
+    colnames(xtest)[known.index] <- known.names
+    colnames(xtest)[extra.index] <- resolved[length(known.names) + seq_along(extra.index)]
+  }
+  source.map <- setNames(source.names, colnames(xtest))
+  if (!raw) {
+    xtest <- xtest[, colnames(x), drop = FALSE]
+    source.map <- source.map[colnames(xtest)]
+  }
+  ## Attach metadata after the final column selection, which can remove
+  ## custom attributes. The map must describe exactly the returned columns.
   attr(xtest, "hotencode") <- TRUE
   attr(xtest, "levels") <- xlevels
   attr(xtest, "xvar.names") <- xvar.names
-  attr(xtest, "xvar.map") <- setNames(source.names, colnames(xtest))
-  ## return as is
-  if (raw) {
-    xtest
-  }
-  ## removes unncessary extra columns
-  else {
-    xtest[, colnames(x), drop = FALSE]
-  }
+  attr(xtest, "xvar.map") <- source.map
+  xtest
 }
 ## Exact encoded-column -> original-variable mapping.
 ## New objects carry this mapping directly. For existing objects, rebuild

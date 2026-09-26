@@ -4,11 +4,12 @@
 \alias{importance.uvarpro}
 \alias{importance.rhf}
 
-\title{Calculate Importance for VarPro and UVarPro Objects}
+\title{Calculate and Plot Variable Importance}
 
 \description{
-Calculates variable importance from compatible objects such as \code{varpro}
-and \code{uvarpro}.
+Calculates and optionally plots variable importance for fitted
+\code{varpro}, \code{uvarpro}, and \code{rhf} objects. Larger scores
+indicate greater importance.
 }
 
 \usage{
@@ -37,67 +38,181 @@ importance(x, ...)
 
 \arguments{
 
-  \item{x}{A \code{varpro}, \code{uvarpro} or \code{rhf} object.}
+  \item{x}{A \code{varpro}, \code{uvarpro}, or \code{rhf} object.}
 
-  \item{local.std}{Logical. If \code{TRUE}, uses locally standardized
-  importance values. Ignored for \code{uvarpro} objects.}
+  \item{local.std}{Logical. If \code{TRUE}, standardizes each rule
+  comparison before combining the results. If \code{FALSE}, divides
+  mean importance by its standard deviation across trees. UVarPro
+  always uses \code{FALSE}; RHF always uses \code{TRUE}. See Details.}
 
-  \item{y.external}{Optional user-supplied response vector. Must match the
-  expected dimension and outcome family. Ignored for \code{uvarpro} objects.}
+  \item{y.external}{Optional replacement response, used when
+  \code{local.std = TRUE}. Supply values for the same observations,
+  in the same order, as those used in the fitted object. See Details
+  for the required form. Ignored for \code{uvarpro} objects.}
 
-  \item{cutoff}{Threshold used to highlight significant variables in the
-  importance plot. Applies only when \code{plot.it = TRUE}.}
+  \item{cutoff}{Importance-score threshold used in the plot.
+  Variables with \code{z >= cutoff} are highlighted. Also sets the
+  box limits when \code{conf = TRUE}. The returned scores are
+  unchanged.}
 
-  \item{trim}{Windsorization trim value used to robustify the mean and standard
-  deviation calculations.}
+  \item{trim}{Fraction of values capped at each end of the
+  across-tree importance distribution before calculating summaries
+  (winsorization). Must satisfy \code{0 <= trim < 0.5}. Use
+  \code{trim = 0} for no capping.}
 
-  \item{plot.it}{Logical. If \code{TRUE}, generates a plot of importance
-  values.}
+  \item{plot.it}{Logical. If \code{TRUE}, plots importance when more
+  than one tree contributes. Classification plots use overall
+  importance. Multivariate regression returns tables only.}
 
-  \item{conf}{Logical. If \code{TRUE}, displays importance values with standard
-  errors as a boxplot (providing an informal confidence region). If
-  \code{FALSE}, plots standardized importance values.}
+  \item{conf}{Logical. With \code{plot.it = TRUE}, uses a box-style
+  display when \code{TRUE}, or a bar plot of \code{z} when
+  \code{FALSE}. See Details for the box limits.}
 
-  \item{sort}{Logical. If \code{TRUE}, sorts results in decreasing order of
-  importance.}
+  \item{sort}{Logical. If \code{TRUE}, orders results by decreasing
+  importance. Otherwise, uses the predictor order in the fitted
+  object.}
 
-  \item{ylab}{Character string specifying the y-axis label.}
+  \item{ylab}{Label for the plot's vertical axis.}
 
-  \item{max.rules.tree}{Optional. Maximum number of rules per tree. Defaults to
-  the value stored in the fitted object if unspecified.}
+  \item{max.rules.tree}{Optional maximum number of rules per tree
+  used to calculate importance. Defaults to the fitted object's
+  setting for \code{varpro} and \code{uvarpro}, or 150 for
+  \code{rhf}.}
 
-  \item{max.tree}{Optional. Maximum number of trees used for rule extraction.
-  Defaults to the value from the fitted object if unspecified.}
+  \item{max.tree}{Optional maximum number of trees used to
+  calculate importance. Defaults to the fitted object's setting for
+  \code{varpro} and \code{uvarpro}, or \code{min(150, x$ntree)} for
+  \code{rhf}.}
 
-  \item{...}{Additional arguments passed to internal methods.}
+  \item{...}{Additional graphical arguments passed to \code{bxp}
+  or \code{barplot} when \code{plot.it = TRUE}.}
 
 }
 
 \details{
 
-This page documents the public \code{importance()} generic together with the
-methods for \code{varpro} and \code{uvarpro} objects.
+  After fitting a model with \code{\link{varpro}}, use
+  \code{importance} to see which predictors have the strongest
+  relationship with the response. The function combines importance
+  measurements from the forest's rules into a score for each
+  evaluated predictor. Larger scores indicate greater importance, and results
+  are sorted from largest to smallest by default.
 
-The supervised \code{varpro} method calculates standardized importance values
-for identifying and ranking variables. Optionally, graphical output is
-provided, including confidence-style boxplots.
+  Use \code{importance(x)} to obtain the scores or
+  \code{importance(x, plot.it = TRUE)} to add a plot. Classification
+  also provides scores for each class, and multivariate regression
+  provides a separate summary for each response.
+
+  \subsection{How the scores are calculated}{
+    The forest's rules define groups of observations for comparing
+    response values. For regression, the comparisons measure
+    differences in response means; for classification, they compare
+    class proportions. The default, \code{local.std = TRUE},
+    standardizes each comparison using the variability in the
+    observations being compared. For survival, the comparisons use
+    the numeric survival summaries calculated by \code{varpro}.
+
+    Rule scores are averaged within each tree, weighted by the
+    number of out-of-bag observations in the rule. These are
+    observations not used to grow that tree. The tree scores are
+    then averaged to obtain \code{z}.
+
+    With \code{local.std = FALSE}, the function instead summarizes
+    the stored rule scores within each tree, then divides the mean
+    tree score by the standard deviation across trees. This ratio
+    is returned as \code{z}, together with \code{mean} and
+    \code{std}.
+
+    In both cases, \code{trim} limits the influence of unusually
+    small or large tree scores. The default, \code{trim = 0.1},
+    replaces values below the 10th percentile or above the 90th
+    percentile by those percentiles before calculating the mean
+    and standard deviation. Set \code{trim = 0} to use the values
+    unchanged.
+  }
+
+  \subsection{Plots and variable selection}{
+    Set \code{plot.it = TRUE} to plot the scores. Variables with
+    \code{z >= cutoff} are shown in red. Changing \code{cutoff}
+    changes the plot, while the returned importance table continues
+    to include the same predictors and scores.
+
+    For a bar plot of \code{z}, set \code{conf = FALSE}. With
+    \code{conf = TRUE}, each box is centered on mean importance
+    and extends by \code{cutoff * std} in each direction. Under
+    local standardization, the center is \code{z} and \code{std}
+    is set to 1. Otherwise, \code{std} is the standard deviation
+    across trees after winsorization. The boxes provide an informal
+    visual guide to the cutoff.
+
+    To select predictors for a prediction model, use
+    \code{\link{cv.varpro}}, which compares prediction errors for
+    variable sets formed using different importance cutoffs.
+  }
+
+  \subsection{Using another response}{
+    Supply \code{y.external} with \code{local.std = TRUE} to
+    calculate importance for another response using the same forest
+    rules. For example, supplying predictions from another model
+    shows which predictors are important for those predictions.
+
+    For a single numeric response, including a survival summary,
+    supply a numeric vector. For multiple numeric responses, supply
+    a matrix with the same dimensions and response-column order as
+    \code{x$y}. For classification, supply a factor with the same
+    levels and coding as \code{x$y}. In every case, values must
+    follow the observation order in the fitted object, including
+    any omissions made during fitting.
+  }
+
+  \subsection{UVarPro and RHF objects}{
+    For \code{uvarpro} objects, the function summarizes the rule
+    scores from the unsupervised analysis using
+    \code{local.std = FALSE}. See \code{\link{uvarpro}} for the
+    interpretation of these scores.
+
+    For \code{rhf} objects, importance uses log-transformed
+    integrated hazard estimates and always applies local
+    standardization. Out-of-bag estimates are used when available,
+    and inbag estimates otherwise.
+  }
 
 }
 
-
 \value{
 
-  Invisibly, a table summarizing the results. Contains mean importance
-  \code{mean}, the standard deviation \code{std}, and standardized importance
-  \code{z}.
+  For regression, survival with a single response summary, and RHF,
+  a data frame with predictor names as row names. With
+  \code{local.std = TRUE}, the table contains only \code{z}:
+  the mean locally standardized importance across trees after
+  winsorization. With \code{local.std = FALSE}, including UVarPro
+  analyses, it contains:
+  \describe{
+    \item{\code{mean}}{Mean importance across trees after
+      winsorization.}
+    \item{\code{std}}{Standard deviation of importance across trees
+      after winsorization.}
+    \item{\code{z}}{Standardized importance, \code{mean / std}.}
+  }
 
-  For classification, conditional \code{z} tables are additionally provided,
-  where the \eqn{z} standardized importance values are conditional on the class
-  label.
+  For classification, a list with two components:
+  \describe{
+    \item{\code{unconditional}}{Overall importance table, with the
+      same columns described above.}
+    \item{\code{conditional.z}}{Matrix of class-specific importance
+      scores, with predictors in rows and the fitted object's class
+      labels in columns.}
+  }
 
-  See \command{cv.varpro} for a data-driven cross-validation method for
-  selecting the cutoff value, \code{cutoff}, in supervised
-  \code{varpro} analyses.
+  For multivariate regression, including survival analyses with
+  multiple response summaries, a list containing one importance
+  table per response, in response-column order.
+
+  The summaries cover predictors represented in the evaluated rules.
+  Categorical predictors can appear as several indicator columns.
+  For VarPro or UVarPro objects, \code{get.orgvimp(x)} gives scores
+  under the original predictor names, using the largest available
+  score for each predictor.
 
 }
 

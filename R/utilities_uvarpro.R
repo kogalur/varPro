@@ -57,6 +57,30 @@ get.entropy.default <- function(entropy.values, xvar.names, ...) {
     abs(v)
   }
 }
+## Prepare a local lasso design without allowing a constant indicator to
+## invalidate the other predictors. Keep the existing uncentered scaling.
+.uvarpro.lasso.design <- function(X, add.zero = FALSE, zero.name = "ZeroColumn") {
+  X <- as.matrix(X)
+  if (!is.numeric(X) || nrow(X) < 2L || ncol(X) == 0L ||
+      any(!is.finite(X))) return(NULL)
+  varies <- vapply(seq_len(ncol(X)), function(j) {
+    any(X[, j] != X[1L, j])
+  }, logical(1))
+  if (!any(varies)) return(NULL)
+  X <- scale(X[, varies, drop = FALSE], center = FALSE)
+  if (any(!is.finite(X))) return(NULL)
+  ## glmnet requires two input columns, even for a one-predictor fit.
+  ## Add the zero column after scaling, and never reuse a predictor name.
+  dropped <- character()
+  if (isTRUE(add.zero) || ncol(X) == 1L) {
+    if (is.null(colnames(X))) colnames(X) <- paste0("V", seq_len(ncol(X)))
+    dummy.name <- utils::tail(make.unique(c(colnames(X), zero.name)), 1L)
+    X <- cbind(numeric(nrow(X)), X)
+    colnames(X)[1L] <- dummy.name
+    dropped <- dummy.name
+  }
+  list(x = X, dropped = dropped)
+}
 fit.logistic.cv.beta <- function(X.cls, class,
                                  nfolds, parallel, maxit, thresh,
                                  use.cv = TRUE,
@@ -64,8 +88,9 @@ fit.logistic.cv.beta <- function(X.cls, class,
                                  nlambda = NULL,
                                  lambda.min.ratio = NULL) {
   lambda.sel <- match.arg(lambda.sel)
-  ## !!!manual scaling!!!
-  X.cls <- scale(X.cls, center = FALSE)
+  design <- .uvarpro.lasso.design(X.cls)
+  if (is.null(design)) return(NULL)
+  X.cls <- design$x
   if (isTRUE(use.cv)) {
     args <- list(
       x        = X.cls,
@@ -104,7 +129,7 @@ fit.logistic.cv.beta <- function(X.cls, class,
     co <- last.lambda.coef(fit)
   }
   ## Pull only non-zero coefficients (drop intercept)
-  bhat <- .abs_nz_coef(co, drop_names = "(Intercept)")
+  bhat <- .abs_nz_coef(co, drop_names = c("(Intercept)", design$dropped))
   if (is.null(bhat) || !length(bhat)) return(NULL)
   bhat
 }
@@ -120,12 +145,9 @@ fit.linear.lasso.at.last <- function(X, Y,
                                      lambda.min.ratio = NULL,
                                      maxit = 2500,
                                      thresh = 1e-3) {
-  ## !!!!manual scaling!!!!
-  X <- scale(X, center = FALSE)
-  if (add.zero) {
-    X <- cbind(rep(0, nrow(X)), X)
-    colnames(X)[1] <- zero.name
-  }
+  design <- .uvarpro.lasso.design(X, add.zero = add.zero, zero.name = zero.name)
+  if (is.null(design)) return(NULL)
+  X <- design$x
   args <- list(
     x     = X,
     y     = Y,
@@ -142,8 +164,7 @@ fit.linear.lasso.at.last <- function(X, Y,
   if (is.null(fit)) return(NULL)
   co <- last.lambda.coef(fit)
   if (is.null(co)) return(NULL)
-  drop <- "(Intercept)"
-  if (isTRUE(add.zero)) drop <- c(drop, zero.name)
+  drop <- c("(Intercept)", design$dropped)
   v <- .abs_nz_coef(co, drop_names = drop)
   if (is.null(v) || !length(v)) return(NULL)
   v

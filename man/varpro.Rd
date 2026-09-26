@@ -3,12 +3,12 @@
 \title{Model-Independent Variable Selection via the Rule-Based Variable Priority (VarPro)}
 
 \description{
-  Identifies predictors associated with a response by comparing forest
-  rule regions with their near-miss sets. Supports regression, multivariate
-  regression, classification, and right-censored survival. The returned
-  object contains the rule-generating forest and rule-level scores;
-  \code{importance} summarizes these scores and \code{cv.varpro} selects
-  an importance cutoff using predictive performance.
+  Identifies predictors associated with a response. VarPro uses forest
+  rules to compare groups of observations and measure each predictor's
+  importance. Supports regression, multivariate regression,
+  classification, and right-censored survival. Use \code{importance}
+  to summarize the results and \code{cv.varpro} to select variables
+  using prediction error.
 }
 
 \usage{
@@ -32,18 +32,17 @@ varpro(formula, data, nvar = 30, ntree = 500,
     are omitted, a warning reports the input, omitted, and retained counts.
     See Details.}
 
-  \item{nvar}{Maximum number of processed predictor columns retained
-    by split-weight screening before rule generation. A categorical
+  \item{nvar}{Maximum number of processed predictor columns used
+    after preliminary weighting and before rule generation. A categorical
     predictor can contribute several columns. Applies when computed
     or custom split-weights are used; \code{split.weight = FALSE}
     without custom weights uses all processed predictors.}
 
   \item{ntree}{Number of trees in the rule-generating forest.}
 
-  \item{split.weight}{Should preliminary split-weights guide rule
-    generation? Positive-weight predictors are screened to at most
-    \code{nvar} columns, and candidate split variables are sampled
-    according to their retained weights.}
+  \item{split.weight}{Use preliminary weights to choose and favor
+    predictors when growing the forest? At most \code{nvar}
+    positive-weight predictor columns are used. See Details.}
 
   \item{split.weight.method}{Character string or vector selecting
     preliminary weighting methods: \code{"lasso"}, \code{"tree"}, and
@@ -71,7 +70,7 @@ varpro(formula, data, nvar = 30, ntree = 500,
   \item{parallel}{Should the preliminary lasso cross-validation folds
     run in parallel?}
 
-  \item{cores}{Number of cores for lasso-fold parallelism. The default
+  \item{cores}{Number of cores for parallel lasso cross-validation. The default
     respects \code{options(mc.cores = ...)} or \env{MC_CORES}.
     Forest parallelism is controlled separately by
     \pkg{randomForestSRC}.}
@@ -90,91 +89,61 @@ varpro(formula, data, nvar = 30, ntree = 500,
 }
 
 \details{
-  \subsection{What VarPro measures}{
-    VarPro studies a predictor's contribution by comparing responses
-    in a rule region and its near-miss set. In regression, the target is
-    the conditional mean of the response; in classification, it is
-    the vector of conditional class probabilities. Survival analysis
-    uses a forest estimate of mortality or restricted mean survival
-    time as its response summary.
+  VarPro helps identify predictors that are related to an outcome.
+  It compares groups of observations to measure each predictor's
+  association with changes in the response. A forest defines the
+  groups, allowing the relationships to differ across the data.
+  The comparisons are combined into an importance score for each
+  predictor.
 
-    The workflow has three steps. \code{varpro} prepares the data,
-    generates rules, and stores their release comparisons.
-    \code{importance} combines the comparisons into variable-level
-    scores. \code{cv.varpro} uses the scores to form candidate variable
-    sets and chooses among them using forest prediction error.
+  Start with \code{o <- varpro(y ~ ., data)}, then use
+  \code{imp <- importance(o)} and \code{print(imp)} to inspect the
+  scores. Use \code{importance(o, plot.it = TRUE)} to add a plot.
+  To select a set of predictors using prediction error, call
+  \code{cv.varpro} with the same formula and data. It performs the
+  VarPro analysis and compares prediction models using different
+  importance cutoffs.
+
+  \subsection{How the comparisons work}{
+    A forest rule is a set of conditions on predictor values. For
+    example, a rule might require \eqn{x_1 \leq 0.5}{x1 <= 0.5} and
+    \eqn{x_2 > 0.3}{x2 > 0.3}. To assess \eqn{x_1}{x1}, VarPro
+    removes its condition while keeping the condition on
+    \eqn{x_2}{x2}. This is called \emph{releasing} a predictor.
+
+    The observations newly admitted by this change satisfy
+    \eqn{x_1 > 0.5}{x1 > 0.5} and \eqn{x_2 > 0.3}{x2 > 0.3}.
+    They form the rule's \emph{near-miss set}. Comparing their
+    responses with those in the original rule region measures the
+    local contribution of \eqn{x_1}{x1}, with the restriction on
+    \eqn{x_2}{x2} unchanged.
+
+    More generally, for a rule region \eqn{R}, releasing predictor
+    \eqn{s} gives an enlarged region \eqn{R^{(s)}}{R^(s)}. The
+    near-miss set is
+    \deqn{C_s = R^{(s)} \setminus R.}{C_s = R^(s) minus R.}
+    The original-region observations used in each comparison are
+    out-of-bag for that tree: they were not used to grow it. Repeating
+    the comparisons across rules allows a predictor to be important
+    in some groups of observations and less important in others.
+
+    For regression, the comparisons concern mean responses; for
+    classification, they concern class proportions. Survival uses a
+    numeric summary estimated by a preliminary survival forest, as
+    described below.
   }
 
-  \subsection{Rules and near-miss comparisons}{
-    A root-to-terminal-node path defines a region \eqn{R} by combining
-    its split conditions. Releasing predictor \eqn{s} removes every
-    condition involving that predictor while retaining the conditions
-    on the other predictors. This produces the enlarged release region
-    \eqn{R^{(s)}}{R^(s)}. The code compares responses
-    in \eqn{R} with those in the near-miss set
-    \deqn{
-      C_s = R^{(s)} \setminus R = R^c \cap R^{(s)}.
-    }{
-      C_s = R^(s) minus R = (complement of R) intersect R^(s).
-    }
+  \subsection{Importance scores and variable selection}{
+    \code{importance(o)} combines the rule comparisons into predictor
+    scores. Larger scores indicate stronger response differences when
+    that predictor is released. Classification supplies both an overall
+    score and class-specific scores. Multivariate regression supplies
+    a separate importance table for each response.
 
-    For example, a rule \eqn{x_1 \leq 0.5,\ x_2 > 0.3}{x1 <= 0.5 and x2 > 0.3}
-    becomes \eqn{x_2 > 0.3}{x2 > 0.3} when \eqn{x_1}{x1} is released.
-    Its near-miss set contains observations with
-    \eqn{x_1 > 0.5,\ x_2 > 0.3}{x1 > 0.5 and x2 > 0.3}.
-    Comparing responses in the original region and the near-miss set
-    measures the local contribution of \eqn{x_1}{x1} while preserving
-    the restriction on \eqn{x_2}{x2}.
-
-    Rules are extracted from the forest. At most \code{max.tree} trees and
-    \code{max.rules.tree} branches per selected tree contribute to the
-    analysis. Original-region observations are out-of-bag for the
-    corresponding tree. Repeated comparisons allow a predictor to
-    contribute differently in different regions of the feature space.
-  }
-
-  \subsection{Guided rule generation and the lasso}{
-    Preliminary split-weights help the forest form informative rules.
-    Three sources of information are available:
-    \describe{
-      \item{\code{"lasso"}}{Absolute coefficients from a cross-validated
-        penalized regression on standardized predictors. This favors
-        predictors with strong linear effects or categorical contrasts.}
-      \item{\code{"tree"}}{Split frequencies from a shallow forest,
-        which can identify nonlinear effects and interactions.}
-      \item{\code{"vimp"}}{Positive permutation importance from a
-        preliminary forest, measuring a predictor's contribution
-        to prediction accuracy.}
-    }
-    Combining methods uses complementary evidence when forming the
-    weights. With \code{split.weight.method = NULL}, the combination
-    is chosen automatically. Set an explicit method to control which
-    sources are used.
-
-    The lasso penalty is selected by cross-validation. The weights use
-    the more regularized solution within one standard error of the
-    minimum error. Coefficient magnitudes are combined across responses
-    or classes when needed. For survival, the lasso uses the response
-    summary described below.
-
-    With \code{sparse = TRUE}, stronger preliminary weights receive
-    greater emphasis. Use \code{FALSE} to spread the emphasis more
-    broadly. At most \code{nvar} positive-weight processed columns are
-    retained for rule generation. Increase \code{nvar} to explore more
-    predictors, or use \code{split.weight = FALSE} to generate rules
-    using all processed predictors without preliminary weighting.
-
-    The retained weights guide candidate-variable sampling in the
-    forest. Final VarPro importance is calculated from the resulting
-    release comparisons.
-  }
-
-  \subsection{Importance scores and selection}{
-    Call \code{importance(o)} to summarize a \code{varpro} object.
-    Its default \code{local.std = TRUE} recomputes locally
-    standardized comparisons from the region memberships. For
-    regression, the score comparing \eqn{R} and its near-miss set
-    \eqn{C_s} is the absolute Welch statistic
+    The default \code{local.std = TRUE} in \code{importance} accounts
+    for the variability and sample sizes of each comparison. In
+    regression, the rule score is the absolute difference in group
+    means divided by its estimated standard error:
     \deqn{
       T = \frac{|\bar y_R - \bar y_{C_s}|}
         {\sqrt{s_R^2/n_R + s_{C_s}^2/n_{C_s}}}.
@@ -182,109 +151,144 @@ varpro(formula, data, nvar = 30, ntree = 500,
       T = abs(mean(y_R) - mean(y_Cs)) /
           sqrt(var(y_R) / n_R + var(y_Cs) / n_Cs).
     }
-    The same calculation is applied separately to each numeric
-    response, including external survival
-    summaries. For classification, the overall comparison is the
-    square root of a Pearson chi-squared statistic divided by its
-    degrees of freedom, with continuity correction for two-class
-    tables. Class-specific comparisons use absolute
-    standardized differences in proportions.
+    This is the absolute Welch statistic. The same calculation is
+    used for each numeric response, including survival summaries.
+    Classification uses a chi-squared comparison of class proportions
+    for the overall score and standardized differences in proportions
+    for the class-specific scores. The overall rule score is
+    \eqn{\sqrt{\chi^2 / d}}{sqrt(chi-squared / d)}, where \eqn{d}
+    is the degrees of freedom; two-class tables use a continuity
+    correction.
 
-    Within each tree, comparisons for a predictor are averaged with
-    weights equal to their original-region sample sizes. Class-specific
-    summaries use the corresponding class counts. The tree-level
-    scores are then averaged after winsorization at the
-    lower and upper 10 percent quantiles by default. With local
-    standardization, this mean is the reported \code{z} score. With
-    \code{local.std = FALSE},
-    \code{importance} summarizes the stored rule scores and divides
-    their winsorized mean by their winsorized standard deviation
-    across trees.
+    Comparisons within a tree are averaged using the numbers of
+    original-region observations as weights. Class-specific scores
+    use the corresponding class counts. Before averaging across trees,
+    unusually small and large tree scores are limited to the lower
+    and upper 10 percent quantiles by default. This is
+    \emph{winsorization}. The resulting mean is reported as \code{z}.
+    With \code{local.std = FALSE}, \code{importance} instead summarizes
+    the stored rule scores and divides their winsorized mean by their
+    winsorized standard deviation across trees.
 
-    Larger scores indicate stronger response changes under release.
-    The default \code{importance} cutoff of 0.79 is used
-    to highlight variables in its plots. To choose a cutoff
-    from predictive performance, use \code{cv.varpro}. Its optional
-    \code{cv.folds} argument assesses the complete selection procedure
-    on held-out folds and appends stability summaries to the returned
-    importance tables. See
-    \code{\link{importance.varpro}} for the summary and plotting
-    controls.
+    The \code{importance} cutoff, 0.79 by default, highlights variables
+    in its plots; it does not filter the returned importance table.
+    \code{get.topvars(o)} gives the predictor names represented in that
+    table. Use \code{cv.varpro} for selection based on prediction error.
+    Its optional \code{cv.folds} argument also assesses prediction on
+    observations left out of selection and reports how often each
+    variable is selected. See \code{\link{importance.varpro}} and
+    \code{\link{cv.varpro}}.
   }
 
-  \subsection{Categorical predictors and outcome families}{
-    Numeric predictors retain their values. Two-level categorical
-    predictors become binary columns; predictors with more levels
-    become indicator columns. Screening, forest rules, and
-    \code{importance(o)} operate on these processed columns.
-    \code{o$x} stores the complete processed predictor data, while
-    \code{o$xvar.names} identifies the columns retained for rule
-    generation.
+  \subsection{Choosing predictors for rule generation}{
+    By default, preliminary weights help the forest find useful
+    predictors before the rule comparisons are made. The weights
+    determine which predictors are used and how often they are offered
+    as candidates for a split. Three weighting methods are available:
+    \describe{
+      \item{\code{"lasso"}}{Absolute coefficients from a penalized
+        regression fitted to standardized predictors.}
+      \item{\code{"tree"}}{How often each predictor is used to split
+        a shallow forest.}
+      \item{\code{"vimp"}}{Positive permutation importance from a
+        preliminary forest.}
+    }
+    \code{split.weight.method = NULL} chooses a combination
+    automatically. Supply a method or a combination such as
+    \code{c("lasso", "tree")} to choose the sources of the weights.
+    The lasso uses the more strongly penalized solution within one
+    standard error of the minimum cross-validation error. Coefficient
+    magnitudes are combined across responses or classes when needed.
 
-    \code{get.orgvimp(o)} summarizes scores at the original-variable
-    level using the largest score among a predictor's encoded
-    columns. For multivariate regression it also takes the maximum
-    across outcomes. \code{cv.varpro} uses this original-variable
-    summary for its candidate sets. \code{get.vimp(o)} returns named
-    scores for the represented processed columns. With
-    \code{pretty = FALSE}, \code{get.vimp} and \code{get.orgvimp}
-    return all processed or original predictors, respectively,
-    filling absent scores with zero.
+    \code{nvar} limits the number of positive-weight predictor columns
+    used to generate rules. It is a preliminary screening limit, not
+    the requested number of variables in a final selection. Factors
+    can contribute several columns. Increase \code{nvar} to allow more
+    columns, or set \code{split.weight = FALSE} to use all processed
+    predictors without preliminary weighting. With
+    \code{sparse = TRUE}, the weighting puts more emphasis on
+    predictors with larger preliminary weights.
 
-    In binary classification, the working response labels are 0 for
-    the majority class and 1 for the minority class. For imbalanced
-    classes, the default handling uses AUC
-    splitting and RFQ with geometric-mean performance for the
-    preliminary permutation-importance calculation. The original
-    response labels remain in \code{y.org} and the rule-generating
-    forest. The controls \code{use.rfq} and \code{iratio.threshold}
-    modify this behavior.
+    Supply \code{split.weight.custom} through \code{...} to use a
+    named vector of your own weights. Names must match the processed
+    predictor columns; unspecified columns receive zero weight. Use
+    \code{get.splitweight.custom(formula, data)} to obtain a starting
+    vector with the correct names. Custom weights also use the
+    \code{nvar} limit. The final importance scores come from the rule
+    comparisons, rather than from the preliminary weights.
+  }
+
+  \subsection{Categorical predictors and classification}{
+    Categorical predictors are converted to numeric columns, called
+    hot-encoding. A two-level factor gives one binary column; a factor
+    with more levels gives indicator columns. Numeric predictors keep
+    their values. Screening, rules, and \code{importance(o)} use these
+    processed columns. \code{o$x} contains the full processed predictor
+    data, and \code{o$xvar.names} identifies the columns used by the
+    rule-generating forest.
+
+    Use \code{get.orgvimp(o)} for scores under the original predictor
+    names. It takes the largest score among a predictor's encoded
+    columns and, for multivariate regression, across responses.
+    \code{cv.varpro} uses this summary to form its candidate variable
+    sets. \code{get.vimp(o)} gives named scores for the processed
+    columns. With \code{pretty = FALSE}, these two helpers include all
+    original or processed predictors, respectively, filling missing
+    scores with zero.
+
+    Binary classification uses working labels 0 for the majority class
+    and 1 for the minority class. The original labels are stored in
+    \code{y.org} and used by the rule-generating forest. When the
+    class-imbalance rule is met, the forest uses RFQ and AUC splitting;
+    preliminary permutation importance uses geometric-mean performance.
+    The controls \code{use.rfq} and \code{iratio.threshold} govern
+    this behavior. \code{model.info$classification} records the class
+    mapping and imbalance settings.
   }
 
   \subsection{Survival targets}{
-    A preliminary survival forest estimates a numeric response
-    summary for each training observation. By default, this is
-    forest mortality. Supplying \code{rmst = tau} requests restricted
-    mean survival time, obtained by integrating the estimated
-    survival curve up to \code{tau}. A vector of horizons supplies
-    one numeric response per horizon.
+    For survival data, a preliminary survival forest estimates a
+    numeric response summary for each training observation. The default
+    is forest mortality. Supply \code{rmst = tau} through \code{...}
+    to use restricted mean survival time: the estimated survival curve
+    integrated up to time \code{tau}. A vector of horizons requests
+    a separate summary for each horizon. Horizons use the same time
+    units as the survival outcome. Beyond the last stored time point,
+    the calculation continues using the last estimated survival value.
 
-    These full-ensemble training summaries are used for preliminary
+    These full-ensemble training predictions guide preliminary
     weighting and the default locally standardized importance.
-    With mortality or one RMST horizon, rules are generated using
-    the original survival outcome. With multiple RMST horizons,
-    rule generation uses multivariate regression on the RMST
-    responses. Thus the horizons determine the survival features
-    being prioritized. The controls \code{ntree.external},
-    \code{nodesize.external}, and \code{ntime.external} govern the
-    preliminary survival forest.
+    With mortality or a single RMST response, rules are generated from
+    the original survival outcome. With multiple RMST responses, rules
+    are generated by multivariate regression on those responses.
+    \code{ntree.external}, \code{nodesize.external}, and
+    \code{ntime.external} control the preliminary survival forest.
+
+    \code{model.info} distinguishes the original outcome, the working
+    numeric targets, and the family of the rule-generating forest.
+    This is useful when inspecting an analysis with survival-derived
+    responses.
   }
 
-  \subsection{Additional controls and computation}{
-    Useful arguments supplied through \code{...} include
-    \code{nfolds} for lasso cross-validation, \code{rmst} for the
-    survival target, and \code{ntree.external} for the preliminary
-    survival forest.
+  \subsection{Computation and reproducibility}{
+    \code{ntree} controls the number of trees grown. \code{max.tree}
+    and \code{max.rules.tree} limit the trees and branches used for
+    the comparisons. Smaller limits reduce computation. Larger
+    \code{nodesize} values give broader comparison groups with less
+    local detail.
 
-    Custom split-weights can be supplied as a named numeric vector
-    through \code{split.weight.custom}. Names must refer to processed
-    predictor columns; omitted columns receive zero weight. Use
-    \code{get.splitweight.custom(formula, data)} to obtain a correctly
-    named starting vector, then assign positive weights to the
-    predictors of interest.
-
-    Reducing \code{ntree}, \code{max.tree}, or \code{max.rules.tree}
-    reduces computation. Increasing \code{nodesize} produces larger
-    comparison groups with less local detail. The \code{parallel} and
-    \code{cores} arguments control lasso-fold parallelism; forest
-    threading is controlled by \pkg{randomForestSRC}.
+    \code{parallel} and \code{cores} control the preliminary lasso
+    cross-validation, with \code{nfolds} supplied through \code{...}.
+    Forest threading is controlled separately by \pkg{randomForestSRC}.
+    For reproducible serial calculations, use \code{set.seed} before
+    the analysis and \code{parallel = FALSE}; see Note.
   }
 }
 
 \value{
   An object of class \code{"varpro"} with the following components:
   \item{rf}{The rule-generating \code{rfsrc} forest.}
-  \item{split.weight}{Named weights for the retained predictor columns,
+  \item{split.weight}{Named weights for the predictor columns used by the forest,
     or \code{NULL} when computed and custom weighting are both absent.}
   \item{split.weight.raw}{List of untransformed preliminary components
     actually calculated, named \code{lasso}, \code{tree}, or
@@ -298,8 +302,7 @@ varpro(formula, data, nvar = 30, ntree = 500,
   \item{x}{Complete-case processed predictor data, including columns
     removed by preliminary screening. Encoding information is stored
     as attributes.}
-  \item{xvar.names}{Processed predictor names retained for rule
-    generation.}
+  \item{xvar.names}{Processed predictor names used for rule generation.}
   \item{xvar.org.names}{Original predictor names before encoding.}
   \item{y}{Working response: numeric response(s), recoded class labels,
     or external survival summary values.}
@@ -311,8 +314,10 @@ varpro(formula, data, nvar = 30, ntree = 500,
     RMST horizons use \code{"regr+"}.}
   \item{max.rules.tree, max.tree}{Stored rule-extraction limits used by
     subsequent importance calculations.}
-  \item{model.info}{Compact description of the analysis. Its
-    \code{observations} component records \code{input}, \code{retained},
+  \item{model.info}{Description of the original outcome (\code{original}),
+    working responses (\code{working}), and rule-generating forest
+    (\code{forest}), with additional survival or classification
+    information when applicable. The \code{observations} component records \code{input}, \code{retained},
     and \code{omitted} row counts for the data supplied to this
     \code{varpro} call.}
 }
@@ -322,8 +327,8 @@ varpro(formula, data, nvar = 30, ntree = 500,
   before \code{varpro} and use \code{parallel = FALSE}. The
   \code{seed} argument controls only the forest calls to which it is
   passed. Rule resampling and lasso folds also use random numbers.
-  Calling \code{importance} again can resample rules; retain a summary
-  for repeated inspection of the same calculation.
+  Calling \code{importance} again can resample rules. Save its result
+  to inspect or reuse the same summary without recalculating it.
 
   The \code{...} controls are consumed by specific stages. General
   \code{rfsrc} arguments such as \code{na.action}, \code{splitrule},

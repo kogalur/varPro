@@ -6,12 +6,12 @@
 \title{Unsupervised Variable Selection and Dependence Graphs using UVarPro}
 
 \description{
-  Performs unsupervised variable selection using the Variable Priority
-  framework. \code{uvarpro} constructs forest rules and region-release
-  contrasts from unlabeled data. \code{get.beta.entropy} uses local lasso
-  regressions to summarize which variables distinguish these contrasts.
-  \code{sdependent} displays the resulting importance matrix as a
-  variable-dependence graph and identifies candidate signal variables.
+  Identifies variables that help explain dependence in data without a
+  specified outcome. \code{uvarpro} forms local comparisons using forest
+  rules. \code{get.beta.entropy} summarizes which variables help
+  distinguish the groups in these comparisons. \code{sdependent}
+  displays the resulting relationships as a graph and highlights
+  candidate signal variables.
 }
 
 \usage{
@@ -54,26 +54,26 @@ sdependent(I,
     omitted, unused factor levels are dropped, and categorical features
     are hot-encoded. See Details.}
 
-  \item{method}{Forest construction method. \code{"auto"} uses a
-    multivariate forest autoencoder, \code{"unsupv"} uses unsupervised
-    splitting, and \code{"rnd"} uses random splitting.}
+  \item{method}{Method for growing the forest: \code{"auto"} learns to
+    reproduce the supplied variables, \code{"unsupv"} uses unsupervised
+    splitting, and \code{"rnd"} uses random splitting. See Details.}
 
   \item{ntree}{Number of trees to grow.}
 
-  \item{nodesize}{Minimum terminal node size. If \code{NULL}, the
-    requested size is \code{n / 10} for \code{n < 100}, and
-    \code{max(n / 10, 20)} otherwise, where \code{n} is the number of
-    complete observations.}
+  \item{nodesize}{Minimum terminal node size. Larger values give broader
+    groups of observations. The default is chosen from the number
+    of complete observations.}
 
   \item{max.rules.tree}{Maximum number of rules sampled per tree for
-    the region-release analysis.}
+    the local comparisons.}
 
   \item{max.tree}{Maximum number of trees used to extract rules.}
 
   \item{verbose}{Currently unused.}
 
-  \item{seed}{Seed argument for \code{uvarpro}. Seed the lasso
-    cross-validation separately; see Note.}
+  \item{seed}{Optional seed passed to the forest calculation. Use
+    \code{set.seed} before \code{uvarpro} to also control R-level
+    sampling, and seed the lasso analysis separately; see Note.}
 
   \item{...}{Additional named forest arguments recognized by
     \code{rfsrc}, such as \code{mtry} or \code{ytry}, and a custom
@@ -81,7 +81,7 @@ sdependent(I,
     Supply lasso controls to \code{get.beta.entropy}.}
 
   \item{o}{An object returned by \code{uvarpro}, containing the
-    processed feature data in \code{x} and the region membership lists
+    processed data in \code{x} and the group membership lists
     in \code{entropy}.}
 
   \item{second.stage}{If \code{FALSE}, return the mean absolute
@@ -98,8 +98,9 @@ sdependent(I,
 
   \item{papply}{An \code{lapply}-like function for processing released
     variables. Use \code{lapply} for serial execution. The default
-    \code{mclapply} is resolved through the package parallel backend
-    using \code{getOption("mc.cores", 1L)}. The \code{parallel}
+    \code{mclapply} uses separate R worker sessions (a PSOCK cluster)
+    when \code{getOption("mc.cores", 1L)} is greater than one, and
+    serial execution otherwise. The \code{parallel}
     argument controls parallelism across cross-validation folds.}
 
   \item{vimp.min}{Strict lower cutoff for preliminary importance when
@@ -173,7 +174,7 @@ sdependent(I,
 
   \item{directed}{Should the graph be directed? In the directed graph,
     an edge goes from the released variable to the predictor used to
-    distinguish its region-release contrasts. For an undirected
+    distinguish its local comparison groups. For an undirected
     display, supply a symmetric importance matrix; see Note.}
 
   \item{min.degree}{Minimum degree for candidate signal designation.
@@ -188,147 +189,220 @@ sdependent(I,
 }
 
 \details{
-  \subsection{Overview and forest construction}{
-    UVarPro studies dependence among features in unlabeled data. The
-    population framework of Zhou et al. (2026) seeks a signal set that
-    accounts for dependence among the remaining variables. Redundant
-    or interchangeable variables can give rise to multiple signal sets.
+  UVarPro helps identify variables that explain dependence in a data
+  set without requiring a response. Every supplied column is treated
+  as a variable to be studied. The results can be inspected as an
+  importance matrix, summarized as a ranking, or displayed as a graph.
 
-    The analysis has three steps: \code{uvarpro} constructs local
-    region-release comparisons, \code{get.beta.entropy} estimates
-    a lasso coefficient importance matrix, and \code{sdependent}
-    displays its dependence graph.
-
-    For \code{method = "auto"}, copies of the processed features
-    serve as the multivariate response and the original features
-    serve as predictors in \code{rfsrc}. Regressing the feature vector
-    on itself produces a forest autoencoder that partitions feature
-    space.
-
-    For \code{method = "unsupv"}, the forest uses unsupervised
-    splitting with internally selected pseudo-responses. The default
-    \code{ytry} is \code{min(ceiling(sqrt(p)), p - 1)}, where \code{p}
-    is the number of processed features. For \code{method = "rnd"},
-    an independent Gaussian response is generated and
-    \code{splitrule = "random"} is used. All three methods use the
-    same subsequent region-release and lasso calculations.
-
-    Complete observations are hot-encoded and saved as \code{o$x}.
-    Membership indices refer to these observations; lasso rows and
-    columns and graph vertices refer to the processed features.
-    Each encoded column is analyzed separately.
+  The main workflow uses three functions:
+  \enumerate{
+    \item \code{o <- uvarpro(data)} uses a forest to define groups
+      of observations for local comparisons.
+    \item \code{I <- get.beta.entropy(o, papply = lapply)} estimates
+      which variables distinguish those groups and returns an
+      importance matrix.
+    \item \code{sdependent(I)} displays the relationships as a graph
+      and identifies candidate signal variables.
   }
+  Inspect the matrix before plotting; \code{get.beta.entropy} can
+  return \code{NULL} when no usable coefficient estimates are found.
+  \code{importance(o)} gives a separate, preliminary summary used for
+  optional screening. It is not the lasso importance matrix used to
+  construct the graph.
 
-  \subsection{Rules, release regions, and local classification}{
-    A tree rule defines a region \eqn{R} through restrictions on
-    feature values. Releasing variable \eqn{s} removes its restrictions
-    while retaining the others. Write the enlarged region as
-    \eqn{R^{(s)}}{R^(s)} and its complementary, or near-miss, region as
+  \subsection{Understanding a local comparison}{
+    A forest rule defines a group through conditions on variable values.
+    For example, a rule might require \eqn{x_1 \leq 0.5}{x1 <= 0.5}
+    and \eqn{x_2 > 0.3}{x2 > 0.3}. Removing the condition on
+    \eqn{x_1}{x1}, while keeping the other condition, is called
+    \emph{releasing} \eqn{x_1}{x1}. The newly admitted observations
+    form the \emph{near-miss}, or complementary, group.
+
+    For a rule region \eqn{R} and released variable \eqn{s}, write
+    the enlarged region as \eqn{R^{(s)}}{R^(s)}. The near-miss set is
     \deqn{C_s = R^{(s)} \setminus R.}{C_s = R^(s) minus R.}
-    The complementary region contains observations admitted by
-    releasing \eqn{s} that still satisfy the other rule conditions.
+    Original-region observations are out-of-bag for the corresponding
+    tree. Both groups must be nonempty for a comparison to be used.
 
-    \code{uvarpro} extracts original-region out-of-bag membership
-    and complementary-region membership. Comparisons are retained
-    when both sets are nonempty. The default \code{o$entropy} stores
-    these index pairs by released variable, with \code{comp} first
-    and \code{oob} second.
-
-    For each comparison, \code{get.beta.entropy} combines the
-    complementary observations (class 0) and original observations
-    (class 1). It predicts this membership label using the eligible
-    features other than the released variable. Excluding the released
-    variable prevents the classifier from simply recovering the rule
-    restriction that separates the groups. The remaining predictors
-    identify features that distinguish the local contrast. Repeating
-    this analysis across rules allows different predictors to
-    contribute in different parts of feature space.
+    \code{get.beta.entropy} assigns class 1 to the original group and
+    class 0 to the near-miss group. It then uses the other variables to
+    predict group membership with logistic lasso regression. The
+    released variable is excluded because its rule condition already
+    separates the groups. Variables that help distinguish the groups
+    provide evidence of local dependence. Repeating this calculation
+    across rules allows the relationships to differ across the data.
   }
 
-  \subsection{Preliminary dispersion importance}{
-    The default entropy function computes a dispersion ratio. Let
-    \eqn{d(M)} be the average column standard deviation of a feature
-    matrix \eqn{M}. For the original and complementary feature matrices
-    \eqn{X_O} and \eqn{X_C}, the stored rule score is
+  \subsection{Interpreting the importance matrix}{
+    In the matrix returned by \code{get.beta.entropy}, rows identify
+    released variables and columns identify predictors. For example,
+    \code{I["x1", "x2"]} measures the average coefficient magnitude
+    for \code{x2} when distinguishing groups formed by releasing
+    \code{x1}. The reverse entry answers a different
+    question, so the matrix is generally asymmetric.
+
+    Each entry is the mean absolute logistic-lasso coefficient across
+    the usable comparisons for that row. The diagonal is zero because
+    a variable is excluded from its own release comparison. Predictors
+    not selected in a usable comparison contribute zero. Thus
+    \deqn{
+      I_{sj} = \frac{1}{|\mathcal K_s|}
+        \sum_{r \in \mathcal K_s} |\widehat\beta_{srj}|,
+      \qquad j \ne s, \qquad I_{ss} = 0,
+    }{
+      I[s,j] = mean(abs(beta_hat[s,r,j]), r in K_s), j != s;
+      I[s,s] = 0.
+    }
+    where \eqn{\mathcal K_s}{K_s} contains the usable comparisons
+    for released variable \eqn{s}.
+
+    A comparison is usable when fitting succeeds and at least one
+    finite, nonzero predictor coefficient is obtained. Failed fits and
+    intercept-only fits are excluded. Comparisons receive equal weight.
+    A row is omitted when none of its comparisons is usable, so the
+    matrix can have fewer rows than columns.
+
+    \code{colSums(I)} summarizes each predictor's contributions across
+    all release variables. Larger sums indicate larger total
+    contributions; column means give the same ranking.
+  }
+
+  \subsection{Displaying relationships and selecting candidate signals}{
+    \code{sdependent(I)} draws an arrow from variable \code{s} to
+    variable \code{j} when \code{I[s, j] >= threshold}. The arrow
+    means that \code{j} helps distinguish the groups formed by
+    releasing \code{s}. It describes a predictive relationship, not
+    a causal direction. Arrows in both directions and cycles are
+    allowed.
+
+    Increase \code{threshold} to show fewer connections or decrease
+    it to include weaker connections. The cutoff applies to the
+    coefficient magnitudes in \code{I}. The graph is based on the
+    adjacency matrix
+    \deqn{
+      A_{sj} = \mathbf{1}\{I_{sj} \ge t\}, \quad s \ne j,
+      \qquad A_{ss} = 0,
+    }{
+      A[s,j] = 1 if I[s,j] >= threshold and s != j; otherwise 0.
+    }
+    where \eqn{t} is \code{threshold}. Rows are matched to columns
+    by variable name, with zero rows added for missing release variables.
+    Variables with no connections are removed from the graph.
+
+    Candidate signals are selected using both connectivity and overall
+    importance. With the default directed graph, a variable must have
+    at least \code{min.degree} outgoing arrows and a column-sum score
+    at or above the \code{q.signal} quantile among variables remaining
+    in the graph. The defaults require one outgoing arrow and a score
+    in the upper quartile, including ties.
+
+    These two summaries describe different roles. Out-degree counts
+    predictors selected when a variable is released; column-sum
+    importance measures that variable's contributions when other
+    variables are released. In-degree counts the incoming arrows.
+    Column sums use all importance values, including those below the
+    edge cutoff, and are calculated before isolated variables are
+    removed. Consequently, changing \code{threshold} can also change
+    the set of variables used to determine the importance quantile.
+
+    Candidate signal vertices are blue and other vertices are gray.
+    Directed arrows are blue when their source is a candidate signal.
+    Vertex sizes increase with column-sum importance, and arrow widths
+    increase with their importance entries. Specifically, the size is
+    \code{6 + 2 * log1p(imp.score)} and an edge with value \eqn{w}
+    has width \eqn{1 + 3w/w_{\max}}{1 + 3*w/w_max}; widths are
+    rescaled within each plot. Use \code{plot = FALSE} to obtain the
+    graph summaries without drawing it.
+
+    The population goal is a signal set that accounts for dependence
+    among the remaining variables (Zhou et al., 2026). Redundant or
+    interchangeable variables can give more than one such set.
+    The graph's signal designations are exploratory candidates.
+  }
+
+  \subsection{Choosing a forest and preparing the data}{
+    The \code{method} argument chooses how the forest forms its rules:
+    \describe{
+      \item{\code{"auto"}}{The default uses copies of the variables
+        as multiple regression responses, with the variables themselves
+        as predictors. This forest autoencoder forms groups by learning
+        to reproduce the observed variable values.}
+      \item{\code{"unsupv"}}{Uses unsupervised splitting, with some
+        variables temporarily serving as responses. \code{ytry}
+        controls how many are used.}
+      \item{\code{"rnd"}}{Uses random splitting with an independently
+        generated Gaussian response.}
+    }
+    All three methods use the same subsequent rule comparisons and
+    lasso analysis. \code{ntree} controls the number of trees grown;
+    \code{max.tree} and \code{max.rules.tree} limit rule extraction.
+    Larger \code{nodesize} values form broader groups of observations.
+
+    Rows with missing values are omitted. Categorical variables are
+    converted to numeric indicator columns, called hot-encoding.
+    The processed data are stored in \code{o$x}. All membership
+    indices refer to these rows, and each processed column is studied
+    separately. A factor can therefore contribute several rows or
+    columns to the importance matrix and several graph vertices.
+  }
+
+  \subsection{Preliminary importance and screening}{
+    \code{importance(o)} summarizes the preliminary scores calculated
+    by \code{uvarpro}. The default rule score compares how much the
+    variables vary within the original and near-miss groups with how
+    much they vary when the groups are pooled. If \eqn{d(M)} is the
+    average column standard deviation of a matrix \eqn{M}, the score is
     \deqn{
       H = \frac{d(X_C) + d(X_O)}{2 d(X_C \cup X_O)}.
     }{
       H = (d(X_C) + d(X_O)) / (2 * d(rbind(X_C, X_O))).
     }
-    Here the union denotes row concatenation. The ratio compares
-    average within-group dispersion with pooled dispersion. Before
-    scoring, features are divided by their full-data standard
-    deviations without centering; near-zero standard deviations are
-    replaced by one. All features, including the released variable,
-    enter this calculation.
+    The union denotes row concatenation. Before scoring, each variable
+    is divided by its full-data standard deviation without centering;
+    near-zero standard deviations are replaced by one. All variables,
+    including the released variable, enter this calculation.
 
-    \code{importance(o)} summarizes the rule scores. By default,
-    \code{get.beta.entropy} uses preliminary importance to screen
-    predictors and release variables before the local regressions.
-    Set \code{pre.filter = FALSE} to include all processed features.
+    By default, \code{get.beta.entropy} limits both release variables
+    and lasso predictors to those with preliminary importance above
+    \code{vimp.min}. Set \code{pre.filter = FALSE} to make all
+    processed variables available to the lasso analysis. The filter
+    is skipped if the preliminary importance calculation fails.
   }
 
-  \subsection{Logistic lasso and the importance matrix}{
-    Each local classification problem uses binomial lasso logistic
-    regression from \pkg{glmnet}, with penalty parameter
-    \eqn{\alpha = 1}{alpha = 1}. With \code{use.cv = TRUE},
-    \code{cv.glmnet} selects a penalty separately for each comparison
-    using binomial deviance; the default choice is \code{lambda.1se}.
-    With \code{use.cv = FALSE}, the last computed penalty on the
-    regularization path is used.
+  \subsection{Lasso controls, scaling, and the second stage}{
+    Each local classification uses binomial lasso regression from
+    \pkg{glmnet}, with \eqn{\alpha = 1}{alpha = 1}. By default,
+    cross-validation chooses a separate penalty for each comparison
+    using binomial deviance. \code{lambda.sel = "lambda.1se"} uses
+    the largest penalty within one standard error of the minimum;
+    \code{"lambda.min"} uses the penalty with minimum error. Set
+    \code{use.cv = FALSE} to use the last, smallest penalty on the
+    computed path instead. \code{nlambda} and \code{lambda.min.ratio}
+    control that path.
 
-    For released variable \eqn{s} and retained comparison \eqn{r},
-    let \eqn{\widehat\beta_{srj}}{beta_hat[s,r,j]} denote the
-    coefficient of predictor \eqn{j}. The entries of the importance
-    matrix are mean absolute coefficients across retained comparisons.
-    The intercept is discarded; unselected predictors and the released
-    coordinate receive zero. Writing \eqn{\mathcal K_s}{K_s} for the
-    retained comparisons, the default matrix has entries
-    \deqn{
-      I_{sj} = \frac{1}{|\mathcal K_s|}
-        \sum_{r \in \mathcal K_s} |\widehat\beta_{srj}|,
-      \qquad j \ne s, \qquad I_{ss} = 0.
-    }{
-      I[s,j] = mean(abs(beta_hat[s,r,j]), r in K_s), j != s;
-      I[s,s] = 0.
-    }
+    Before fitting, \code{scale(X, center = FALSE)} divides each
+    predictor by \eqn{\sqrt{\sum_i X_{ij}^2/(m-1)}}{sqrt(sum(X[,j]^2)/(m-1))},
+    where \eqn{m} is the local sample size. This measures spread
+    around zero rather than around the local mean. \code{glmnet}
+    also uses its default internal standardization and returns
+    coefficients on the scale of the matrix supplied to it. Predictors
+    that are constant within a comparison are excluded from that fit;
+    their contributions are zero in the importance matrix. A comparison
+    can use a single varying predictor.
 
-    Rows identify released variables and columns identify predictors.
-    Thus \code{I[s, j]} measures predictor \code{j}'s contribution
-    when variable \code{s} is released. The matrix is generally
-    asymmetric. Column sums aggregate each predictor's contributions
-    across release tasks; column means give the same ranking.
+    With \code{second.stage = TRUE}, the variables selected by the
+    logistic lasso enter a second local regression. This time the
+    released variable is the response. The regression uses the pooled
+    observations from both groups and a Gaussian lasso, with the same
+    predictor scaling and response values from \code{o$x}. It uses
+    the last computed penalty, controlled by \code{nlambda.lasso}
+    and \code{lambda.min.ratio.lasso}.
 
-    A comparison is retained when fitting and coefficient extraction
-    succeed and at least one finite, nonzero predictor coefficient
-    remains. Failed fits and intercept-only solutions are excluded.
-    Retained comparisons receive equal weight, including zeros for
-    unselected predictors. A release row is omitted when it has no
-    retained comparisons, so predictor columns can outnumber rows.
-    The result is \code{NULL} when no rows remain.
-  }
-
-  \subsection{Coefficient scaling and the optional second stage}{
-    Before each logistic fit, \code{scale(X, center = FALSE)} divides
-    each predictor column by
-    \eqn{\sqrt{\sum_i X_{ij}^2/(m-1)}}{sqrt(sum(X[,j]^2)/(m-1))},
-    where \eqn{m} is the local sample size. \code{glmnet} also applies
-    its default internal standardization and returns coefficients on
-    the scale of the matrix supplied to it.
-
-    With \code{second.stage = TRUE}, predictors selected by the
-    logistic lasso enter a local Gaussian lasso with the released
-    variable as its response. This regression uses the combined
-    complementary and original observations, the same predictor
-    scaling, and the response from \code{o$x}. Coefficients are taken
-    at the last computed penalty on the linear-lasso path.
-
-    Absolute second-stage coefficients are averaged over the
-    comparisons retained by the logistic stage, with zeros for
-    unselected predictors. A second-stage fit that fails or selects
-    no predictors contributes zeros to this average. Row \eqn{s} is
-    then divided by the full-data standard deviation of the released
-    variable:
+    The absolute second-stage coefficients are averaged over the
+    comparisons used by the logistic stage. Unselected predictors,
+    failed second-stage fits, and second-stage fits selecting no
+    predictors contribute zeros. Each row is then divided by the
+    released variable's full-data standard deviation:
     \deqn{
       I^{(2)}_{sj} =
       \frac{1}{\widehat\sigma_s |\mathcal K_s|}
@@ -336,129 +410,58 @@ sdependent(I,
     }{
       I2[s,j] = mean(abs(gamma_hat[s,r,j]), r in K_s) / sd(o$x[,s]).
     }
-    Here \eqn{\widehat\gamma_{srj}}{gamma_hat[s,r,j]} is a
-    second-stage coefficient. A zero or nonfinite response standard
-    deviation produces \code{NA} in that row.
+    A zero or nonfinite response standard deviation gives \code{NA}
+    for that row. \code{get.beta.entropy} returns this second-stage
+    matrix instead of the logistic matrix. Choose the graph cutoff
+    for the scale of the matrix being displayed.
 
-    \code{get.beta.entropy} returns this matrix when
-    \code{second.stage = TRUE}. Choose the graph cutoff on the
-    coefficient scale of the selected stage.
+    \code{papply = lapply} runs the release-variable analyses in
+    sequence. \code{parallel} separately controls the cross-validation
+    folds. Avoid using more simultaneous workers than the available
+    cores when enabling both levels of parallelism. See Note for
+    reproducibility.
   }
 
-  \subsection{Adjacency matrix and interpretation of the graph}{
-    In UVarPro, \eqn{s}-dependence concerns which variables remain
-    informative about the local contrast induced by releasing
-    \eqn{s}. The graph summarizes their estimated contributions.
+  \subsection{The latent-variable example}{
+    The example uses four independent standard normal source variables,
+    \code{w}, \code{x}, \code{y}, and \code{z}. Each has five noisy
+    copies with independent Gaussian errors of variance 0.1. Two
+    additional variables are \code{h1 = w + x + e21} and
+    \code{h2 = y + z + e22}, with independent Gaussian errors of
+    variance 0.4. All errors are independent of the sources, and all
+    26 variables are supplied to \code{uvarpro}.
 
-    The theoretical motivation distinguishes releasing a noise
-    variable, whose contrast is explained by associated signal
-    variables, from releasing a signal variable, whose contrast can
-    also involve associated noisy variables. This asymmetry motivates
-    aggregating contributions across release tasks.
+    The four sources form the signal set: conditional on them, the
+    other 22 variables are mutually independent. Releasing a noisy
+    copy of \code{w} has \code{w} as its \eqn{s}-dependent signal;
+    the other copy blocks have their respective sources. Releasing
+    \code{h1} has signals \code{w} and \code{x}, while releasing
+    \code{h2} has signals \code{y} and \code{z}.
 
-    \code{sdependent} aligns rows to column names, adds zero rows
-    for missing release variables, and then clears the diagonal.
-    Column order determines vertex order before isolated vertices
-    are removed. It calculates the column scores
-    \eqn{G_j = \sum_s I_{sj}}{G[j] = sum(I[,j])} and constructs
-    the binary adjacency matrix
-    \deqn{
-      A_{sj} = \mathbf{1}\{I_{sj} \ge t\}, \quad s \ne j,
-      \qquad A_{ss} = 0,
-    }{
-      A[s,j] = 1 if I[s,j] >= threshold and s != j; otherwise 0.
-    }
-    where \eqn{t} is \code{threshold}. Each retained connection is
-    one edge, with its plotted width determined by the corresponding
-    importance entry.
-
-    With \code{directed = TRUE}, \eqn{A_{sj} = 1}{A[s,j] = 1}
-    creates the arrow \eqn{s \longrightarrow j}{s -> j}: predictor
-    \eqn{j} contributes to distinguishing the comparisons formed by
-    releasing \eqn{s}. Arrows describe predictive contributions.
-    Reciprocal arrows and cycles are allowed.
-
-    The out-degree of \eqn{s} counts thresholded entries in its row,
-    giving the number of predictors connected to its release tasks.
-    The in-degree of \eqn{j} counts thresholded entries in its column,
-    giving the number of release variables connected to that predictor.
-    Global importance \eqn{G_j} sums the unthresholded magnitudes.
-
-    Isolated vertices are removed. Global scores are calculated before
-    thresholding and removal, so they include subthreshold contributions
-    and contributions from rows whose vertices are later removed.
-    The signal-designation quantile uses the remaining vertices.
-  }
-
-  \subsection{Signal designation and graphical appearance}{
-    A retained vertex enters \code{signal.vars} when its degree is
-    at least \code{min.degree} and its global importance is at least
-    the \code{q.signal} quantile of retained scores. For directed
-    graphs, these conditions use out-degree and column-sum importance.
-    The defaults require at least one outgoing edge and importance
-    at or above the upper quartile of nonisolated vertices, including
-    ties.
-
-    Signal vertices are blue; other retained vertices are gray.
-    A directed edge is blue when its source is designated as signal
-    and gray otherwise. Vertex size is
-    \code{6 + 2 * log1p(imp.score)}. An edge with importance \eqn{w}
-    has width \eqn{1 + 3w/w_{\max}}{1 + 3*w/w_max}, where
-    \eqn{w_{\max}}{w_max} is the largest plotted edge value. Widths
-    are rescaled for each plot.
-
-    \code{threshold} controls the displayed connections;
-    \code{q.signal} and \code{min.degree} control vertex highlighting.
-    Changing the edge cutoff can also change the quantile reference
-    set through vertex removal. Signal designations are exploratory.
-  }
-
-  \subsection{Latent-variable example}{
-    The simulation in Examples contains four independent standard
-    normal variables \code{w}, \code{x}, \code{y}, and \code{z}, each
-    accompanied by five noisy copies with independent Gaussian errors
-    of variance 0.1. Two further features are
-    \eqn{h_1 = w + x + \epsilon_{21}}{h1 = w + x + e21} and
-    \eqn{h_2 = y + z + \epsilon_{22}}{h2 = y + z + e22}, with
-    independent Gaussian errors of variance 0.4. All errors are
-    independent of the four source variables. All 26 features,
-    including the sources, are supplied to \code{uvarpro}.
-
-    The signal set is \eqn{\{w, x, y, z\}}{\{w, x, y, z\}}:
-    conditioning on these four variables makes the other 22 features
-    mutually independent. Releasing any of \code{wi.1}, \ldots,
-    \code{wi.5} has \code{w} as its \eqn{s}-dependent signal;
-    the \code{xi}, \code{yi}, and \code{zi} blocks similarly point
-    to \code{x}, \code{y}, and \code{z}. Releasing \code{h1} has
-    \eqn{s}-dependent signals \code{w} and \code{x}, while releasing
-    \code{h2} has \code{y} and \code{z}.
-
-    When a source such as \code{w} is released, its noisy copies and
-    \code{h1} can help predict local membership; \code{x} can also
-    contribute by accounting for its component of \code{h1}. The
-    graph can therefore contain connections in both directions.
-    Repeated contributions across the noisy-feature releases motivate
-    the column-sum ranking of the four signals.
-
-    The example uses \code{pre.filter = FALSE} to keep all 26 features
-    eligible as predictors and release variables. It compares the
-    estimated importance entries and graph connections with this known
-    dependence structure.
+    Conversely, when \code{w} is released, its copies and \code{h1}
+    can help distinguish the groups; \code{x} can also contribute
+    through its component of \code{h1}. The graph can therefore have
+    arrows in both directions. Repeated contributions across releases
+    motivate the column-sum ranking. The example uses
+    \code{pre.filter = FALSE} to include every variable and compares
+    the estimates with this known dependence structure.
   }
 
   \subsection{Custom scoring functions}{
-    A custom \code{entropy} function accepts \code{xC}, \code{xO},
-    and \code{...}. The first two arguments contain the scaled
-    complementary and original features, with the released feature
-    first. Additional information includes \code{compMembership},
+    Supply \code{entropy} through \code{...} to replace the preliminary
+    scoring function. It must accept \code{xC}, \code{xO}, and
+    \code{...}. The first two arguments contain the scaled near-miss
+    and original-group data, with the released variable first.
+    Additional information includes \code{compMembership},
     \code{oobMembership}, the processed \code{data}, and
     \code{xvar.names}.
 
-    Return a numeric rule score, or a list containing the score first
-    and auxiliary information second. For subsequent use of
-    \code{get.beta.entropy}, supply
-    \code{list(comp = compMembership, oob = oobMembership)} as the
-    second element, preserving that order. See Examples.
+    Return a numeric rule score, or a list with the score first and
+    additional information second. To use \code{get.beta.entropy}
+    afterwards, the second element must provide the memberships as
+    \code{list(comp = compMembership, oob = oobMembership)}, in that
+    order. The custom-scoring example reproduces the default score
+    while preserving these memberships.
   }
 }
 
@@ -510,10 +513,14 @@ sdependent(I,
 \note{
   For reproducible serial lasso calculations, call \code{set.seed}
   immediately before \code{get.beta.entropy(o, papply = lapply)} to
-  control its randomized cross-validation folds. Seed forest
-  construction separately. Small local classes, degenerate predictors,
-  and excessive pre-filtering can leave no usable comparisons.
-  Individual lasso errors are caught and warnings suppressed.
+  control its randomized cross-validation folds. Also call
+  \code{set.seed} before \code{uvarpro} to control R-level sampling
+  in forest construction and rule extraction. The \code{seed} argument
+  supplies the forest seed but does not replace these R-level seeds.
+
+  Small local classes, degenerate predictors, and excessive preliminary
+  filtering can leave no usable comparisons.
+  A failed local lasso fit is excluded from the coefficient average.
 
   For an undirected display, supply a symmetric importance matrix.
   For square input with matching row and column order,
@@ -692,7 +699,7 @@ if (requireNamespace("mlbench", quietly = TRUE)) {
   o.custom <- uvarpro(BostonHousing, entropy = my.entropy,
                       ntree = 50, max.tree = 50, max.rules.tree = 5)
   print(importance(o.custom))
-  ## you can still run the lasso if you want
+  ## The stored memberships also allow the lasso analysis.
   ## beta.custom <- get.beta.entropy(o.custom, papply = lapply)
 }
 }

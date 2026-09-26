@@ -3,11 +3,11 @@
 \title{Select VarPro Predictors and Assess Selection by Cross-Validation}
 
 \description{
-  Selects predictors by comparing the prediction error of random
-  forests built from candidate VarPro variable sets. Returns the
-  minimum-error selection and conservative and liberal alternatives.
-  Optional outer cross-validation assesses predictive performance
-  and the stability of variable selection.
+  Uses VarPro importance scores and random forest prediction error
+  to select predictors. Returns a minimum-error selection and
+  conservative and liberal alternatives. Optional cross-validation
+  assesses how well the selection procedure predicts new observations
+  and how consistently variables are selected.
 }
 
 \usage{
@@ -29,11 +29,11 @@ cv.varpro(formula, data, nvar = 30, ntree = 150,
   \item{data}{Training data frame. Incomplete observations are
     removed before ranking predictors and evaluating candidate models.}
 
-  \item{nvar}{Maximum number of processed predictor columns retained
-    by the preliminary split-weight screening in \code{varpro}.
-    Candidate models are subsequently formed on the original-variable
-    scale. Ignored by the screening step when computed and custom
-    split-weights are both absent.}
+  \item{nvar}{Maximum number of predictor columns kept during
+    preliminary split-weight screening in \code{varpro}. Categorical
+    predictors may contribute several indicator columns. Candidate
+    models use the original predictors. Ignored by the screening step
+    when neither computed nor custom split-weights are used.}
 
   \item{ntree}{Number of trees in the VarPro rule forest, each
     candidate prediction forest, and each outer assessment forest.}
@@ -46,9 +46,9 @@ cv.varpro(formula, data, nvar = 30, ntree = 150,
     Cutoffs are sorted into increasing order, and each distinct
     variable set is evaluated once.}
 
-  \item{nblocks}{Positive integer controlling the subdivision of
-    each candidate forest for estimating prediction error and its
-    variation. Larger values give smaller subforests. Use
+  \item{nblocks}{Positive integer controlling how each candidate
+    forest is divided into blocks of trees to calculate prediction
+    error and its variation. Larger values give smaller blocks. Use
     \code{nblocks = 1} to evaluate the whole forest. See Details.}
 
   \item{split.weight}{Should preliminary split-weights guide the
@@ -78,29 +78,31 @@ cv.varpro(formula, data, nvar = 30, ntree = 150,
     \code{cv.varpro} to control all random sampling.}
 
   \item{fast}{Should candidate prediction forests use
-    \code{randomForestSRC::rfsrc.fast}? This uses smaller per-tree
-    samples and a shared holdout for evaluation when sufficient data
-    are available. See Details.}
+    \code{randomForestSRC::rfsrc.fast}? This uses smaller samples to
+    grow each tree. When enough data are available, a common test
+    sample is set aside to compare the candidate forests. See Details.}
 
-  \item{crps}{For survival, should candidate models be evaluated using
-    a time-normalized integrated censoring-weighted Brier score?
-    With \code{FALSE}, the forest's default concordance error is
-    used. See Details.}
+  \item{crps}{For survival, should prediction error be based on
+    predicted survival probabilities using an integrated Brier score
+    adjusted for censoring? With \code{FALSE}, the forest's default
+    concordance error is used. See Details for the score definitions.}
 
-  \item{cv.folds}{Number of outer cross-validation folds. The default,
-    zero, uses the blocked-OOB procedure alone. A value of at least
-    two adds held-out performance and selection stability summaries
-    for all three rules. Generated folds are stratified by response
-    class or survival event status, as appropriate. The fold count
-    is reduced with a warning when the data cannot support the
-    requested number. This is separate from \code{nblocks} and the
-    preliminary lasso's \code{nfolds} option.}
+  \item{cv.folds}{Number of cross-validation folds for assessing
+    the selection procedure. The default, zero, performs variable
+    selection only. A value of at least two also evaluates prediction
+    error on left-out observations and summarizes how often variables
+    are selected under each of the three rules. Generated folds are
+    stratified by response class or survival event status, as
+    appropriate. The fold count is reduced with a warning when the
+    data cannot support the requested number. This is separate from
+    \code{nblocks} and the preliminary lasso's \code{nfolds} option.}
 
-  \item{foldid}{Optional vector of fold labels, one per input data
-    row, to supply the outer partition. Retained observations must
-    have consecutive integer labels starting at one. Entries for
-    omitted observations are ignored. Supplying \code{foldid} enables
-    outer CV even when \code{cv.folds = 0}; a positive
+  \item{foldid}{Optional numeric vector of fold labels, one per input data
+    row, to specify the cross-validation groups. Observations used
+    in the analysis must have consecutive integer labels starting at
+    one. Entries for omitted observations are ignored. Supplying
+    \code{foldid} enables cross-validation even when
+    \code{cv.folds = 0}; a positive
     \code{cv.folds} must match the number of supplied folds.
     Use common labels to keep records from the same subject together.}
 
@@ -111,51 +113,70 @@ cv.varpro(formula, data, nvar = 30, ntree = 150,
 }
 
 \details{
-  \subsection{Variable ranking and selection}{
-    VarPro importance summarizes response differences between rule
-    regions and their near-miss sets; see \code{\link{varpro}}. At each
-    cutoff in \code{zcut}, predictors with scores at or above the
-    cutoff form a candidate variable set. Higher cutoffs retain
-    fewer variables. A prediction forest is used to evaluate each
-    distinct set.
+  \code{cv.varpro} helps choose which predictors to use in a
+  prediction model. It ranks predictors using \code{\link{varpro}},
+  then compares the prediction errors of random forests built with
+  different sets of higher-scoring variables. The result is a
+  minimum-error selection, with conservative and liberal alternatives
+  that allow fewer or more variables for a similar prediction error.
 
-    Selection is reported for the original variables. For a
-    hot-encoded categorical predictor, its score is the largest
-    importance among its encoded columns. Multivariate regression
-    also takes the maximum across responses; classification uses
-    overall importance. Prediction forests use the original outcome
-    and predictors, so selecting a categorical variable retains
-    all its levels.
+  By default, the function selects variables using the supplied data.
+  Optional cross-validation also assesses prediction on observations
+  left out of variable selection and model fitting, and shows how
+  consistently variables are selected. Use \code{cv.folds} to request
+  this additional assessment.
+
+  \subsection{Choosing variables}{
+    The \code{zcut} argument gives the importance cutoffs to compare.
+    For each cutoff, variables whose importance score \code{z} is at
+    least that cutoff are used together in a prediction forest.
+    Increasing the cutoff removes lower-scoring variables. Each
+    distinct variable set is evaluated once.
+
+    Selection uses the original variables. For a categorical
+    predictor represented by several indicator columns, its score
+    is the largest importance among those columns. Multivariate
+    regression also takes the largest score across responses;
+    classification uses overall importance. Prediction forests use
+    the original outcome and predictors, so selecting a categorical
+    variable includes all its levels.
   }
 
-  \subsection{Prediction error and the three selection rules}{
-    By default, candidate models are compared using out-of-bag
-    predictions. Each forest is evaluated in blocks of trees,
-    giving a mean prediction error and a standard deviation across
-    blocks. The error path is used to choose an importance cutoff.
-    With \code{nblocks = 1}, the whole forest is evaluated and the
-    block deviation is zero.
+  \subsection{Comparing prediction errors}{
+    By default, candidate forests are compared using out-of-bag
+    (OOB) predictions: each observation is predicted using trees
+    grown without that observation. Each forest is evaluated in
+    blocks of trees, giving one prediction error per block. The mean
+    of these errors is used to compare variable sets, and their
+    standard deviation describes variation across blocks. With
+    \code{nblocks = 1}, the whole forest is evaluated and the block
+    standard deviation is zero.
 
-    The three rules offer different balances between prediction
-    accuracy and the number of selected variables:
+    To allow alternatives with similar prediction errors, an error
+    limit is calculated as the smallest mean error plus the average
+    block standard deviation across candidate models. Three
+    selections are returned:
     \describe{
-      \item{Minimum error}{The set with the lowest mean error,
-        returned in \code{imp}.}
-      \item{Conservative}{The smallest set within the error tolerance
-        whose error is also below 1, returned in \code{imp.conserve}.}
-      \item{Liberal}{The largest set within the error tolerance,
-        returned in \code{imp.liberal}.}
+      \item{Minimum error}{The variable set with the lowest mean
+        error, returned in \code{imp}.}
+      \item{Conservative}{The smallest variable set with mean error
+        at or below the error limit and also below 1, returned in
+        \code{imp.conserve}.}
+      \item{Liberal}{The largest variable set with mean error at or
+        below the error limit, returned in \code{imp.liberal}.}
     }
-    The tolerance is the minimum mean error plus the average block
-    standard deviation across candidate models. This allows smaller
-    and larger sets with similar predictive performance.
+    Use the \code{variable} column in a returned table to fit a final
+    prediction model with those predictors; see Examples.
 
-    In OOB-only mode, \code{imp.conserve} is \code{NULL} when no
-    model meets the conservative criterion. With outer
-    cross-validation, an empty selection uses the highest-ranked
-    variable. If no candidate model has a finite error, a warning
-    is issued and all three rules return the unfiltered ranking
-    with cutoffs set to zero.
+    Without outer cross-validation, \code{imp.conserve} is
+    \code{NULL} when no model meets the conservative criterion.
+    With outer cross-validation, an empty selection is replaced by
+    the highest-ranked variable from the data used for that selection.
+    This applies to the full-data analysis and each fold's training
+    sample. If no candidate model has a finite error, a warning is
+    issued and all three rules return the
+    importance ranking without applying a cutoff, with cutoffs
+    set to zero.
   }
 
   \subsection{Performance measures}{
@@ -167,7 +188,8 @@ cv.varpro(formula, data, nvar = 30, ntree = 150,
         the importance ranking.}
 
       \item{Classification}{Normalized Brier prediction error. For
-        imbalanced two-class data, RFQ uses geometric-mean error,
+        imbalanced two-class data, the random forests quantile
+        classifier (RFQ) uses geometric-mean error,
         \eqn{1 - \sqrt{\mathrm{sensitivity} \times \mathrm{specificity}}}{
           1 - sqrt(sensitivity * specificity)}. The controls
         \code{use.rfq} and \code{iratio.threshold} apply to both
@@ -176,42 +198,54 @@ cv.varpro(formula, data, nvar = 30, ntree = 150,
       \item{Survival, \code{crps = FALSE}}{Concordance error,
         \eqn{1-C}, from the survival forest.}
 
-      \item{Survival, \code{crps = TRUE}}{A censoring-weighted
-        integrated Brier score for survival probabilities, divided
-        by the maximum evaluation time.}
+      \item{Survival, \code{crps = TRUE}}{An integrated Brier score
+        for predicted survival probabilities, adjusted for censoring
+        and divided by the maximum evaluation time.}
     }
     Supplying \code{rmst} changes the survival summary used for the
-    VarPro ranking. Prediction error is evaluated against the
+    VarPro ranking. Prediction error is still evaluated against the
     original survival outcome using concordance error or CRPS.
   }
 
-  \subsection{Outer cross-validation}{
-    Set \code{cv.folds = 5}, for example, to assess how well the
-    complete variable-selection procedure predicts held-out
-    observations. Variable selection and model training use the
-    remaining folds. All three selection rules are assessed using
-    the same outcome-specific scoring as the main analysis.
+  \subsection{Checking performance with cross-validation}{
+    The errors above guide variable selection. Outer cross-validation
+    checks prediction on observations left out of both variable
+    selection and model fitting.
+
+    For example, \code{cv.folds = 5} divides the observations into
+    five groups, called folds. Each fold is left out in turn. The
+    remaining folds are used to repeat variable ranking and cutoff
+    selection, then fit prediction forests for the three selected
+    variable sets. These forests predict the left-out observations.
+    The selected variables can differ between folds.
+
+    Each fold gives one prediction error per selection rule, using
+    the whole prediction forest. The mean and standard deviation of
+    these fold errors summarize performance. The tree blocks
+    controlled by \code{nblocks} are used to choose variables within
+    each training sample.
 
     The returned \code{imp}, \code{imp.conserve}, and
-    \code{imp.liberal} tables contain the full-data selections and
-    importance scores. Additional columns show how often each
-    variable was selected and how its importance varied across
-    training samples. Held-out prediction errors are available in
-    each table's \code{cv} attribute; see Value and the
-    \code{peakVO2} example.
+    \code{imp.liberal} tables give the selections and importance
+    scores from the analysis of all available data. Added columns
+    show how often each variable was selected across folds and how
+    much its importance varied. Prediction errors on the left-out
+    folds are summarized in each table's \code{cv} attribute; see
+    Value and the \code{peakVO2} example.
 
-    Outer cross-validation requires additional computation because
-    the analysis is repeated for each training sample. Supply
-    \code{foldid} to use a particular partition, for example to
-    keep records from the same subject together.
+    Cross-validation takes additional computation because the
+    analysis is repeated for each fold. Supply \code{foldid} to
+    specify the groups, for example to keep records from the same
+    subject together.
   }
 
-  \subsection{Computational controls}{
+  \subsection{Computing options}{
     \code{fast = TRUE} uses \code{rfsrc.fast} for candidate prediction
-    forests. Evaluation uses a shared holdout when sufficient data
-    are available and out-of-bag predictions otherwise. Variable
-    ranking uses all observations available to that selection
-    analysis. Supply \code{sampsize} to control per-tree sample size.
+    forests. When enough data are available, a common test sample is
+    set aside to compare these forests. Otherwise, they are compared
+    using OOB predictions. The VarPro ranking uses all observations
+    available in each selection run. Supply \code{sampsize} to
+    control the number of observations sampled to grow each tree.
 
     The \code{parallel} and \code{cores} arguments control the
     preliminary lasso calculations. Forest threading is controlled
@@ -221,20 +255,22 @@ cv.varpro(formula, data, nvar = 30, ntree = 150,
 
 \value{
   An object of class \code{"cv.varpro"} containing:
-  \item{imp}{Original-variable importance table for the minimum-error
-    selection, with columns \code{variable} and \code{z}.}
+  \item{imp}{Selected predictors and their importance scores for
+    the minimum-error selection, with columns \code{variable} and
+    \code{z}. Predictors are identified by their original names.}
   \item{imp.conserve}{Corresponding conservative selection table.}
   \item{imp.liberal}{Corresponding liberal selection table.}
-  \item{err}{Prediction-error path with columns \code{zcut},
-    \code{nvar}, \code{err}, and \code{sd}: the importance cutoff,
-    number of selected original predictors, mean block error, and
-    standard deviation across tree blocks.}
+  \item{err}{Prediction errors for the candidate variable sets in
+    the full-data analysis, with columns \code{zcut}, \code{nvar},
+    \code{err}, and \code{sd}:
+    the importance cutoff, number of selected original predictors,
+    mean block error, and standard deviation across tree blocks.}
   \item{zcut, zcut.conserve, zcut.liberal}{Cutoffs for the three
     full-data selections. See Details for fallback behavior.}
 
-  With outer cross-validation, \code{variable} and \code{z} retain
-  their full-data values and four columns are appended to each
-  importance table:
+  With outer cross-validation, \code{variable} and \code{z} still
+  describe the selection using all available data. Four columns are
+  added to each importance table:
   \describe{
     \item{\code{cv.select}}{Percentage of outer folds in which the
       variable was selected under that table's rule, including
@@ -257,9 +293,10 @@ cv.varpro(formula, data, nvar = 30, ntree = 150,
   and selected in two has \code{cv.z.n = 5} and \code{cv.select = 40}.
   The mean is \code{NA} when no score is available.
 
-  Each importance table has a \code{cv} attribute containing its
-  mean held-out error (\code{err}), standard deviation of fold
-  errors (\code{sd}), performance measure (\code{perf.type}), and
+  With outer cross-validation, each importance table has a \code{cv}
+  attribute containing its mean fold error (\code{err}, with equal
+  weight for each fold), standard deviation of fold errors (\code{sd}),
+  performance measure (\code{perf.type}), and
   per-fold results (\code{folds}). It also records selection
   percentages for all original predictors
   (\code{selection.frequency}) and whether the full-data selection
@@ -269,18 +306,17 @@ cv.varpro(formula, data, nvar = 30, ntree = 150,
   \code{attr(o, "cv")$foldid}, in input-row order, with \code{NA}
   for omitted observations.
 
-  Attributes also retain the processed-column importance object
-  (\code{imp.org}), processed and original predictor names
-  (\code{xvar.names}, \code{xvar.org.names}), and the VarPro forest
-  family (\code{family}). Use \code{get.vimp(o)} to inspect
-  processed-column scores and \code{get.orgvimp(o, pretty = FALSE)}
+  Other attributes contain the importance object for individual
+  predictor columns (\code{imp.org}), processed and original predictor
+  names (\code{xvar.names}, \code{xvar.org.names}), and the VarPro
+  forest family (\code{family}). Use \code{get.vimp(o)} to inspect
+  scores for individual columns, including indicator columns for
+  categorical predictors. Use \code{get.orgvimp(o, pretty = FALSE)}
   for original-variable scores with unselected variables filled
   by zero.
 
-  The print method displays the selections and a compact outer-CV
-  performance summary when available. To construct a final prediction
-  model, train the chosen learner using a returned variable set,
-  as shown in Examples.
+  The print method displays the selections and a compact
+  cross-validation performance summary when available.
 }
 
 \note{

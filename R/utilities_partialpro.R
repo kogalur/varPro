@@ -106,8 +106,9 @@ bart.learner <- function(o, ...) {
   if (!inherits(o, "varpro")) {
     stop("object must be a varpro object")
   }
-  if (!(o$family == "regr")) {
-    stop("only applies for regression/survival")
+  if (!(o$family %in% c("regr", "surv")) ||
+      !is.numeric(o$y) || !is.null(dim(o$y))) {
+    stop("bart.learner requires a single numeric regression or survival target")
   }
   ## user allowed options
   dots <- list(...)
@@ -137,16 +138,20 @@ gbm.learner <- function(o, ...) {
   if (!inherits(o, "varpro")) {
     stop("object must be a varpro object")
   }
-  if (!(o$family == "regr" || o$family == "class")) {
-    stop("only applies for regression/survival and classification")
+  if (!(o$family %in% c("regr", "surv", "class"))) {
+    stop("only applies for regression/survival and two-class classification")
   }
   ## special handling for class
   if (o$family == "class") {
-    ylevels <- levels(o$y)
-    if (length(ylevels) > 2) {
+    ## Match partialpro's original class labels, not VarPro's working labels.
+    y <- if (is.factor(o$y.org)) o$y.org else o$y
+    ylevels <- levels(y)
+    if (!is.factor(y) || length(ylevels) != 2L) {
       stop("classification only applies to two-class problems")
     }
-    o$y <- as.numeric(factor(as.character(o$y), levels = c(0, 1))) - 1
+    o$y <- as.integer(y) - 1L
+  } else if (!is.numeric(o$y) || !is.null(dim(o$y))) {
+    stop("gbm.learner requires a single numeric regression or survival target")
   }
   ## user allowed options
   dots <- list(...)
@@ -158,8 +163,13 @@ gbm.learner <- function(o, ...) {
   cv.folds <- if (is.null(dots$cv.folds)) 5 else dots$cv.folds
   n.cores  <- if (is.null(dots$n.cores)) get.mc.cores() else dots$n.cores
   ## gbm call
-  gbm.dta <- data.frame(y = o$y, o$x[, o$xvar.names, drop = FALSE])
-  suppressWarnings(mygbmlearner <- gbm(y~., data = gbm.dta,
+  ## Keep predictor names intact, including an existing predictor named "y".
+  response.name <- utils::tail(make.unique(c(o$xvar.names, "y")), 1L)
+  gbm.dta <- data.frame(y = o$y, o$x[, o$xvar.names, drop = FALSE],
+                        check.names = FALSE)
+  names(gbm.dta)[1L] <- response.name
+  gbm.formula <- as.formula(call("~", as.name(response.name), as.name(".")))
+  suppressWarnings(mygbmlearner <- gbm(gbm.formula, data = gbm.dta,
                                 distribution = if (o$family=="class") "bernoulli" else "gaussian",
                                 n.trees = n.trees,
                                 shrinkage = shrinkage,
@@ -173,7 +183,7 @@ gbm.learner <- function(o, ...) {
                                 n.cores = n.cores))
   best.iter <- gbm.perf(mygbmlearner, plot.it = FALSE, method = "cv")
   ## construct the learner function
-  if (o$family == "regr") {
+  if (o$family != "class") {
     function(x) {
       if (missing(x)) {
         predict.gbm(mygbmlearner, n.trees = best.iter)
@@ -191,7 +201,9 @@ gbm.learner <- function(o, ...) {
       else {
         yhat <- predict.gbm(mygbmlearner, x, n.trees = best.iter, type = "response")
       }
-      cbind(1 - yhat, yhat)
+      probabilities <- cbind(1 - yhat, yhat)
+      colnames(probabilities) <- ylevels
+      probabilities
     }
   }
 }
@@ -214,16 +226,20 @@ rf.learner <- function(o, ...) {
   xvar.wt <- rep(0, length(o$xvar.names))
   names(xvar.wt) <- o$xvar.names
   xvar.wt[get.topvars(o)] <- 1
-  dots$formula <- as.formula("y~.")
+  response.name <- utils::tail(make.unique(c(o$xvar.names, "y")), 1L)
+  dots$formula <- as.formula(call("~", as.name(response.name), as.name(".")))
   dots$xvar.wt <- xvar.wt
   dots$perf.type <- "none"
   ## correct processing of class labels in classification also
   ## provides a back door for 0/1 real valued var pro analysis to be
   ## treated as classification
   y <- if (is.factor(o$y.org)) factor(o$y.org) else o$y  
-  ## rfsrc call  
-  myrflearner <- do.call("rfsrc",
-   c(list(data=data.frame(y = y, o$x[, o$xvar.names, drop = FALSE])), dots))
+  ## Keep predictor names intact when adding the learner's response.
+  rf.dta <- data.frame(y = y, o$x[, o$xvar.names, drop = FALSE],
+                       check.names = FALSE)
+  names(rf.dta)[1L] <- response.name
+  ## rfsrc call
+  myrflearner <- do.call("rfsrc", c(list(data = rf.dta), dots))
   ## construct the learner function
   function(x) {
     if (missing(x)) {

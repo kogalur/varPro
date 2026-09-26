@@ -3,10 +3,10 @@
 \title{Individual Variable Priority: Case-Specific Local Gradients}
 
 \description{
-  Estimates how a prediction target changes with each predictor near
-  individual training observations. Forest rules define the local
-  comparisons, and local slopes provide signed, case-specific importance
-  scores. Supports regression, classification, and survival analyses.
+  Calculates variable importance for individual training observations.
+  The scores describe the direction and strength of local changes in a
+  model's predictions as each predictor changes. Supports regression,
+  classification, and survival analyses.
 }
 
 \usage{
@@ -29,165 +29,202 @@ ivarpro(object,
 }
 
 \arguments{
-  \item{object}{A \code{varpro} object, or a supervised \code{rfsrc}
-    grow object with a single outcome and numeric predictors. Use a
-    \code{varpro} object for categorical predictors and multivariate
-    regression.}
+  \item{object}{A fitted \code{varpro} object, or a supervised
+    \code{rfsrc} grow object with a single outcome and numeric
+    predictors. Use a \code{varpro} object for categorical predictors
+    and multivariate regression.}
 
-  \item{adaptive}{Automatically limit the largest candidate neighborhood
-    according to the sample size? Used when \code{cut} is not supplied.}
+  \item{adaptive}{Logical. If \code{TRUE}, automatically limits the
+    largest candidate neighborhood according to the sample size.
+    Used when \code{cut} is not supplied.}
 
   \item{cut}{Optional vector of nonnegative neighborhood widths for
-    continuous predictors, measured in standard deviations of the
-    released-region predictor values. Supplied values are sorted and
-    duplicates removed; \code{adaptive}, \code{cut.max}, and \code{ncut}
-    are then ignored. Binary 0/1 predictors use a comparison of the two
-    levels.}
+    continuous predictors. Each width gives the maximum distance from
+    the rule's center, in standard deviations of the predictor values
+    among usable observations in the enlarged comparison group described
+    in Details. Supplied values are sorted and duplicates removed;
+    \code{adaptive},
+    \code{cut.max}, and \code{ncut} are then ignored. Binary 0/1
+    predictors use a comparison of the two levels.}
 
   \item{cut.max}{Upper bound on candidate neighborhood width when
-    \code{cut} is not supplied. Smaller values restrict estimation to
-    more local observations.}
+    \code{cut} is not supplied. Smaller values restrict the search to
+    narrower neighborhoods.}
 
-  \item{ncut}{Number of candidate widths when \code{cut} is not supplied.}
+  \item{ncut}{Number of candidate widths when \code{cut} is not
+    supplied. Must be a positive integer.}
 
-  \item{nmin}{Minimum number of usable observations for a local estimate.}
+  \item{nmin}{Minimum number of usable observations for a local
+    estimate. Must be an integer of at least two.}
 
   \item{nmax}{Maximum number of observations used for a local estimate.
-    The effective maximum is also limited according to the training
-    sample size and is at least \code{nmin}.}
+    Must be an integer of at least two. The effective maximum is also
+    limited according to the training sample size and is at least
+    \code{nmin}.}
 
   \item{y.external}{Optional numeric vector or matrix containing the
-    target values to explain. Rows must correspond, in order, to the
-    processed training observations in \code{object}. A matrix supplies
-    a separate target in each column; column names identify the targets.
-    The default uses the rule-generating forest's out-of-bag predictions.}
+    values to explain, such as predictions from another model. Rows
+    must match the training observations used by \code{object}, in
+    the same order. Each matrix column supplies a separate target;
+    column names identify the targets. The default uses out-of-bag
+    predictions from the forest in \code{object}.}
 
-  \item{noise.na}{Represent unavailable local estimates by \code{NA}?
-    With \code{TRUE}, available rule estimates are averaged. With
-    \code{FALSE}, unavailable rule estimates contribute zero, and cases
-    with no applicable rules receive zero.}
+  \item{noise.na}{Logical. If \code{TRUE}, averages available rule
+    estimates and uses \code{NA} where none are available. With
+    \code{FALSE}, unavailable rule estimates contribute zero to the
+    average, and observations with no applicable rules receive zero.}
 
   \item{max.rules.tree}{Maximum number of rules examined per tree.
-    Defaults to the setting in a \code{varpro} object, or 150 for direct
-    \code{rfsrc} input.}
+    Defaults to the setting in a \code{varpro} object, or 150 for
+    direct \code{rfsrc} input.}
 
   \item{max.tree}{Maximum number of trees used to obtain rules.
-    Defaults to the setting in a \code{varpro} object, or 150 for direct
-    \code{rfsrc} input.}
+    Defaults to the setting in a \code{varpro} object, or 150 for
+    direct \code{rfsrc} input.}
 
-  \item{use.loo}{Select the continuous-predictor neighborhood by
-    leave-one-out prediction error from the local regressions? With
-    \code{FALSE}, use the largest valid candidate neighborhood, subject
-    to \code{nmin} and \code{nmax}.}
+  \item{use.loo}{Logical. If \code{TRUE}, chooses the neighborhood for
+    each continuous-predictor fit by leave-one-out prediction error.
+    With \code{FALSE}, uses the valid candidate with the most
+    observations, subject to \code{nmin} and \code{nmax}.}
 
-  \item{use.abs}{Average absolute rule-level gradients? The default
-    \code{FALSE} retains their signs.}
+  \item{use.abs}{Logical. If \code{TRUE}, averages the absolute values
+    of the rule-level scores. The default \code{FALSE} preserves
+    their signs.}
 
-  \item{path.store.membership}{Retain rule and near-miss membership
-    indices for downstream diagnostics? Setting \code{FALSE} reduces
-    storage while preserving the returned gradients and ordinary plots.}
+  \item{path.store.membership}{Logical. If \code{TRUE}, stores the
+    observation indices for each rule and its additional comparison
+    group. Setting \code{FALSE} reduces storage without changing the
+    calculated scores or their plots.}
 
-  \item{save.data}{Store processed predictors and prediction targets
-    for plotting?}
+  \item{save.data}{Logical. If \code{TRUE}, stores the processed
+    predictors and target values in the result for plotting.}
 
-  \item{save.model}{Store the supplied model for downstream use?}
+  \item{save.model}{Logical. If \code{TRUE}, stores the supplied model
+    in the result.}
 
-  \item{scale}{Predictor scaling for the local slopes: \code{"local"}
-    uses the selected neighborhood's spread, \code{"global"} uses the
-    predictor's training-sample standard deviation, and \code{"none"}
-    returns slopes per unit of the predictor. See Details.}
+  \item{scale}{Scaling of the local slopes. \code{"local"} uses the
+    predictor's spread in the selected neighborhood; \code{"global"}
+    uses its standard deviation across the training observations;
+    \code{"none"} gives slopes per unit of the predictor. See Details.}
 }
 
 \details{
-  \subsection{From forest rules to individual importance}{
-    A variable's influence can change across observations. iVarPro
-    summarizes this variation through local slopes of a prediction
-    target, using forest rules to identify relevant observations.
+  \code{ivarpro} shows how a predictor's relationship with a model's
+  predictions varies from one observation to another. It returns a
+  separate importance score for each training observation and predictor.
+  The scores summarize local slopes, called gradients, which describe
+  both the direction and strength of the relationship.
 
-    For a rule region \eqn{R}, releasing predictor \eqn{s} removes its
-    restrictions and retains the restrictions on the other predictors.
-    This gives the enlarged region \eqn{R^{(s)}}. The additional
-    observations form the near-miss set
-    \eqn{C_s = R^{(s)} \setminus R}.
-    The local regression uses observations from both \eqn{R} and
-    \eqn{C_s}, pooling them within the released region.
+  Use \code{x <- ivarpro(object)} to calculate the scores from a fitted
+  model. \code{print(head(x))} displays the first few observations for
+  a single prediction target. The plotting functions below help explore
+  how the scores vary across the data.
 
-    For a continuous predictor, estimation uses a neighborhood around
-    its mean among the rule's out-of-bag members. A local regression of
-    the target on that predictor supplies a slope. For a binary 0/1
-    predictor, the slope is the difference in mean target values between
-    levels 1 and 0. Each case receives the average gradient from rules
-    in whose original region it is an out-of-bag member and for which
-    that predictor is released.
-  }
-
-  \subsection{Reading the scores}{
+  \subsection{Interpreting the scores}{
     A positive score indicates that larger predictor values locally
-    accompany larger target values; a negative score indicates the
+    accompany larger predicted values; a negative score indicates the
     opposite direction. Larger magnitudes represent stronger local
-    changes on the chosen scale. Setting \code{use.abs = TRUE}
-    summarizes strength by averaging magnitudes before opposing rule
-    slopes can cancel.
+    changes on the chosen scale. For example, a negative score for a
+    mortality target indicates a local relationship with lower
+    predicted mortality as the predictor increases.
 
-    Scores are reported for the processed predictors in
-    \code{object$xvar.names}. A hot-encoded factor can therefore have
-    several indicator columns. An unavailable score means that the case
-    has no usable local estimate for that predictor, for example because
-    it lacks applicable rules or sufficient local variation.
+    The default preserves signs when averaging rule-level scores, so
+    positive and negative slopes can cancel. Use \code{use.abs = TRUE}
+    to summarize strength alone by averaging their absolute values.
+
+    Scores are calculated for the predictors in
+    \code{object$xvar.names}. VarPro converts categorical predictors
+    to numeric 0/1 indicators, with a separate score for each indicator.
+    With the default \code{noise.na = TRUE}, \code{NA} marks an
+    unavailable estimate, for example because an observation has no
+    applicable rules or there is too little local predictor variation.
   }
 
-  \subsection{Prediction targets}{
-    By default, regression explains out-of-bag predicted responses, and
-    classification explains out-of-bag class probabilities. Binary
-    classification returns scores for the first probability column;
-    \code{attr(x, "target")} identifies the target in the returned
-    object. Multiclass classification returns a named list with one
-    gradient table per class.
+  \subsection{Which values are explained}{
+    The values being explained are called the prediction target.
+    By default, \code{ivarpro} uses out-of-bag (OOB) predictions from
+    the forest in \code{object}. Regression uses predicted responses,
+    and classification uses predicted class probabilities. Binary
+    classification uses the first probability column; use
+    \code{attr(x, "target")} to identify it. Multiclass classification
+    returns a named list with one gradient table per class.
 
-    The target follows the forest stored in the model. A survival forest
-    supplies mortality predictions. When VarPro uses a multivariate
-    regression forest for RMST targets, each predicted target has its
-    own gradient table. More generally, multivariate VarPro regression
-    returns one table per predicted response.
+    A survival forest supplies mortality predictions. When VarPro uses
+    a multivariate regression forest for restricted mean survival time
+    (RMST) targets, each predicted target has its own gradient table.
+    More generally, multivariate VarPro regression returns one table
+    per predicted response.
 
-    Use \code{y.external} to explain another numeric target, such as
-    predictions from a different model or a particular class probability.
-    A supplied matrix retains all of its target columns. Target values
-    must be aligned with the observations retained by the original
-    analysis.
+    Supply \code{y.external} to explain another numeric target, such
+    as predictions from a different model or a particular class
+    probability, using the same forest rules. A matrix supplies one
+    target per column, including when it has two columns. Its rows
+    must match the observations used in the fitted model, after any
+    omissions during model fitting.
   }
 
-  \subsection{Scaling and locality}{
-    With \code{scale = "local"}, the slope is multiplied by the
-    selected predictor values' spread around the rule-region center.
-    With \code{scale = "global"}, the multiplier is the predictor's
-    standard deviation across the training observations. Both express
-    the gradient in target units. With \code{scale = "none"}, the
-    slope is in target units per predictor unit; for a binary predictor,
-    it is the change from level 0 to level 1.
+  \subsection{How local scores are calculated}{
+    Each forest rule describes a group of observations through
+    restrictions on predictor values. To study one predictor,
+    \code{ivarpro} removes that predictor's restrictions while keeping
+    those on the other predictors. This step, called releasing the
+    predictor, adds observations to the comparison group.
 
-    Neighborhood size controls how locally the slope is estimated.
-    The defaults choose among candidate neighborhoods using local
-    leave-one-out prediction error. Reducing \code{cut.max} restricts
-    the available neighborhoods; increasing \code{nmin} requires more
-    observations for each estimate. For binary predictors, both levels
-    are represented in a sample of the released-region observations,
-    subject to the sample-size controls.
+    For a continuous predictor, the method fits a straight line to
+    the target values using observations from the enlarged group that
+    are near the predictor's mean among the rule's OOB members. The
+    fitted slope describes the local change in the target. For a 0/1
+    predictor, the slope is the difference in mean target values
+    between levels 1 and 0.
+
+    After any requested scaling, each rule's score is assigned to its
+    original OOB members: observations satisfying the rule that were
+    not used to grow its tree. Each observation's final score averages
+    the applicable rule scores for that predictor.
+  }
+
+  \subsection{Scaling and neighborhood size}{
+    With the default \code{scale = "local"}, each rule's slope is
+    multiplied by the predictor's spread in the selected neighborhood.
+    For continuous predictors, this spread is measured around the
+    rule's OOB mean; for 0/1 predictors, it is the sample standard
+    deviation. With \code{scale = "global"}, the multiplier is the
+    predictor's standard deviation across the training observations.
+    Both choices express the score in target units. With
+    \code{scale = "none"}, scores are in target units per predictor
+    unit; for a 0/1 predictor, the slope is the change from level 0 to 1.
+
+    Neighborhood size determines which nearby observations contribute
+    to a continuous-predictor slope. By default, candidate neighborhoods
+    are compared by leave-one-out prediction error: each observation
+    is predicted from a line fitted without it, and the neighborhood
+    with the smallest mean squared error is chosen. With
+    \code{use.loo = FALSE}, the valid candidate containing the most
+    observations is used instead.
+
+    \code{cut.max} limits the candidate widths, and \code{adaptive}
+    allows the maximum to be reduced according to sample size.
+    Supply \code{cut} to specify the widths directly. Increasing
+    \code{nmin} requires more observations for each local fit;
+    \code{nmax} limits how many are used. Binary predictors use a
+    comparison of both levels, subject to these sample-size controls,
+    rather than a neighborhood search.
   }
 
   \subsection{Displaying local importance}{
-    \code{shap.ivarpro(x)} gives a beeswarm-style summary of the local
-    gradients. Position shows the gradient and color shows the predictor
-    value. \code{plot(x, var = "x1")} displays one predictor's gradients
-    against its values. Use \code{col.var} to color by another variable
-    and examine how the local relationship varies across groups.
+    \code{shap.ivarpro(x)} compares the distribution of scores across
+    predictors. \code{plot(x, var = "x1")} shows one predictor's
+    scores against its values. Add \code{col.var} to color points by
+    another variable and examine how the local relationship varies
+    across observations. See \code{\link{plot.ivarpro}} for interpreting
+    and adjusting these plots.
 
     For a list of target-specific tables, supply \code{target} by name
     or index to either plotting function. Without it, the first target
-    is used with a warning. Stored data are used automatically; with
-    \code{save.data = FALSE}, supply the corresponding processed data
-    through \code{dat} to \code{shap.ivarpro} or \code{data} to
-    \code{plot}.
+    is used with a warning. The data stored by \code{ivarpro} are used
+    automatically. With \code{save.data = FALSE}, supply the matching
+    processed data through \code{dat} to \code{shap.ivarpro} or
+    \code{data} to \code{plot}.
   }
   \subsection{New observations}{
     Use \code{predict(x, newdata = test)} to obtain gradients for new
@@ -200,23 +237,26 @@ ivarpro(object,
 
 \value{
   An object of class \code{ivarpro}. A single target produces a numeric
-  data frame with one row per processed training observation and one
-  column per predictor in \code{object$xvar.names}. Row names retain
-  the processed training-row identifiers. Multiple targets produce a
-  named list of these data frames. \code{print(x)} summarizes a list;
+  data frame with one row per training observation used by the model
+  and one column per predictor in \code{object$xvar.names}. Row names
+  match the processed training data. Multiple targets produce a named
+  list of these data frames. \code{print(x)} summarizes a list;
   \code{print(x, full = TRUE)} displays all of its tables.
 
   The \code{target} attribute identifies the target or targets. When
-  requested, the \code{data} attribute contains processed predictors and
-  the target values, and the \code{model} attribute contains the supplied
+  requested, the \code{data} attribute contains the processed predictors
+  and target values, and the \code{model} attribute contains the supplied
   model. Target columns in the stored data are named \code{y} or
-  \code{y.<target>}, with suffixes added to avoid name collisions; their
-  names are recorded in \code{attr(attr(x, "data"), "response.names")}.
+  \code{y.<target>}, with suffixes added when needed to give each column
+  a unique name. The target-to-column mapping is available through
+  \code{attr(attr(x, "data"), "response.names")}.
 
-  The \code{ivarpro.path} attribute retains neighborhood settings and
-  diagnostics for the selected rule estimates. Membership indices are
-  included when \code{path.store.membership = TRUE}. Ordinary use and
-  plotting require only the gradient tables and, for plots, their data.
+  The \code{ivarpro.path} attribute stores neighborhood settings and
+  diagnostics for the selected rule estimates, such as their slopes
+  and numbers of observations. For multiple targets, shared settings
+  are stored on the list and target-specific diagnostics on each table.
+  Membership indices are included when \code{path.store.membership = TRUE}.
+  The gradient tables and matching data are sufficient for plotting.
 }
 
 \author{Min Lu and Hemant Ishwaran}

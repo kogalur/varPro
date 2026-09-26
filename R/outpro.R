@@ -76,14 +76,30 @@ outpro <- function(object,
   } else if (isTRUE(reduce)) {
     if (inherits(object, "varpro")) {
       v <- get.orgvimp(object)
-      reduce.names <- v$variable[v$z >= cutoff]
-      reduce.wt <- v$z[v$z >= cutoff]
-      if (length(reduce.names) <= 1) {
-        reduce.names <- v$variable
-        reduce.wt <- v$z
+      selected <- which(v$z >= cutoff)
+      if (length(selected) <= 1L) selected <- seq_len(nrow(v))
+      reduce.names <- v$variable[selected]
+      reduce.wt <- v$z[selected]
+      ## Select original predictors, then expand to their fitted columns.
+      ## Use the encoding map rather than guessing from column names.
+      map <- .get.hotencode.map(object$x)
+      pos <- match(xvar.names, names(map))
+      if (anyNA(pos)) {
+        stop("fitted forest variables do not match the hot-encoding map.")
       }
-      whichx <- match(reduce.names, xvar.names)
-      whichx.wt <- reduce.wt
+      source <- unname(map[pos])
+      if (anyNA(source) || !all(source %in% object$xvar.org.names)) {
+        stop("hot-encoding map does not match the original predictors.")
+      }
+      columns <- lapply(reduce.names, function(nn) which(source == nn))
+      ncolumns <- lengths(columns)
+      if (any(ncolumns == 0L)) {
+        stop(paste0("selected predictors have no fitted forest columns: ",
+                    paste(reduce.names[ncolumns == 0L], collapse = ", ")))
+      }
+      ## Preserve priority order and give each column its parent's priority.
+      whichx <- unlist(columns, use.names = FALSE)
+      whichx.wt <- rep(reduce.wt, times = ncolumns)
     } else {
       whichx <- seq_along(xvar.names)
       whichx.wt <- rep(1, length(whichx))
@@ -91,6 +107,9 @@ outpro <- function(object,
   } else {
     whichx <- seq_along(xvar.names)
     whichx.wt <- rep(1, length(whichx))
+  }
+  if (!length(whichx)) {
+    stop("No predictors are available for distance calculation.")
   }
   ## neighbor handling
   if (is.null(neighbor)) neighbor <- out.get.neighbor(nrow(xorg))

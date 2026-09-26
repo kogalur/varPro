@@ -39,9 +39,13 @@ partialpro <- function(object,
   if (missing(xvar.names)) {
     xvar.names <- topvars
   }
-  ## filter xvar.names
+  ## Limit the requested variables without introducing an index for an empty set.
   if (!missing(nvar)) {
-    xvar.names <- xvar.names[1:min(length(xvar.names), nvar)]
+    if (!is.numeric(nvar) || length(nvar) != 1L || is.na(nvar) ||
+        nvar < 1 || (is.finite(nvar) && nvar != floor(nvar))) {
+      stop("nvar must be a positive integer or Inf", call. = FALSE)
+    }
+    xvar.names <- xvar.names[seq_len(min(length(xvar.names), nvar))]
   }
   ## extract x and set the dimension
   xvar <- object$x
@@ -62,6 +66,9 @@ partialpro <- function(object,
       }
     }
   }
+  if (!is.function(learner)) {
+    stop("learner must be a prediction function", call. = FALSE)
+  }
   ## check to see if new data is available
   predict.flag <- !missing(newdata)
   ## ------------------------------------------------------------------------
@@ -80,9 +87,10 @@ partialpro <- function(object,
   ## -------------------
   ## process yvar
   ## -------------------
-  ## regression
-  if (is.numeric(yvar)) {
-    target <- 1
+  ## A matrix response denotes a multivariate analysis, not a numeric vector.
+  target.label <- NULL
+  if (is.numeric(yvar) && is.null(dim(yvar))) {
+    target <- 1L
   }
   ## classification
   else if (is.factor(yvar)) {
@@ -92,11 +100,15 @@ partialpro <- function(object,
       target <- yvar.levels[length(yvar.levels)]
     }
     if (is.character(target)) {
-      target <- match(match.arg(target, yvar.levels), yvar.levels)
+      target.label <- match.arg(target, yvar.levels)
+      target <- match(target.label, yvar.levels)
     }
     else {
-      if ((target > length(yvar.levels)) | (target < 1)) {
-        stop("target is specified incorrectly:", target)
+      if (!is.numeric(target) || length(target) != 1L ||
+          !is.finite(target) || target != floor(target) ||
+          target < 1L || target > length(yvar.levels)) {
+        stop("target must be a class label or a valid integer column index",
+             call. = FALSE)
       }
     }
   }
@@ -285,13 +297,21 @@ partialpro <- function(object,
     }
     X <- X[ok, , drop = FALSE]
     y <- y[ok]
-    tryCatch(stats::lm.fit(x = X, y = y), error = function(e) NULL)
+    fit <- tryCatch(stats::lm.fit(x = X, y = y), error = function(e) NULL)
+    ## An unidentified polynomial must not become a partial or flat curve.
+    if (is.null(fit) || fit$rank < ncol(X) ||
+        any(!is.finite(fit$coefficients))) {
+      return(NULL)
+    }
+    fit
   }
   .safe_pred <- function(fit, Xnew) {
     if (is.null(fit)) {
       return(rep(NA_real_, nrow(Xnew)))
     }
-    drop(Xnew %*% fit$coefficients)
+    pred <- drop(Xnew %*% fit$coefficients)
+    pred[!is.finite(pred)] <- NA_real_
+    pred
   }
   ## ------------------------------------------------------------------------
   ##
@@ -349,6 +369,10 @@ partialpro <- function(object,
       } else {
         rep(1, nrow(xfake))
       }
+      if (!is.numeric(vt.score) || length(vt.score) != nrow(xfake)) {
+        stop("virtual-twin filtering must return one numeric score per row",
+             call. = FALSE)
+      }
       goodvt <- is.finite(vt.score) & (vt.score >= cut)
       if (sum(goodvt) == 0) {
         return(NULL)
@@ -358,8 +382,46 @@ partialpro <- function(object,
     ## obtain predicted value for fake partial data
     ## (IMPORTANT: pass only feature columns to learner; case/train/goodvt are internal)
     pred <- learner(xfake)
-    yhat <- as.numeric(cbind(pred)[, target])
+    if (is.data.frame(pred)) {
+      if (any(!vapply(pred, is.numeric, logical(1)))) {
+        stop("learner predictions must be numeric", call. = FALSE)
+      }
+      pred <- as.matrix(pred)
+    } else if (is.numeric(pred) && length(dim(pred)) <= 1L) {
+      ## Treat a one-dimensional array as a single prediction column,
+      ## just like an ordinary numeric vector. Preserve matrix columns.
+      pred <- matrix(pred, ncol = 1L)
+    }
+    if (!is.matrix(pred) || !is.numeric(pred) ||
+        nrow(pred) != nrow(xfake) || ncol(pred) < 1L) {
+      stop("learner must return numeric predictions with one row per input row",
+           " (expected ", nrow(xfake), " rows; class: ",
+           paste(class(pred), collapse = "/"), "; dimensions: ",
+           if (is.null(dim(pred))) "none" else paste(dim(pred), collapse = " x "),
+           "; length: ", length(pred), ")", call. = FALSE)
+    }
+    target.column <- target
     if (family == "class") {
+      if (ncol(pred) != length(yvar.levels)) {
+        stop("classification learners must return one probability column per class",
+             call. = FALSE)
+      }
+      ## Names resolve class labels; a numeric target still selects by position.
+      if (!is.null(target.label) && !is.null(colnames(pred))) {
+        if (anyNA(colnames(pred)) || anyDuplicated(colnames(pred)) ||
+            !(target.label %in% colnames(pred))) {
+          stop("learner probability columns do not identify the requested class",
+               call. = FALSE)
+        }
+        target.column <- match(target.label, colnames(pred))
+      }
+    }
+    yhat <- as.numeric(pred[, target.column])
+    if (family == "class") {
+      if (any(!is.na(yhat) & (!is.finite(yhat) | yhat < 0 | yhat > 1))) {
+        stop("learner class probabilities must be between zero and one",
+             call. = FALSE)
+      }
       yhat <- mylogodds(yhat)
     }
     ## reshape predictions into case-by-virtual matrix
@@ -409,18 +471,17 @@ partialpro <- function(object,
               ytest <- yalli[!train]
               ytest.cut <- .safe_pred(fit_cut, Xfull[!train, , drop = FALSE])
               ytest.nocut <- .safe_pred(fit_nocut, Xfull[!train, , drop = FALSE])
-              ## switch to no cut based on out-of-sample mse performance
-              if (mymse(ytest, ytest.nocut) < (mymse(ytest, ytest.cut) - mse.tolerance)) {
+              ## Use the unrestricted fit only when both errors are defined.
+              err.cut <- mymse(ytest, ytest.cut)
+              err.nocut <- mymse(ytest, ytest.nocut)
+              if (is.finite(err.cut) && is.finite(err.nocut) &&
+                  err.nocut < (err.cut - mse.tolerance)) {
                 fit_sel <- .safe_lm_fit(Xfull, yalli)
-              } else {
-                fit_sel <- .safe_lm_fit(Xfull[goodvt, , drop = FALSE], yalli[goodvt])
               }
             }
           }
-          ## cut.flag is off OR not enough data for out-of-sample performance
-          ## (match original behavior: only run this fallback when the OOS branch
-          ## is NOT entered; if OOS is entered but fitting fails, leave NA's)
-          if (is.null(fit_sel) && !(cut.flag && sum(train & goodvt) > (nmin / 2))) {
+          ## Use all supported values when no valid comparison favors no cut.
+          if (is.null(fit_sel)) {
             fit_sel <- .safe_lm_fit(Xfull[goodvt, , drop = FALSE], yalli[goodvt])
           }
           if (!is.null(fit_sel)) {
@@ -483,8 +544,11 @@ partialpro <- function(object,
       ## fast parametric curve per case: global.mean + sum_k beta_k * x^k
       Xpow <- Xfull[, -1, drop = FALSE]                # nvirtual x df
       B <- bhat_out[, -1, drop = FALSE]                # ncase x df
-      B[!is.finite(B)] <- 0                            # emulate na.rm=TRUE in original rowSums
+      fitted <- rowSums(is.finite(bhat_out)) == ncol(bhat_out)
+      B[!is.finite(B)] <- 0                            # temporary values for multiplication
       yhat.par <- global.mean + tcrossprod(B, Xpow)    # ncase x nvirtual
+      yhat.par[!fitted, ] <- NA_real_                  # failed fits stay unavailable
+      yhat.par[!is.finite(yhat.par)] <- NA_real_
       ## add back the global mean to the centered nonparametric curve
       yhat.nonpar <- yhat_nonpar_out + global.mean
     }

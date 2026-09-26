@@ -1,3 +1,46 @@
+# varPro 3.3.1
+
+## Bug fixes and refinements
+
+* Improved `partialpro()` validation of predictor limits, learner predictions,
+  virtual-twin scores, and classification targets and probabilities. Named
+  class targets now match named probability columns, and unsupported
+  multivariate responses are rejected explicitly.
+* Failed or rank-deficient partial-profile fits now remain unavailable instead
+  of producing flat curves. Supported-data fits are retained when no valid
+  out-of-sample error comparison favors the unrestricted fit.
+* Fixed `plot.partialpro()` predictor indexing and limits, single-case
+  summaries, and missing-profile handling. Unavailable standard errors remain
+  `NA`, while available mean curves can still be displayed.
+* Improved binary partial-profile plots to preserve complete predictor labels,
+  group identities, and graphics settings. Baseline-contrast plots now use
+  the axis label "change from baseline".
+* Fixed `gbm.learner()` binary-response encoding and probability-column labels.
+  GBM and BART learners now accept single numeric survival targets, and RF and
+  GBM learners avoid collisions between response and predictor names.
+* Fixed test-data hot-encoding to preserve rows with missing factor values,
+  retain encoding metadata after column selection, and prevent new factor
+  levels from displacing existing training columns through name collisions.
+* Fixed `outpro(reduce = TRUE)` to expand selected original predictors to their
+  fitted hot-encoded columns using the encoding map, preserving priority
+  order and assigning each column its original predictor's weight.
+* Corrected `uvarpro()` importance weighting to use original-region OOB counts.
+  Explicitly supplied seeds are now passed to forest construction, and
+  generated response names no longer collide with predictor names.
+* Improved UVarPro local lasso fitting by excluding constant predictors,
+  supporting a single varying predictor, and avoiding dummy-column name
+  collisions.
+* Corrected `varpro.strength()` importance standardization for single responses
+  stored as matrices or data frames and for multivariate regression, scaling
+  each response's importance by its own standard deviation.
+
+## Documentation
+
+* Expanded documentation for importance and variable selection, cross-validation,
+  iVarPro gradients and plotting, outPro scoring and calibration, UVarPro local
+  analysis, and partial profiles. Clarified prediction scales, uncertainty
+  guides, baseline contrasts, and reproducibility controls.
+
 # varPro 3.3.0
 
 ## New features

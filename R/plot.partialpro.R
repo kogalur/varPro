@@ -7,27 +7,77 @@ plot.partialpro <- function(x, xvar.names, nvar,
   ## initial processing
   ##
   ## ------------------------------------------------------------------------
-  ## identify target variables
+  ## Resolve positions to predictor names before applying the plot limit.
+  if (!is.list(x) || is.data.frame(x)) {
+    stop("x must be a partialpro object", call. = FALSE)
+  }
   if (missing(xvar.names)) {
     xvar.names <- names(x)
-    if (!missing(nvar)) {
-      xvar.names <- xvar.names[1:min(length(xvar.names), nvar)]
+  } else if (is.numeric(xvar.names)) {
+    if (anyNA(xvar.names) || any(!is.finite(xvar.names)) ||
+        any(xvar.names != floor(xvar.names)) ||
+        any(xvar.names < 1L | xvar.names > length(x))) {
+      stop("xvar.names indices must be positions in x", call. = FALSE)
     }
+    xvar.names <- names(x)[xvar.names]
+  } else if (!is.character(xvar.names) || anyNA(xvar.names)) {
+    stop("xvar.names must contain predictor names or integer positions", call. = FALSE)
   }
-  ## extract the object
+  if (!missing(nvar)) {
+    if (!is.numeric(nvar) || length(nvar) != 1L || is.na(nvar) ||
+        nvar < 0 || (is.finite(nvar) && nvar != floor(nvar))) {
+      stop("nvar must be a nonnegative integer or Inf", call. = FALSE)
+    }
+    xvar.names <- xvar.names[seq_len(min(length(xvar.names), nvar))]
+  }
+  unavailable <- setdiff(xvar.names, names(x))
+  if (length(unavailable)) {
+    warning("plot.partialpro(): skipping unavailable predictors: ",
+            paste(unavailable, collapse = ", "), call. = FALSE)
+    xvar.names <- xvar.names[xvar.names %in% names(x)]
+  }
+  if (!length(xvar.names)) return(invisible(NULL))
   o <- x[xvar.names]
-  ## user specified hidden options
-  dots.base <- dots <- list(...)
-  ## specify hidden options
+  ## Remove method-specific controls before forwarding graphics arguments.
+  dots <- list(...)
   weights.power <- if (!is.null(dots$weights.power)) dots$weights.power else 10
   weights.tolerance <- if (!is.null(dots$weights.tolerance)) dots$weights.tolerance else 1e-6
+  if (!is.numeric(weights.power) || length(weights.power) != 1L ||
+      !is.finite(weights.power) || weights.power < 0 ||
+      !is.numeric(weights.tolerance) || length(weights.tolerance) != 1L ||
+      !is.finite(weights.tolerance) || weights.tolerance < 0) {
+    stop("smoothing weights require finite, nonnegative controls", call. = FALSE)
+  }
   dots$weights.power <- dots$weights.tolerance <- NULL
+  dots.base <- dots
+  ## Calculate column summaries without treating unavailable profiles as zero.
+  .profile.mean <- function(z) {
+    z[!is.finite(z)] <- NA_real_
+    ans <- colMeans(z, na.rm = TRUE)
+    ans[!is.finite(ans)] <- NA_real_
+    ans
+  }
+  .profile.se <- function(z, frequency) {
+    z[!is.finite(z)] <- NA_real_
+    nfinite <- colSums(!is.na(z))
+    ysd <- apply(z, 2L, sd, na.rm = TRUE)
+    ok <- nfinite >= 2L & is.finite(ysd) & frequency > 0
+    ans <- setNames(rep(NA_real_, ncol(z)), colnames(z))
+    ## Preserve the existing small-spread floor for estimable columns.
+    if (any(ok) && all(ysd[ok] <= 1e-10)) ysd[ok] <- 1e-10
+    ans[ok] <- ysd[ok] / sqrt(frequency[ok])
+    ans[!is.finite(ans)] <- NA_real_
+    ans
+  }
+  ## User graphics settings replace defaults without duplicate arguments.
+  .plot.args <- function(defaults, supplied) {
+    for (nm in names(supplied)) defaults[nm] <- supplied[nm]
+    defaults
+  }
   ## ------------------------------------------------------------------------
-  ##
-  ## loop over each variable, generating the requested plot
-  ##
+  ## Summarize and display each requested predictor.
   ## ------------------------------------------------------------------------
-  rO <- lapply(1:length(xvar.names), function(j) {
+  rO <- lapply(seq_along(xvar.names), function(j) {
     ## failure checks
     if (is.null(o[[j]])) {
       return(NULL)
@@ -57,10 +107,7 @@ plot.partialpro <- function(x, xvar.names, nvar,
     else {
       type <- "parametric"      
     }
-    ## subset analysis not allowed for parametric model
-    #if (type == "parametric") {
-    #  subset <- NULL
-    #}
+    ## Grouping and row selection apply to all three profile summaries.
     ##---------------------------------------------------
     ##
     ## conditional analysis?
@@ -71,13 +118,13 @@ plot.partialpro <- function(x, xvar.names, nvar,
       ## identify cases
       idx.lst <- lapply(levels(subset), function(lv) {
         idx <- intersect(which(subset == lv), case)
-        if (length(idx) == 0) {
-          NULL
+        if (length(idx) == 0L) {
+          return(NULL)
         }
         which(case %in% idx)
       })
       names(idx.lst) <- levels(subset)
-      idx.lst <- idx.lst[!sapply(idx.lst, is.null)]
+      idx.lst <- idx.lst[!vapply(idx.lst, is.null, logical(1))]
       if (length(idx.lst) == 0) {
         return(NULL)
       }
@@ -89,7 +136,7 @@ plot.partialpro <- function(x, xvar.names, nvar,
       cflag <- FALSE
       ## default case: no subsetting
       if (is.null(subset)) {
-        idx.lst[[1]] <- 1:length(case)
+        idx.lst[[1]] <- seq_along(case)
       }
       ## user has specified a non-standard subset
       else {
@@ -118,118 +165,53 @@ plot.partialpro <- function(x, xvar.names, nvar,
     ##---------------------------------------------------
     if (!binary.variable) {
       plotO <- lapply(idx.lst, function(sub) {
-        ## obtain frequencies/weights for s.e./smoothing
-        frq <- !apply(goodvt[sub, , drop = FALSE], 2, is.na)
-        if (is.null(dim(frq))) {
-          return(NULL)
-        }
-        frq <- colSums(frq)
+        if (!length(sub)) return(NULL)
+        ## Keep the support counts two-dimensional even for a single case.
+        frq <- colSums(!is.na(goodvt[sub, , drop = FALSE]))
+        if (!length(frq) || !any(frq > 0)) return(NULL)
         weights <- (frq / max(frq)) ^ weights.power
-        pt.tolerance <- weights > weights.tolerance
-        if (sum(pt.tolerance) == 0) {
-          return(NULL)
-        }
-        ## choose source for SEs: nonparametric vs causal
-        if (type == "causal") {
-          ysrc <- yhat.causal
-        } else {
-          ysrc <- yhat.nonpar
-        }
-        ## standard error estimate based on chosen source
-        ysd <- apply(ysrc[sub, , drop = FALSE], 2, sd, na.rm = TRUE)
-        if (all(is.na(ysd)) || all(ysd <= 1e-10)) {
-          ysd <- 1e-10
-        }
-        y.se <- ysd / sqrt(frq)
-        ## guard against division-by-zero and other non-finite values
-        y.se[!is.finite(y.se)] <- 0
-        ## for nonparametric/causal types, SE lives only on tolerated points
-        if (type != "parametric") {
-          y.se <- y.se[pt.tolerance]
-        }
-        ## over-ride se
-        if (!se) {
-          y.se <- 0
-        }
-        ## loess control parameters
-        loessControl <- loess.control(
-          trace.hat = if (length(sub) > 500) "approximate" else "exact"
-        )
-        ## -------------------------------------------------------------
-        ## nonparametric or causal smoothing estimator
-        ## -------------------------------------------------------------
+        pt.support <- is.finite(weights) & weights > weights.tolerance
+        if (!any(pt.support)) return(NULL)
+        ## Preserve the original SE source for the polynomial display.
+        ysrc <- if (type == "causal") yhat.causal else yhat.nonpar
+        y.se <- if (se) .profile.se(ysrc[sub, , drop = FALSE], frq) else 0
         if (type == "nonparametric" || type == "causal") {
-          if (type == "nonparametric") {
-            o.loess <- tryCatch({
-              suppressWarnings(loess(
-                y ~ x,
-                data.frame(
-                  y = colMeans(yhat.nonpar[sub, , drop = FALSE], na.rm = TRUE),
-                  x = xvirtual
-                )[pt.tolerance, , drop = FALSE],
-                weights = weights[pt.tolerance],
-                control = loessControl
-              ))
-            }, error = function(ex) { NULL })
-          } else {
-            o.loess <- tryCatch({
-              suppressWarnings(loess(
-                y ~ x,
-                data.frame(
-                  y = colMeans(yhat.causal[sub, , drop = FALSE], na.rm = TRUE),
-                  x = xvirtual
-                )[pt.tolerance, , drop = FALSE],
-                weights = weights[pt.tolerance],
-                control = loessControl
-              ))
-            }, error = function(ex) { NULL })
-          }
-          if (is.null(o.loess)) {
-            return(NULL)
-          }
+          avg <- .profile.mean(ysrc[sub, , drop = FALSE])
+          pt.tolerance <- pt.support & is.finite(xvirtual) & is.finite(avg)
+          if (!any(pt.tolerance)) return(NULL)
+          loessControl <- loess.control(
+            trace.hat = if (length(sub) > 500) "approximate" else "exact"
+          )
+          o.loess <- tryCatch({
+            suppressWarnings(loess(
+              y ~ x,
+              data.frame(y = avg, x = xvirtual)[pt.tolerance, , drop = FALSE],
+              weights = weights[pt.tolerance], control = loessControl
+            ))
+          }, error = function(ex) NULL)
+          if (is.null(o.loess)) return(NULL)
           x <- as.numeric(o.loess$x)
           y <- o.loess$fitted
-        ## -------------------------------------------------------------
-        ## parametric estimator (subset-specific)
-        ## -------------------------------------------------------------
-        }
-        else {
+          if (se) y.se <- y.se[pt.tolerance]
+        } else {
           x <- xvirtual
-          y <- colMeans(yhat.par[sub, , drop = FALSE], na.rm = TRUE)
+          y <- .profile.mean(yhat.par[sub, , drop = FALSE])
         }
+        if (!any(is.finite(x) & is.finite(y))) return(NULL)
+        y[!is.finite(y)] <- NA_real_
         list(x = x, y = y, y.se = y.se)
       })
       names(plotO) <- names(idx.lst)
-    }
-    ##---------------------------------------------------
-    ##
-    ## ESTIMATION+STANDARD ERRORS: binary variables
-    ##
-    ##---------------------------------------------------
-    else {
+    } else {
+      ## Binary variables: summarize the predictions at the two values.
       plotO <- lapply(idx.lst, function(sub) {
-        ## obtain frequecies for s.e.
-        frq <- !apply(yhat.nonpar[sub,, drop=FALSE], 2, is.na)
-        if (is.null(dim(frq))) {
-          return(NULL)
-        }
-        frq <- colSums(frq)
-        ## choose source for SEs and mean, depending on type
+        if (!length(sub)) return(NULL)
         ysrc <- if (type == "causal") yhat.causal else yhat.nonpar
-        ## standard error estimate
-        ysd <- apply(ysrc[sub, , drop = FALSE], 2, sd, na.rm = TRUE)
-        if (all(is.na(ysd)) || all(ysd <= 1e-10)) {
-          ysd <- 1e-10
-        }
-        y.se <- ysd / sqrt(frq)
-        y.se[!is.finite(y.se)] <- 0
-        ## over-ride se
-        if (!se) {
-          y.se <- 0
-        }
-        ## mean estimators
-        y <- colMeans(ysrc[sub, , drop = FALSE], na.rm = TRUE)
-        ## return goodies
+        z <- ysrc[sub, , drop = FALSE]
+        frq <- colSums(is.finite(z))
+        y <- .profile.mean(z)
+        if (!any(is.finite(y))) return(NULL)
+        y.se <- if (se) .profile.se(z, frq) else 0
         list(x = xvirtual, y = y, y.se = y.se)
       })
       names(plotO) <- names(idx.lst)
@@ -239,7 +221,7 @@ plot.partialpro <- function(x, xvar.names, nvar,
     ## remove NULL entries: exit if nothing 
     ##
     ##---------------------------------------------------
-    plotO <- plotO[!sapply(plotO, is.null)]
+    plotO <- plotO[!vapply(plotO, is.null, logical(1))]
     if (length(plotO) == 0) {
       return(NULL)
     }
@@ -254,8 +236,13 @@ plot.partialpro <- function(x, xvar.names, nvar,
       } else {
         nmax <- 250
       }
+      if (!is.numeric(nmax) || length(nmax) != 1L || is.na(nmax) ||
+          nmax < 0 || (is.finite(nmax) && nmax != floor(nmax))) {
+        stop("nmax must contain nonnegative integers or Inf", call. = FALSE)
+      }
+      dots$nmax <- NULL
       if (is.null(dots$ylab)) {
-        dots$ylab <- if (type != "causal") "partial effect" else "causal effect"
+        dots$ylab <- if (type != "causal") "partial effect" else "change from baseline"
       } else {
         dots$ylab <- dots$ylab[min(length(dots$ylab), j)]
       }
@@ -264,17 +251,19 @@ plot.partialpro <- function(x, xvar.names, nvar,
       } else {
         dots$xlab <- dots$xlab[min(length(dots$xlab), j)]
       }
-      if (is.null(dots$ylim)) {
-        dots$ylim <- range(unlist(lapply(plotO, function(oo) {
-          c(oo$y - 2 * oo$y.se, oo$y + 2 * oo$y.se)
-        })), na.rm = TRUE)
-      } else {
-        if (is.list(dots$ylim)) {
-          dots$ylim <- dots$ylim[[min(length(dots$ylim), j)]]
-        } else {
-          ## scalar ylim applies to all variables
-          dots$ylim <- dots$ylim
-        }
+      if (is.list(dots$ylim)) {
+        dots$ylim <- dots$ylim[[min(length(dots$ylim), j)]]
+      }
+      if (is.null(dots$ylim) && !binary.variable) {
+        yy <- unlist(lapply(plotO, function(oo) {
+          ## Missing SEs do not hide an otherwise available mean curve.
+          serr <- oo$y.se
+          serr[!is.finite(serr)] <- 0
+          c(oo$y - 2 * serr, oo$y + 2 * serr)
+        }))
+        yy <- yy[is.finite(yy)]
+        if (!length(yy)) return(NULL)
+        dots$ylim <- range(yy)
       }
       ##---------------------------------------------------
       ##
@@ -285,35 +274,13 @@ plot.partialpro <- function(x, xvar.names, nvar,
         ## form long vector of x and y 
         x <- unlist(lapply(plotO, function(oo){oo$x}))
         y <- unlist(lapply(plotO, function(oo){oo$y}))
-        ## set the ylim range
-        if (is.null(dots$ylim)) {
-          yy <- unlist(lapply(plotO, function(oo) {
-            se <- oo$y.se
-            ## safety: infinite or NA SEs are treated as zero
-            se[!is.finite(se)] <- 0
-            c(oo$y - 2 * se, oo$y + 2 * se)
-          }))
-          ## drop any remaining non-finite values just in case
-          yy <- yy[is.finite(yy)]
-          ## if everything vanished, fall back to using y alone
-          if (length(yy) == 0L) {
-            yy <- unlist(lapply(plotO, function(oo) oo$y))
-            yy <- yy[is.finite(yy)]
-          }
-          dots$ylim <- range(yy, na.rm = TRUE)
-        }
-        else {
-          if (is.list(dots$ylim)) {
-            dots$ylim <- dots$ylim[[min(length(dots$ylim), j)]]
-          }
-          else {
-            dots$ylim <- dots$ylim
-          }
-        }
-        ## generate the plot
-        suppressWarnings(do.call(plot, c(list(x=x, y=y, type = "n"), dots)))
+        ## Generate axes; the mean and guides are added below.
+        dots$x <- x
+        dots$y <- y
+        dots$type <- "n"
+        do.call(plot, dots)
         if (cflag) {
-          nullO <- lapply(1:length(plotO), function(j) {
+          nullO <- lapply(seq_along(plotO), function(j) {
             oo <- plotO[[j]]
             lines(oo$x, oo$y, col = j, lwd = if (is.null(dots$lwd)) 1.5 else dots$lwd)
             if (se) {
@@ -336,7 +303,7 @@ plot.partialpro <- function(x, xvar.names, nvar,
           suppressWarnings(rug(xorg, ticksize = 0.03))
         }
         if (cflag) {
-          legend("topright", legend = names(plotO), fill = 1:length(plotO))
+          legend("topright", legend = names(plotO), fill = seq_along(plotO))
         }
       }
       ##---------------------------------------------------
@@ -345,70 +312,53 @@ plot.partialpro <- function(x, xvar.names, nvar,
       ##
       ##---------------------------------------------------
       else {
-        ## -------------------------------------------------
-        ##
-        ## no conditioning 
-        ##
-        ## -------------------------------------------------
-        if (!cflag) {
-          ## pull the data
-          x <- plotO[[1]]$x
-          y <- plotO[[1]]$y
-          y.se <- plotO[[1]]$y.se
-          ## graphical niceties
-          dots$ylim <- NULL
-          ## don't need baseline value for causal plots of binary variables
-          if (type == "causal") {
-            if (length(x) > 1) {
-              x <- x[-1]
-              y <- y[-1]
-              y.se <- max(y.se)
-            }
-            else {
-              y.se <- 0
-            }
+        ## Build one box from each mean and its two SE limits. Keep the
+        ## predictor labels and group identities separate from box names.
+        boxes <- list()
+        box.labels <- character()
+        box.groups <- integer()
+        for (g in seq_along(plotO)) {
+          oo <- plotO[[g]]
+          positions <- seq_along(oo$x)
+          if (!cflag && type == "causal" && length(positions) > 1L) {
+            positions <- positions[-1L]
           }
-          ## boxplot
-          bp <- boxplot(c(y, y-2*y.se, y+2*y.se)~rep(x, 3), names = rep("", length(x)), plot = FALSE)
-          y.se <- .0001
-          do.call("bxp", c(list(z = bp, outline = FALSE, range = 2,
-                                boxfill = "lightblue",
-                                ylim = c(min(bp$stats[1,], na.rm = TRUE) * ( 1 - 2 * y.se ),
-                                         max(bp$stats[5,], na.rm = TRUE) * ( 1 + 2 * y.se )),
-                                xaxt = "n"), dots))
-          do.call("axis", c(list(side = 1, at = 1:length(x),
-                                 labels = format(x, trim = TRUE, digits = 4),
-                                 tick = TRUE), dots))
+          serr <- rep_len(oo$y.se, length(oo$y))
+          for (k in positions) {
+            if (!is.finite(oo$y[k])) next
+            values <- oo$y[k]
+            if (se && is.finite(serr[k])) {
+              values <- c(values, values - 2 * serr[k], values + 2 * serr[k])
+            } else {
+              ## No uncertainty guide is available; show only the mean.
+              values <- rep(values, 3L)
+            }
+            boxes[[length(boxes) + 1L]] <- values
+            box.labels <- c(box.labels, format(oo$x[k], trim = TRUE, digits = 4))
+            box.groups <- c(box.groups, g)
+          }
         }
-        ## -------------------------------------------------
-        ##
-        ## conditioning
-        ##
-        ## -------------------------------------------------
-        else {
-          ## pull the data
-          bxp.dta <- do.call(rbind, lapply(1:length(plotO), function(j) {
-            oo <- plotO[[j]]
-            rbind(data.frame(x=oo$x, y=oo$y,        sub=names(plotO)[j]),
-                  data.frame(x=oo$x, y=oo$y-2*oo$y.se, sub=names(plotO)[j]),
-                  data.frame(x=oo$x, y=oo$y+2*oo$y.se, sub=names(plotO)[j]))
-          }))
-          bxp.dta <- data.frame(bxp.dta)
-          bxp.dta$sub <- factor(bxp.dta$sub)
-          ## removing missing values
-          bxp.dta <- na.omit(bxp.dta)
-          if (nrow(bxp.dta) == 0) {
-            return(NULL)
-          }
-          ## set up axis values, colors and legend
-          bxp <- boxplot(y~x:sub, bxp.dta, plot=FALSE)$names
-          xv <- sapply(strsplit(bxp, ""), function(ss) {ss[1]})
-          cv <- sapply(strsplit(bxp, ""), function(ss) {paste(ss[-(1:2)], collapse="")})
-          clr <- as.numeric(factor(cv))
-          ## boxplot
-          boxplot(y~x:sub, bxp.dta, boxfill = clr, xaxt = "n", ylab = dots$ylab, xlab = dots$xlab)
-          axis(side = 1, at = 1:length(xv), labels = xv)
-          legend("topright", legend = levels(bxp.dta$sub), fill = 1:length(unique(clr)))
+        if (!length(boxes)) return(NULL)
+        if (is.null(dots$ylim)) dots$ylim <- range(unlist(boxes), finite = TRUE)
+        bp <- boxplot(boxes, plot = FALSE, names = box.labels)
+        defaults <- list(z = bp, outline = FALSE, xaxt = "n",
+                         boxfill = if (cflag) box.groups else "lightblue")
+        ## Draw labels separately, with the complete predictor values.
+        bxp.args <- .plot.args(defaults, dots)
+        bxp.args$xaxt <- "n"
+        do.call("bxp", bxp.args)
+        if (!identical(dots$axes, FALSE) && !identical(dots$xaxt, "n")) {
+          axis.names <- c("cex.axis", "col.axis", "font.axis", "las", "tck", "tcl",
+                          "lwd", "lwd.ticks", "col", "col.ticks", "hadj", "padj")
+          axis.args <- dots[intersect(names(dots), axis.names)]
+          do.call("axis", c(list(side = 1, at = seq_along(boxes),
+                                labels = box.labels, tick = TRUE), axis.args))
+        }
+        if (cflag) {
+          shown <- unique(box.groups)
+          fills <- if (is.null(bxp.args$boxfill)) shown else
+            rep_len(bxp.args$boxfill, length(box.groups))[match(shown, box.groups)]
+          legend("topright", legend = names(plotO)[shown], fill = fills)
         }
       }
       ###----------------------------------------------------------------
