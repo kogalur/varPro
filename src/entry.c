@@ -189,7 +189,7 @@ SEXP varProStrength(SEXP traceFlag,
     if(VECTOR_ELT(sampleInfo, 2) != R_NilValue) {  
       RF_bootstrapSize        = INTEGER(VECTOR_ELT(sampleInfo, 2))[0];
       if(VECTOR_ELT(sampleInfo, 3) != R_NilValue) {
-        RF_bootstrapIn = (uint **) copy2DObject(VECTOR_ELT(sampleInfo, 3), NATIVE_TYPE_INTEGER, (RF_opt & OPT_BOOT_TYP2), RF_ntree, RF_subjSize);
+        RF_bootstrapIn = (uint **) copy2DObject(VECTOR_ELT(sampleInfo, 3), NATIVE_TYPE_INTEGER, ((RF_opt & OPT_BOOT_TYP2) != 0), RF_ntree, RF_subjSize);
       }
     }
     else {
@@ -332,7 +332,7 @@ SEXP varProStrength(SEXP traceFlag,
   if(VECTOR_ELT(sampleInfo, 0) != R_NilValue) {
     if(VECTOR_ELT(sampleInfo, 2) != R_NilValue) {  
       if(VECTOR_ELT(sampleInfo, 3) != R_NilValue) {
-        free_2DObject(RF_bootstrapIn, NATIVE_TYPE_INTEGER, (RF_opt & OPT_BOOT_TYP2), RF_ntree, RF_subjSize);
+        free_2DObject(RF_bootstrapIn, NATIVE_TYPE_INTEGER, ((RF_opt & OPT_BOOT_TYP2) != 0), RF_ntree, RF_subjSize);
       }
     }
   }

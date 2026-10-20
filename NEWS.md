@@ -1,4 +1,4 @@
-# varPro 3.3.1
+# varPro 3.3.2
 
 ## Bug fixes and refinements
 
