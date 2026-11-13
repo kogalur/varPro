@@ -94,23 +94,15 @@ char varProMain(char mode, int seedValue) {
     for (b = 1; b <= RF_ntree; b++) {
       randomSetChainA(b , RF_seed_[b]);
     }
-    seedValueLC = abs(seedValue);
-    lcgenerator(&seedValueLC, TRUE);
+    seedValueLC = 0U - (uint) seedValue;
+    lcgeneratorWide(&seedValueLC, TRUE);
     for (b = 1; b <= RF_ntree; b++) {
-      lcgenerator(&seedValueLC, FALSE);
-      lcgenerator(&seedValueLC, FALSE);
-      while(seedValueLC == 0) {
-        lcgenerator(&seedValueLC, FALSE);
-      }
-      randomSetChainB(b, -seedValueLC);
+      lcgeneratorWide(&seedValueLC, FALSE);
+      randomSetChainB(b, -(int) seedValueLC);
     }
     for (uint r = 1; r <= RF_fobservationSize; r++) {
-      lcgenerator(&seedValueLC, FALSE);
-      lcgenerator(&seedValueLC, FALSE);
-      while(seedValueLC == 0) {
-        lcgenerator(&seedValueLC, FALSE);
-      }
-      randomSetChainC(r, -seedValueLC);
+      lcgeneratorWide(&seedValueLC, FALSE);
+      randomSetChainC(r, -(int) seedValueLC);
     }
     result = stackIncomingArrays(mode,
                                  RF_ntree,

@@ -9,6 +9,7 @@
 
 #include "random.h"
 #include "nrutil.h"
+#include <stdint.h>
 #define IA      16807
 #define IM      2147483647
 #define AM      (1.0/IM)
@@ -21,6 +22,8 @@
 #define LCG_IM  714025
 #define LCG_IA  1366
 #define LCG_IC  150889
+#define LCG_WIDE_IM 2147483647U
+#define LCG_WIDE_IA 48271U
 int  *ran1A_iy;
 int **ran1A_iv;
 int  *ran1B_iy;
@@ -163,6 +166,17 @@ void lcgenerator(unsigned int *seed, unsigned char reset) {
   }
   else {
     *seed = (LCG_IA * (*seed) + LCG_IC) % LCG_IM;
+  }
+}
+void lcgeneratorWide(unsigned int *seed, unsigned char reset) {
+  if (reset) {
+    *seed %= LCG_WIDE_IM;
+    if (*seed == 0U) {
+      *seed = 1U;
+    }
+  }
+  else {
+    *seed = (unsigned int) (((uint64_t) LCG_WIDE_IA * (*seed)) % LCG_WIDE_IM);
   }
 }
 float ran1_original(int *idum) {

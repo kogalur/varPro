@@ -16,5 +16,6 @@ float randomChainParallelC(uint r);
 float randomChainParallelD(uint r);
 float ran1_generic(int *iy, int *iv, int *idum);
 void lcgenerator(unsigned int *seed, unsigned char reset);
+void lcgeneratorWide(unsigned int *seed, unsigned char reset);
 float ran1_original(int *idum);
 #endif

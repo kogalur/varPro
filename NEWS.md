@@ -1,4 +1,4 @@
-# varPro 3.3.2
+# varPro 3.4.0
 
 ## Bug fixes and refinements
 
@@ -33,6 +33,7 @@
 * Corrected `varpro.strength()` importance standardization for single responses
   stored as matrices or data frames and for multivariate regression, scaling
   each response's importance by its own standard deviation.
+* Widened RNG.
 
 ## Documentation
 
